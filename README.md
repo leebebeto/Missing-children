@@ -1,8 +1,7 @@
 # Missing-children
 <b>Implementation</b> To train the ArcFace model, run the following command:
 ```bash
-python main.py --mode sample --num_domains 2 --resume_iter 100000 --w_hpf 1 \
-               --checkpoint_dir expr/checkpoints/celeba_hq \
-               --result_dir expr/results/celeba_hq \
-               --src_dir assets/representative/celeba_hq/src \
-               --ref_dir assets/representative/celeba_hq/ref
+python train.py --epochs 30 --net ir_se --batch_size 64 --data_mode vgg
+```
+
+In config.py, you can control more other configuration.
