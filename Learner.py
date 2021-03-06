@@ -1,3 +1,4 @@
+from numpy.lib.npyio import save
 from data.data_pipe import de_preprocess, get_train_loader, get_val_data
 from model import Backbone, Arcface, MobileFaceNet, Am_softmax, l2_norm
 from verifacation import evaluate
@@ -16,6 +17,7 @@ import math
 import bcolz
 import os
 import glob
+import pdb
 
 class face_learner(object):
     def __init__(self, conf, inference=False):
@@ -25,15 +27,13 @@ class face_learner(object):
             self.class_num = len(glob.glob(conf['vgg_folder'] +'/imgs/*'))
         elif conf.data_mode == 'ms1m':
             self.class_num = len(glob.glob(conf['ms1m_folder'] +'/imgs/*'))
-
         if conf.use_mobilfacenet:
             self.model = MobileFaceNet(conf.embedding_size).to(conf.device)
             print('MobileFaceNet model generated')
         else:
             self.model = Backbone(conf.net_depth, conf.drop_ratio, conf.net_mode).to(conf.device)
             print('{}_{} model generated'.format(conf.net_mode, conf.net_depth))
-
-        self.model = nn.DataParallel(self.model)
+        # self.model = nn.DataParallel(self.model)
         if not inference:
             self.milestones = conf.milestones
             self.loader, self.class_num = get_train_loader(conf)        
@@ -57,10 +57,11 @@ class face_learner(object):
                                 ], lr = conf.lr, momentum = conf.momentum)
             else:
                 self.optimizer = optim.SGD([
-                                    {'params': paras_wo_bn + [self.head.kernel], 'weight_decay': 5e-4},
-                                    {'params': paras_only_bn}
+                                    # {'params': paras_wo_bn + [self.head.kernel], 'weight_decay': 5e-4},
+                                    # {'params': paras_only_bn}
+                                    {'params': paras_wo_bn + paras_only_bn + [self.head.kernel], 'weight_decay': 5e-4} # XXX: temporary optimizer
                                 ], lr = conf.lr, momentum = conf.momentum)
-            print(self.optimizer)
+            # print(self.optimizer)
 #             self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, patience=40, verbose=True)
 
             print('optimizers generated')    
@@ -74,11 +75,13 @@ class face_learner(object):
         else:
             self.threshold = conf.threshold
 
+
     def save_best_state(self, conf, accuracy, to_save_folder=False, extra=None, model_only=False):
         if to_save_folder:
             save_path = conf.save_path
         else:
             save_path = conf.model_path
+
         os.makedirs('work_space/models', exist_ok=True)
         torch.save(
             self.model.state_dict(), save_path /
@@ -92,12 +95,12 @@ class face_learner(object):
                 ('lfw_best_optimizer_{}_accuracy:{}_step:{}_{}.pth'.format(get_time(), accuracy, self.step, extra)))
 
 
-
     def save_state(self, conf, accuracy, to_save_folder=False, extra=None, model_only=False):
         if to_save_folder:
             save_path = conf.save_path
         else:
             save_path = conf.model_path
+
         os.makedirs('work_space/models', exist_ok=True)
         torch.save(
             self.model.state_dict(), save_path /
@@ -110,11 +113,12 @@ class face_learner(object):
                 self.optimizer.state_dict(), save_path /
                 ('optimizer_{}_accuracy:{}_step:{}_{}.pth'.format(get_time(), accuracy, self.step, extra)))
     
+
     def load_state(self, conf, fixed_str, from_save_folder=False, model_only=False):
         if from_save_folder:
             save_path = conf.save_path
         else:
-            save_path = conf.model_path            
+            save_path = conf.model_path
         self.model.load_state_dict(torch.load(os.path.join(save_path, 'model_{}'.format(fixed_str))))
         if not model_only:
             self.head.load_state_dict(torch.load(save_path/'head_{}'.format(fixed_str)))
@@ -127,6 +131,7 @@ class face_learner(object):
 #         self.writer.add_scalar('{}_val:true accept ratio'.format(db_name), val, self.step)
 #         self.writer.add_scalar('{}_val_std'.format(db_name), val_std, self.step)
 #         self.writer.add_scalar('{}_far:False Acceptance Ratio'.format(db_name), far, self.step)
+        
         
     def evaluate(self, conf, carray, issame, nrof_folds = 10, tta = True):
         self.model.eval()
@@ -156,8 +161,8 @@ class face_learner(object):
         roc_curve_tensor = trans.ToTensor()(roc_curve)
         return accuracy.mean(), best_thresholds.mean(), roc_curve_tensor
     
-    def find_lr(self,
-                conf,
+
+    def find_lr(self, conf,
                 init_value=1e-8,
                 final_value=10.,
                 beta=0.98,
@@ -167,12 +172,11 @@ class face_learner(object):
             num = len(self.loader)
         mult = (final_value / init_value)**(1 / num)
         lr = init_value
+
         for params in self.optimizer.param_groups:
             params['lr'] = lr
         self.model.train()
-        avg_loss = 0.
-        best_loss = 0.
-        batch_num = 0
+        avg_loss, best_loss, batch_num = 0., 0., 0
         losses = []
         log_lrs = []
         for i, (imgs, labels) in tqdm(enumerate(self.loader), total=num):
@@ -192,21 +196,24 @@ class face_learner(object):
             self.writer.add_scalar('avg_loss', avg_loss, batch_num)
             smoothed_loss = avg_loss / (1 - beta**batch_num)
             self.writer.add_scalar('smoothed_loss', smoothed_loss,batch_num)
+
             #Stop if the loss is exploding
             if batch_num > 1 and smoothed_loss > bloding_scale * best_loss:
                 print('exited with best_loss at {}'.format(best_loss))
                 plt.plot(log_lrs[10:-5], losses[10:-5])
                 return log_lrs, losses
+
             #Record the best loss
             if smoothed_loss < best_loss or batch_num == 1:
                 best_loss = smoothed_loss
+
             #Store the values
             losses.append(smoothed_loss)
             log_lrs.append(math.log10(lr))
             self.writer.add_scalar('log_lr', math.log10(lr), batch_num)
             #Do the SGD step
             #Update the lr for the next step
-
+            
             loss.backward()
             self.optimizer.step()
 
@@ -217,30 +224,38 @@ class face_learner(object):
                 plt.plot(log_lrs[10:-5], losses[10:-5])
                 return log_lrs, losses    
 
+
     def train(self, conf, epochs):
         self.model.train()
+
         running_loss = 0.            
         best_accuracy = 0.0
+
         for e in range(epochs):
+
             print('epoch {} started'.format(e))
-            if e == self.milestones[0]:
+
+            if e in self.milestones:
                 self.schedule_lr()
-            if e == self.milestones[1]:
-                self.schedule_lr()      
-            if e == self.milestones[2]:
-                self.schedule_lr()                                 
+
             for imgs, labels in tqdm(iter(self.loader)):
+
+                self.optimizer.zero_grad()
+
                 imgs = imgs.to(conf.device)
                 labels = labels.to(conf.device)
-                self.optimizer.zero_grad()
+
                 embeddings = self.model(imgs)
                 thetas = self.head(embeddings, labels)
+
                 loss = conf.ce_loss(thetas, labels)
                 loss.backward()
                 running_loss += loss.item()
+
                 self.optimizer.step()
+
                 if self.step % self.board_loss_every == 0 and self.step != 0:
-                    # print('tensorboard plotting....')
+                    print('tensorboard plotting....')
                     loss_board = running_loss / self.board_loss_every
                     self.writer.add_scalar('train_loss', loss_board, self.step)
                     running_loss = 0.
@@ -254,6 +269,7 @@ class face_learner(object):
                     accuracy, best_threshold, roc_curve_tensor = self.evaluate(conf, self.cfp_fp, self.cfp_fp_issame)
                     self.board_val('cfp_fp', accuracy, best_threshold, roc_curve_tensor)
                     self.model.train()
+
                 if self.step % self.save_every == 0 and self.step != 0:
                     print('saving model....')
                     self.save_state(conf, accuracy)
@@ -266,10 +282,12 @@ class face_learner(object):
                 
         self.save_state(conf, accuracy, to_save_folder=True, extra='final')
 
+
     def schedule_lr(self):
         for params in self.optimizer.param_groups:                 
             params['lr'] /= 10
         print(self.optimizer)
+    
     
     def infer(self, conf, faces, target_embs, tta=False):
         '''

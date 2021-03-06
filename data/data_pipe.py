@@ -1,5 +1,6 @@
 from pathlib import Path
 from torch.utils.data import Dataset, ConcatDataset, DataLoader
+from torchvision.utils import save_image
 from torchvision import transforms as trans
 from torchvision.datasets import ImageFolder
 from PIL import Image, ImageFile
@@ -11,6 +12,8 @@ import pickle
 import torch
 import mxnet as mx
 from tqdm import tqdm
+
+import pdb
 
 import os
 from torchvision.utils import save_image
@@ -32,9 +35,11 @@ def get_train_loader(conf):
     if conf.data_mode in ['ms1m', 'concat']:
         ms1m_ds, ms1m_class_num = get_train_dataset(os.path.join(conf.ms1m_folder, 'imgs'))
         print('ms1m loader generated')
+
     if conf.data_mode in ['vgg', 'concat']:
         vgg_ds, vgg_class_num = get_train_dataset(os.path.join(conf.vgg_folder, 'imgs'))
-        print('vgg loader generated')        
+        print('vgg loader generated')     
+
     if conf.data_mode == 'vgg':
         ds = vgg_ds
         class_num = vgg_class_num
@@ -48,6 +53,7 @@ def get_train_loader(conf):
         class_num = vgg_class_num + ms1m_class_num
     elif conf.data_mode == 'emore':
         ds, class_num = get_train_dataset(os.path.join(conf.emore_folder, 'imgs'))
+        
     loader = DataLoader(ds, batch_size=conf.batch_size, shuffle=True, pin_memory=conf.pin_memory, num_workers=conf.num_workers)
     return loader, class_num 
     
@@ -70,8 +76,13 @@ def load_bin(path, rootdir, transform, image_size=[112,112]):
     return data, issame_list
 
 def get_val_pair(path, name):
+    '''
+    Returns image pairs with labels
+        carray: numpy-like array with image pairs
+        issame: boolean list of image pair validity
+    '''
     carray = bcolz.carray(rootdir = os.path.join(path, name), mode='r')
-    issame = np.load(os.path.join(path, '{}_list.npy'.format(name)))
+    issame = np.load(os.path.join(path, '{}_list.npy'.format(name)))    
 
     # # for debugging
     # if name == 'lfw':

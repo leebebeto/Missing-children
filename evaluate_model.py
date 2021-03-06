@@ -5,6 +5,7 @@ from data.data_pipe import get_val_pair
 from torchvision import transforms as trans
 
 import time
+import pdb
 
 conf = get_config(training=False)
 learner = face_learner(conf, inference=True)

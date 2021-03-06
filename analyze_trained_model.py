@@ -1,8 +1,9 @@
+import torch
 from config import get_config
 from Learner import face_learner
 import argparse
 
-# python train.py -net mobilefacenet -b 200 -w 4
+# python analyze_trained_model.py -net ir_se --batch_size 64 --data_mode vgg
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='for face verification')
@@ -21,7 +22,7 @@ if __name__ == '__main__':
         conf.use_mobilfacenet = True
     else:
         conf.net_mode = args.net_mode
-        conf.net_depth = args.net_depth   
+        conf.net_depth = args.net_depth
         
     conf.lr = args.lr
     conf.batch_size = args.batch_size
