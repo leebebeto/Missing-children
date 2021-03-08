@@ -274,7 +274,10 @@ class face_learner(object):
             ages = ages.to(conf.device)
 
             embeddings = self.model(imgs)
-            thetas = torch.acos(self.head.get_angle(embeddings, labels))
+            kernel_norm = l2_norm(self.head.module.kernel,axis=0)
+            cos_theta = torch.mm(embeddings,kernel_norm)
+            cos_theta = cos_theta.clamp(-1,1)
+            thetas = torch.acos(cos_theta)
 
             for i in range(len(thetas)):
                 age_bin = 7
