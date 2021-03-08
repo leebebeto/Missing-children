@@ -1,8 +1,8 @@
 from pathlib import Path
 from torch.utils.data import Dataset, ConcatDataset, DataLoader
-from torchvision.utils import save_image
-from torchvision import transforms as trans
 from torchvision.datasets import ImageFolder
+from torchvision import transforms
+from torchvision.utils import save_image
 from PIL import Image, ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 import numpy as np
@@ -14,18 +14,16 @@ import mxnet as mx
 from tqdm import tqdm
 
 import pdb
-
 import os
-from torchvision.utils import save_image
 
 def de_preprocess(tensor):
     return tensor*0.5 + 0.5
     
 def get_train_dataset(imgs_folder):
-    train_transform = trans.Compose([
-        trans.RandomHorizontalFlip(),
-        trans.ToTensor(),
-        trans.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
+    train_transform = transforms.Compose([
+        transforms.RandomHorizontalFlip(),
+        transforms.ToTensor(),
+        transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
     ])
     ds = ImageFolder(imgs_folder, train_transform)
     class_num = ds[-1][1] + 1
@@ -37,7 +35,9 @@ def get_train_loader(conf):
         print('ms1m loader generated')
 
     if conf.data_mode in ['vgg', 'concat']:
-        vgg_ds, vgg_class_num = get_train_dataset(os.path.join(conf.vgg_folder, 'imgs'))
+        vgg_ds = VGGLabeledDataset(conf.vgg_folder, train_transforms=conf.train_transform)
+        vgg_class_num = vgg_ds.class_num
+        # vgg_ds, vgg_class_num = get_train_dataset(os.path.join(conf.vgg_folder, 'imgs'))
         print('vgg loader generated')     
 
     if conf.data_mode == 'vgg':
@@ -53,7 +53,7 @@ def get_train_loader(conf):
         class_num = vgg_class_num + ms1m_class_num
     elif conf.data_mode == 'emore':
         ds, class_num = get_train_dataset(os.path.join(conf.emore_folder, 'imgs'))
-        
+
     loader = DataLoader(ds, batch_size=conf.batch_size, shuffle=True, pin_memory=conf.pin_memory, num_workers=conf.num_workers)
     return loader, class_num 
     
@@ -121,28 +121,56 @@ def load_mx_rec(rec_path):
         #     label_path.mkdir()
         # img.save(label_path/'{}.jpg'.format(idx), quality=95)
 
-# class train_dataset(Dataset):
-#     def __init__(self, imgs_bcolz, label_bcolz, h_flip=True):
-#         self.imgs = bcolz.carray(rootdir = imgs_bcolz)
-#         self.labels = bcolz.carray(rootdir = label_bcolz)
-#         self.h_flip = h_flip
-#         self.length = len(self.imgs) - 1
-#         if h_flip:
-#             self.transform = trans.Compose([
-#                 trans.ToPILImage(),
-#                 trans.RandomHorizontalFlip(),
-#                 trans.ToTensor(),
-#                 trans.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
-#             ])
-#         self.class_num = self.labels[-1] + 1
-        
-#     def __len__(self):
-#         return self.length
+class VGGLabeledDataset(Dataset):
+    '''
+    VGG with pseudo age labels dataset
+    directory structure
+        root/person_i/{age}_filenum.jpg
     
-#     def __getitem__(self, index):
-#         img = torch.tensor(self.imgs[index+1], dtype=torch.float)
-#         label = torch.tensor(self.labels[index+1], dtype=torch.long)
-#         if self.h_flip:
-#             img = de_preprocess(img)
-#             img = self.transform(img)
-#         return img, label
+    Store image directories at init phase
+
+    Returns image, label, age
+    '''
+    def __init__(self, imgs_folder, train_transforms):
+        self.root_dir = imgs_folder
+        self.transform = train_transforms
+        self.class_num = len(os.listdir(imgs_folder))
+
+        total_list = []
+        for (dirpath, _, filenames) in os.walk(imgs_folder):
+            total_list += [os.path.join(dirpath, file) for file in filenames]
+
+        self.total_imgs = len(total_list)
+        self.total_list = total_list
+        
+    def __len__(self):
+        return self.total_imgs
+    
+    def __getitem__(self, index):
+
+        img_path = self.total_list[index]
+        img_path_list = img_path.split('/')
+        file_name = img_path_list[-1] # {age}_filenum.jpg
+        folder_name = img_path_list[-2]# label
+
+        img = Image.open(img_path)
+        label = int(folder_name)
+        age = int(file_name.split('_')[0])
+
+        if self.transform is not None:
+            img = self.transform(img)
+
+        return img, label, age
+
+
+if __name__ == '__main__':
+    # TEST CODE FOR VGGLabeledDateset
+    train_transform = transforms.Compose([
+        transforms.RandomHorizontalFlip(),
+        transforms.ToTensor(),
+        transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
+    ])
+    ds = VGGLabeledDataset('/home/nas1_userE/Face_dataset/Vgg_age_label/', train_transforms=train_transform)
+    loader = DataLoader(ds, batch_size=2)
+    i, l, a = next(loader)
+    print(l)

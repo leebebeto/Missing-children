@@ -278,6 +278,15 @@ class Arcface(Module):
         output *= self.s # scale up in order to make softmax work, first introduced in normface
         return output
 
+    def get_angle(self, embbedings, labels):
+        # Get angles between embeddings and labels
+        kernel_norm = l2_norm(self.kernel,axis=0)
+        cos_theta = torch.mm(embbedings,kernel_norm)
+        cos_theta = cos_theta.clamp(-1,1) # XXX Cannot understand why this is needed
+        print(cos_theta.shape)
+    
+        return cos_theta
+
 ##################################  Cosface head #############################################################    
     
 class Am_softmax(Module):
