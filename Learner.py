@@ -1,6 +1,4 @@
 import numpy as np
-from numpy.lib.function_base import angle
-from numpy.lib.npyio import save
 import torch
 import torch.nn as nn
 from torch import optim
@@ -12,6 +10,7 @@ from tqdm import tqdm
 from matplotlib import pyplot as plt
 plt.switch_backend('agg')
 from PIL import Image
+import pickle
 import math
 import bcolz
 import os
@@ -28,7 +27,8 @@ class face_learner(object):
         conf.data_mode = 'vgg'
         # conf.data_mode = 'ms1m'
 
-        # XXX: Why do we need this part?? == Why do we need class_num when we are not training??, I want to erase this
+        # XXX: Why do we need this part?? == Why do we need class_num when we are not training??, 
+        # I want to erase this
         if conf.data_mode == 'vgg':
             self.class_num = len(glob.glob(conf['vgg_folder'] +'/imgs/*'))
         elif conf.data_mode == 'ms1m':
@@ -248,7 +248,6 @@ class face_learner(object):
                 if self.step % self.save_every == 0 and self.step != 0:
                     print('saving model....')
                     # save with most recently calculated accuracy?
-                    pdb.set_trace()
                     self.save_state(conf, accuracy, extra=str(conf.use_dp) + str(conf.net_depth))
                     if accuracy > best_accuracy:
                         best_accuracy = accuracy
@@ -265,8 +264,11 @@ class face_learner(object):
         Only works on age labeled vgg dataset
         '''
 
-        angle_table = [{0:set(), 1:set(), 2:set(), 3:set(), 4:set(), 5:set(), 6:set(), 7:set()}] * self.class_num
-
+        angle_table = [{0:set(), 1:set(), 2:set(), 3:set(), 4:set(), 5:set(), 6:set(), 7:set()} for i in range(self.class_num)]
+        # batch = 0
+        # _angle_table = torch.zeros(self.class_num, 8, len(self.loader)//conf.batch_size).to(conf.device)
+        if conf.resume_analysis:
+            self.loader = []
         for imgs, labels, ages in tqdm(iter(self.loader)):
 
             imgs = imgs.to(conf.device)
@@ -286,19 +288,26 @@ class face_learner(object):
                 elif ages[i] < 66:
                     age_bin = int(((ages[i]+4)//10).item())
                 angle_table[labels[i]][age_bin].add(thetas[i][labels[i]].item())
-
-        print(angle_table[200])
+                
+        if conf.resume_analysis:
+            with open('analysis/angle_table.pkl','rb') as f:
+                angle_table = pickle.load(f)
+        else:
+            with open('analysis/angle_table.pkl', 'wb') as f:
+                pickle.dump(angle_table,f)
 
         count, avg_angle = [], []
-        for i in range(len(self.class_num)):
+        for i in range(self.class_num):
             count.append([len(single_set) for single_set in angle_table[i].values()])
-            avg_angle.append([sum(list(single_set))/len(single_set) for single_set in angle_table[i].values()])
+            avg_angle.append([sum(list(single_set))/len(single_set) if len(single_set) else 0 # if set() size is zero, avg is zero
+                                 for single_set in angle_table[i].values()])
 
         count_df = pd.DataFrame(count)
         avg_angle_df = pd.DataFrame(avg_angle)
 
-        count_df.to_excel('analyze_angle.xlsx', sheet_name='count')
-        avg_angle_df.to_excel('analyze_angle.xlsx', sheet_name='avg_angle')
+        with pd.ExcelWriter('analysis/analyze_angle.xlsx') as writer:  
+            count_df.to_excel(writer, sheet_name='count')
+            avg_angle_df.to_excel(writer, sheet_name='avg_angle')
 
     def schedule_lr(self):
         for params in self.optimizer.param_groups:                 
@@ -358,15 +367,15 @@ class face_learner(object):
 
         os.makedirs('work_space/models', exist_ok=True)
         torch.save(
-            self.model.state_dict(), save_path + '/' +
-            ('model_{}_accuracy:{:.3f}_step:{}_{}.pth'.format(get_time(), accuracy, self.step, extra)))
+            self.model.state_dict(), str(save_path) +
+            ('/model_{}_accuracy:{:.3f}_step:{}_{}.pth'.format(get_time(), accuracy, self.step, extra)))
         if not model_only:
             torch.save(
-                self.head.state_dict(), save_path + '/' +
-                ('head_{}_accuracy:{:.3f}_step:{}_{}.pth'.format(get_time(), accuracy, self.step, extra)))
+                self.head.state_dict(), str(save_path) +
+                ('/head_{}_accuracy:{:.3f}_step:{}_{}.pth'.format(get_time(), accuracy, self.step, extra)))
             torch.save(
-                self.optimizer.state_dict(), save_path + '/' +
-                ('optimizer_{}_accuracy:{:.3f}_step:{}_{}.pth'.format(get_time(), accuracy, self.step, extra)))
+                self.optimizer.state_dict(), str(save_path) +
+                ('/optimizer_{}_accuracy:{:.3f}_step:{}_{}.pth'.format(get_time(), accuracy, self.step, extra)))
     
 
     def load_state(self, conf, fixed_str, from_save_folder=False, model_only=False, analyze=False):
