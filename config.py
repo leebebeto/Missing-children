@@ -25,7 +25,7 @@ def get_config(training = True):
     conf.net_mode = 'ir_se' # or 'ir'
 
     conf.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    conf.use_dp = True # XXX: Must Turn off!
+    conf.use_dp = False # XXX: Must Turn off!
 
     conf.test_transform = transforms.Compose([
         transforms.ToTensor(),
@@ -46,6 +46,7 @@ def get_config(training = True):
     conf.vgg_folder = '/home/nas1_userE/Face_dataset/Vgg_age_label'
     conf.ms1m_folder = '/home/nas1_userE/Face_dataset/ms1m-refined-112'
     conf.emore_folder = '/home/nas1_userE/Face_dataset/faces_emore'
+    conf.agedb_folder = '/home/nas1_userE/Face_dataset/AgeDB_new_align'
 #--------------------Training Config ------------------------    
     if training:        
         conf.log_path = os.path.join(conf.work_path, 'log', conf.data_mode, conf.exp)

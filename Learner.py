@@ -24,7 +24,7 @@ import pdb
 
 class face_learner(object):
     def __init__(self, conf, inference=False):
-        conf.data_mode = 'vgg'
+        # conf.data_mode = 'vgg'
         # conf.data_mode = 'ms1m'
 
         # XXX: Why do we need this part?? == Why do we need class_num when we are not training??, 
@@ -70,17 +70,17 @@ class face_learner(object):
                                 ], lr = conf.lr, momentum = conf.momentum)
             else:
                 self.optimizer = optim.SGD([
-                                    # {'params': paras_wo_bn + [self.head.kernel], 'weight_decay': 5e-4},
-                                    # {'params': paras_only_bn}
+                                    {'params': paras_wo_bn + [self.head.kernel], 'weight_decay': 5e-4},
+                                    {'params': paras_only_bn}
                                     # {'params': paras_wo_bn + paras_only_bn + [self.head.kernel], 'weight_decay': 5e-4} # XXX: temporary optimizer
-                                    {'params': paras_wo_bn + paras_only_bn, 'weight_decay': 5e-4} # XXX: temporary optimizer
+                                    # {'params': paras_wo_bn + paras_only_bn, 'weight_decay': 5e-4} # XXX: temporary optimizer
                                 ], lr = conf.lr, momentum = conf.momentum)
             # print(self.optimizer)
             #  self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, patience=40, verbose=True)
 
             print('optimizers generated')
             self.board_loss_every = len(self.loader)//100
-            self.evaluate_every = len(self.loader)//10
+            self.evaluate_every = len(self.loader)//2
             # self.save_every = len(self.loader)//5
             self.save_every = len(self.loader)
 
@@ -88,7 +88,7 @@ class face_learner(object):
             self.agedb_30, self.cfp_fp, self.lfw, self.agedb_30_issame, self.cfp_fp_issame, self.lfw_issame = get_val_data('/home/nas1_userE/Face_dataset/faces_emore')
         else:
             # Will not use anymore
-            self.model = nn.DataParallel(self.model)
+            # self.model = nn.DataParallel(self.model)
             self.threshold = conf.threshold
 
 
@@ -239,8 +239,8 @@ class face_learner(object):
                     print('evaluating....')
                     accuracy, best_threshold, roc_curve_tensor = self.evaluate(conf, self.lfw, self.lfw_issame)
                     self.board_val('lfw', accuracy, best_threshold, roc_curve_tensor)
-                    accuracy, best_threshold, roc_curve_tensor = self.evaluate(conf, self.agedb_30, self.agedb_30_issame)
-                    self.board_val('agedb_30', accuracy, best_threshold, roc_curve_tensor)
+                    # accuracy, best_threshold, roc_curve_tensor = self.evaluate(conf, self.agedb_30, self.agedb_30_issame)
+                    # self.board_val('agedb_30', accuracy, best_threshold, roc_curve_tensor)
                     accuracy, best_threshold, roc_curve_tensor = self.evaluate(conf, self.cfp_fp, self.cfp_fp_issame)
                     self.board_val('cfp_fp', accuracy, best_threshold, roc_curve_tensor)
                     self.model.train()
@@ -279,8 +279,8 @@ class face_learner(object):
             kernel_norm = l2_norm(self.head.module.kernel,axis=0)
             cos_theta = torch.mm(embeddings,kernel_norm)
             cos_theta = cos_theta.clamp(-1,1)
-            thetas = torch.acos(cos_theta)
-
+            thetas = torch.abs(torch.rad2deg(torch.acos(cos_theta)))
+            
             for i in range(len(thetas)):
                 age_bin = 7
                 if ages[i] < 26:
@@ -295,7 +295,7 @@ class face_learner(object):
         else:
             with open('analysis/angle_table.pkl', 'wb') as f:
                 pickle.dump(angle_table,f)
-
+                
         count, avg_angle = [], []
         for i in range(self.class_num):
             count.append([len(single_set) for single_set in angle_table[i].values()])
@@ -348,14 +348,14 @@ class face_learner(object):
 
         os.makedirs('work_space/models', exist_ok=True)
         torch.save(
-            self.model.state_dict(), save_path + '/' +
+            self.model.state_dict(), str(save_path) +
             ('lfw_best_model_{}_accuracy:{:.3f}_step:{}_{}.pth'.format(get_time(), accuracy, self.step, extra)))
         if not model_only:
             torch.save(
-                self.head.state_dict(), save_path + '/' +
+                self.head.state_dict(),str(save_path) +
                 ('lfw_best_head_{}_accuracy:{:.3f}_step:{}_{}.pth'.format(get_time(), accuracy, self.step, extra)))
             torch.save(
-                self.optimizer.state_dict(), save_path + '/' +
+                self.optimizer.state_dict(),str(save_path) +
                 ('lfw_best_optimizer_{}_accuracy:{:.3f}_step:{}_{}.pth'.format(get_time(), accuracy, self.step, extra)))
 
 
