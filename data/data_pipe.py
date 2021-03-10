@@ -30,18 +30,21 @@ def get_train_dataset(imgs_folder):
     return ds, class_num
 
 def get_train_loader(conf):
-    if conf.data_mode in ['ms1m', 'concat']:
+    if conf.data_mode in ['ms1m', 'ms1m_vgg_concat']:
         ms1m_ds, ms1m_class_num = get_train_dataset(os.path.join(conf.ms1m_folder, 'imgs'))
         print('ms1m loader generated')
-    if conf.data_mode in ['vgg', 'concat']:
+    if conf.data_mode in ['vgg', 'ms1m_vgg_concat']:
         vgg_ds = VGGLabeledDataset(conf.vgg_folder, train_transforms=conf.train_transform)
         vgg_class_num = vgg_ds.class_num
-        # vgg_ds, vgg_class_num = get_train_dataset(os.path.join(conf.vgg_folder, 'imgs'))
         print('vgg loader generated')     
     if conf.data_mode == 'vgg_agedb':
-        vgg_age_ds = VGGAgeDBDataset(conf.vgg_folder, conf.agedb_folder, train_transforms=conf.train_transform)
-        vgg_age_class_num = vgg_age_ds.class_num
+        ds = VGGAgeDBDataset(conf.vgg_folder, conf.agedb_folder, train_transforms=conf.train_transform)
+        class_num = ds.class_num
         print('vgg, agedb loader generated')
+    if conf.data_mode =='agedb':
+        ds = AgeDBDataset(conf.agedb_folder, train_transforms=conf.test_transform)
+        class_num = ds.class_num
+        print('agedb loader generated')
         
     if conf.data_mode == 'vgg':
         ds = vgg_ds
@@ -49,16 +52,13 @@ def get_train_loader(conf):
     elif conf.data_mode == 'ms1m':
         ds = ms1m_ds
         class_num = ms1m_class_num
-    elif conf.data_mode == 'concat':
+    elif conf.data_mode == 'ms1m_vgg_concat':
         for i,(url,label) in enumerate(vgg_ds.imgs):
             vgg_ds.imgs[i] = (url, label + ms1m_class_num)
         ds = ConcatDataset([ms1m_ds,vgg_ds])
         class_num = vgg_class_num + ms1m_class_num
     elif conf.data_mode == 'emore':
         ds, class_num = get_train_dataset(os.path.join(conf.emore_folder, 'imgs'))
-    elif conf.data_mode =='vgg_agedb':
-        ds = vgg_age_ds
-        class_num = vgg_age_class_num
 
     loader = DataLoader(ds, batch_size=conf.batch_size, shuffle=True, pin_memory=conf.pin_memory, num_workers=conf.num_workers)
     return loader, class_num 
@@ -224,6 +224,51 @@ class VGGAgeDBDataset(Dataset):
 
         return img, label, age
 
+class AgeDBDataset(Dataset):
+    '''
+    Joint DB of VGG and AgeDB
+    VGG with pseudo age labels dataset
+    directory structure
+        root/person_i/{age}_filenum.jpg
+    AGE DB with actual labels
+        root/person_name/filenum_{age}.jpg
+
+    Store image directories at init phase
+
+    Returns image, label, age
+    '''
+    def __init__(self, agedb_imgs_folder, train_transforms):
+        self.transform = train_transforms
+        self.agedb_class_list = os.listdir(agedb_imgs_folder)
+        self.agedb_class_num = len(self.agedb_class_list)
+        self.class_num = self.agedb_class_num
+
+        total_list = []
+        for (dirpath, _, filenames) in os.walk(agedb_imgs_folder):
+            total_list += [os.path.join(dirpath, file) for file in filenames]
+
+        self.total_imgs = len(total_list)
+        self.total_list = total_list
+        
+    def __len__(self):
+        return self.total_imgs
+    
+    def __getitem__(self, index):
+
+        img_path = self.total_list[index]
+        img_path_list = img_path.split('/')
+        dataset_name = img_path_list[-3]
+        file_name = img_path_list[-1] # {age}_filenum.jpg
+        folder_name = img_path_list[-2]# label
+
+        img = Image.open(img_path)
+        label = self.agedb_class_list.index(folder_name) + self.vgg_class_num
+        age = int(file_name.split('_')[-1].strip('.jpg'))
+
+        if self.transform is not None:
+            img = self.transform(img)
+
+        return img, label, age
 
 if __name__ == '__main__':
     # TEST CODE FOR VGGLabeledDateset

@@ -248,15 +248,15 @@ class face_learner(object):
                 if self.step % self.save_every == 0 and self.step != 0:
                     print('saving model....')
                     # save with most recently calculated accuracy?
-                    self.save_state(conf, accuracy, extra=str(conf.use_dp) + str(conf.net_depth))
+                    self.save_state(conf, accuracy, extra=str(conf.data_mode) + str(conf.net_depth))
                     if accuracy > best_accuracy:
                         best_accuracy = accuracy
                         print('saving best model....')
-                        self.save_best_state(conf, accuracy, extra=str(conf.use_dp) + str(conf.net_depth))
+                        self.save_best_state(conf, accuracy, extra=str(conf.data_mode) + str(conf.net_depth))
 
                 self.step += 1
                 
-        self.save_state(conf, accuracy, to_save_folder=True, extra=str(conf.use_dp) + str(conf.net_depth)+'_final')
+        self.save_state(conf, accuracy, to_save_folder=True, extra=str(conf.data_mode) + str(conf.net_depth)+'_final')
 
 
     def analyze_angle(self, conf):
