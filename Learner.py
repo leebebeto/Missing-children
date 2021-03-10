@@ -261,7 +261,7 @@ class face_learner(object):
 
     def analyze_angle(self, conf):
         '''
-        Only works on age labeled vgg dataset
+        Only works on age labeled vgg dataset, agedb dataset
         '''
 
         angle_table = [{0:set(), 1:set(), 2:set(), 3:set(), 4:set(), 5:set(), 6:set(), 7:set()} for i in range(self.class_num)]
@@ -276,11 +276,17 @@ class face_learner(object):
             ages = ages.to(conf.device)
 
             embeddings = self.model(imgs)
-            kernel_norm = l2_norm(self.head.module.kernel,axis=0)
-            cos_theta = torch.mm(embeddings,kernel_norm)
-            cos_theta = cos_theta.clamp(-1,1)
+            if conf.use_dp:
+                kernel_norm = l2_norm(self.head.module.kernel,axis=0)
+                cos_theta = torch.mm(embeddings,kernel_norm)
+                cos_theta = cos_theta.clamp(-1,1)
+            else:
+                cos_theta = self.head.get_angle(embeddings)
+
             thetas = torch.abs(torch.rad2deg(torch.acos(cos_theta)))
-            
+
+            pdb.set_trace()
+
             for i in range(len(thetas)):
                 age_bin = 7
                 if ages[i] < 26:
@@ -305,7 +311,7 @@ class face_learner(object):
         count_df = pd.DataFrame(count)
         avg_angle_df = pd.DataFrame(avg_angle)
 
-        with pd.ExcelWriter('analysis/analyze_angle.xlsx') as writer:  
+        with pd.ExcelWriter('analysis/analyze_angle_{}.xlsx'.format(conf.data_mode)) as writer:  
             count_df.to_excel(writer, sheet_name='count')
             avg_angle_df.to_excel(writer, sheet_name='avg_angle')
 

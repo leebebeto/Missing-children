@@ -13,7 +13,7 @@ if __name__ == '__main__':
     parser.add_argument('-lr','--lr',help='dummy learning rate to pass config.py',default=0, type=float)
     parser.add_argument("-b", "--batch_size", help="batch_size", default=32, type=int)
     parser.add_argument("-w", "--num_workers", help="workers number", default=3, type=int)
-    parser.add_argument("-d", "--data_mode", help="use which database, [vgg, ms1m, emore, concat, agedb]",default='vgg', type=str)
+    parser.add_argument("-d", "--data_mode", help="use which database, [vgg, ms1m, emore, concat, vgg_agedb]",default='vgg', type=str)
     parser.add_argument('-r', '--resume', help='use previous pickle file to make an excel file',default=False, type=bool)
     args = parser.parse_args()
 
@@ -38,5 +38,5 @@ if __name__ == '__main__':
     learner = face_learner(conf)
     print(conf)
     # learner.load_state(conf, '2021-02-13-02-58_accuracy:0.957857142857143_step:465785_None.pth', model_only=False, from_save_folder=False, analyze=True) # vgg pretrained, res100, DataParallel
-    learner.load_state(conf, '2021-02-13-02-58_accuracy:0.957_step:465785_False50.pth', model_only=False, from_save_folder=False, analyze=True)
+    # learner.load_state(conf, '2021-02-13-02-58_accuracy:0.957_step:465785_False50.pth', model_only=False, from_save_folder=False, analyze=True)
     learner.analyze_angle(conf)
