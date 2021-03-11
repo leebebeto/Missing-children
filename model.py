@@ -283,7 +283,6 @@ class Arcface(Module):
         kernel_norm = l2_norm(self.kernel,axis=0)
         cos_theta = torch.mm(embeddings,kernel_norm)
         cos_theta = cos_theta.clamp(-1,1) # XXX Cannot understand why this is needed
-        print(cos_theta.shape)
     
         return cos_theta
 

@@ -285,8 +285,6 @@ class face_learner(object):
 
             thetas = torch.abs(torch.rad2deg(torch.acos(cos_theta)))
 
-            pdb.set_trace()
-
             for i in range(len(thetas)):
                 age_bin = 7
                 if ages[i] < 26:

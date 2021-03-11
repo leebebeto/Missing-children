@@ -1,6 +1,6 @@
 from pathlib import Path
 from torch.utils.data import Dataset, ConcatDataset, DataLoader
-from torchvision.datasets import ImageFolder
+from torchvision.datasets import ImageFolder, folder
 from torchvision import transforms
 from torchvision.utils import save_image
 from PIL import Image, ImageFile
@@ -41,6 +41,9 @@ def get_train_loader(conf):
         ds = VGGAgeDBDataset(conf.vgg_folder, conf.agedb_folder, train_transforms=conf.train_transform)
         class_num = ds.class_num
         print('vgg, agedb loader generated')
+    if conf.data_mode == 'vgg_agedb_insta':
+        ds = VGGAgeDBInstaDataset(conf.vgg_folder, conf.agedb_folder, conf.insta_folder, train_transforms=conf.train_transform)
+        class_num = ds.class_num
     if conf.data_mode =='agedb':
         ds = AgeDBDataset(conf.agedb_folder, train_transforms=conf.test_transform)
         class_num = ds.class_num
@@ -184,7 +187,8 @@ class VGGAgeDBDataset(Dataset):
     Returns image, label, age
     '''
     def __init__(self, vgg_imgs_folder, agedb_imgs_folder, train_transforms):
-        self.vgg_imgs_folder = vgg_imgs_folder
+        self.vgg_imgs_folder_name = vgg_imgs_folder.split('/')[-1]
+        self.agedb_imgs_folder_name = agedb_imgs_folder.split('/')[-1]
         self.transform = train_transforms
         self.vgg_class_num = len(os.listdir(vgg_imgs_folder))
         self.agedb_class_list = os.listdir(agedb_imgs_folder)
@@ -212,24 +216,105 @@ class VGGAgeDBDataset(Dataset):
         folder_name = img_path_list[-2]# label
 
         img = Image.open(img_path)
-        if dataset_name == 'AgeDB_new_align':
+        if dataset_name == self.agedb_imgs_folder_name:
             label = self.agedb_class_list.index(folder_name) + self.vgg_class_num
             age = int(file_name.split('_')[-1].strip('.jpg'))
-        else:
+        elif dataset_name == self.agedb_imgs_folder_name:
             label = int(folder_name) 
             age = int(file_name.split('_')[0]) # this is actually meaningless
+        else:
+            print('Something went wrong... What have you done!')
+            assert False
 
         if self.transform is not None:
             img = self.transform(img)
 
         return img, label, age
 
-class AgeDBDataset(Dataset):
+class VGGAgeDBInstaDataset(Dataset):
     '''
-    Joint DB of VGG and AgeDB
+    Joint DB of VGG, AgeDB, Insta Dataset
+
     VGG with pseudo age labels dataset
     directory structure
         root/person_i/{age}_filenum.jpg
+    AGE DB with actual labels
+    directory structure
+        root/person_name/filenum_{age}.jpg
+    Insta DB with no labels
+    directory structure
+        root/person_name/filenum.png
+
+    Store image directories at init phase
+
+    Returns image, label, age
+    '''
+    def __init__(self, vgg_imgs_folder, agedb_imgs_folder, insta_imgs_folder, train_transforms):
+
+        self.vgg_imgs_folder_name = vgg_imgs_folder.split('/')[-1]
+        self.agedb_imgs_folder_name = agedb_imgs_folder.split('/')[-1]
+        self.insta_imgs_folder_name = insta_imgs_folder.split('/')[-1]
+
+        self.transform = train_transforms
+
+        self.vgg_class_num = len(os.listdir(vgg_imgs_folder))
+
+        self.agedb_class_list = os.listdir(agedb_imgs_folder)
+        self.agedb_class_num = len(self.agedb_class_list)
+
+        self.insta_class_list = os.listdir(insta_imgs_folder)
+        self.insta_class_num = len(self.insta_class_list)
+
+        self.class_num = self.vgg_class_num + self.agedb_class_num + self.insta_class_num
+
+        total_list = []
+        for (dirpath, _, filenames) in os.walk(vgg_imgs_folder):
+            total_list += [os.path.join(dirpath, file) for file in filenames]
+        for (dirpath, _, filenames) in os.walk(agedb_imgs_folder):
+            total_list += [os.path.join(dirpath, file) for file in filenames]
+        for (dirpath, _, filenames) in os.walk(insta_imgs_folder):
+            total_list += [os.path.join(dirpath, file) for file in filenames]
+
+        self.total_imgs = len(total_list)
+        self.total_list = total_list
+        
+    def __len__(self):
+        return self.total_imgs
+    
+    def __getitem__(self, index):
+
+        img_path = self.total_list[index]
+        img_path_list = img_path.split('/')
+        dataset_name = img_path_list[-3]
+        file_name = img_path_list[-1] # {age}_filenum.jpg
+        folder_name = img_path_list[-2]# label
+
+        img = Image.open(img_path)
+        if dataset_name == self.agedb_imgs_folder_name:
+            label = self.agedb_class_list.index(folder_name) + self.vgg_class_num
+            age = int(file_name.split('_')[-1].strip('.jpg'))
+        elif dataset_name == self.insta_imgs_folder_name:
+            label = self.insta_class_list.index(folder_name) + self.vgg_class_num + self.agedb_class_num
+            age = 1 # also meaningless
+        elif dataset_name == self.vgg_imgs_folder_name:
+            label = int(folder_name) 
+            age = int(file_name.split('_')[0]) # this is actually meaningless
+        else:
+            print('Something went wrong. What have you done!')
+            assert False
+
+        if self.transform is not None:
+            img = self.transform(img)
+
+        return img, label, age
+
+
+
+
+
+class AgeDBDataset(Dataset):
+    '''
+    Dataset for folders with age labels
     AGE DB with actual labels
         root/person_name/filenum_{age}.jpg
 
