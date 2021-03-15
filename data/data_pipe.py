@@ -44,10 +44,10 @@ def get_train_loader(conf):
     if conf.data_mode == 'vgg_agedb_insta':
         ds = VGGAgeDBInstaDataset(conf.vgg_folder, conf.agedb_folder, conf.insta_folder, train_transforms=conf.train_transform)
         class_num = ds.class_num
-    if conf.data_mode =='agedb':
-        ds = AgeDBDataset(conf.agedb_folder, train_transforms=conf.test_transform)
+    if conf.data_mode == 'vgg_agedb_balanced':
+        ds = VGGAgeDBDataset(conf.vgg_folder, conf.agedb_balanced_folder, train_transforms=conf.train_transform)
         class_num = ds.class_num
-        print('agedb loader generated')
+        print('vgg, with agedb balaned')
         
     if conf.data_mode == 'vgg':
         ds = vgg_ds
@@ -186,7 +186,7 @@ class VGGAgeDBDataset(Dataset):
 
     Returns image, label, age
     '''
-    def __init__(self, vgg_imgs_folder, agedb_imgs_folder, train_transforms, oversample_child_by=1):
+    def __init__(self, vgg_imgs_folder, agedb_imgs_folder, train_transforms):
         self.vgg_imgs_folder_name = vgg_imgs_folder.split('/')[-1]
         self.agedb_imgs_folder_name = agedb_imgs_folder.split('/')[-1]
         self.transform = train_transforms
@@ -195,21 +195,11 @@ class VGGAgeDBDataset(Dataset):
         self.agedb_class_num = len(self.agedb_class_list)
         self.class_num = self.vgg_class_num + self.agedb_class_num
 
-        self.oversample_child_by = oversample_child_by
-
         total_list = []
         for (dirpath, _, filenames) in os.walk(vgg_imgs_folder):
             total_list += [os.path.join(dirpath, file) for file in filenames]
         for (dirpath, _, filenames) in os.walk(agedb_imgs_folder):
-            if oversample_child_by > 1:
-                for file in filenames:
-                    total_list.append(os.path.join(dirpath,file))
-                    age = file.split('/')[-1].strip('.jpg')
-                    total_list += [os.path.join(dirpath,file)] * (oversample_child_by - 1) * (age == 0)
-            else: # seperate this because this is a much faster form of for-loops
-                total_list += [os.path.join(dirpath, file) for file in filenames]
-
-
+            total_list += [os.path.join(dirpath, file) for file in filenames]
 
         self.total_imgs = len(total_list)
         self.total_list = total_list

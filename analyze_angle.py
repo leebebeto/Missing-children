@@ -34,6 +34,7 @@ if __name__ == '__main__':
     conf.num_workers = args.num_workers
     conf.data_mode = args.data_mode
     conf.resume_analysis = args.resume
+    conf.oversample_child_by = 5
 
     learner = face_learner(conf)
     print(conf)

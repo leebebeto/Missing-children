@@ -12,7 +12,7 @@ if __name__ == '__main__':
     parser.add_argument('-lr','--lr',help='learning rate',default=1e-3, type=float)
     parser.add_argument("-b", "--batch_size", help="batch_size", default=64, type=int)
     parser.add_argument("-w", "--num_workers", help="workers number", default=3, type=int)
-    parser.add_argument("-d", "--data_mode", help="use which database, [vgg, ms1m, emore, ms1m_vgg_concat, vgg_agedb, vgg_agedb_insta]",default='vgg', type=str)
+    parser.add_argument("-d", "--data_mode", help="use which database, [vgg, ms1m, emore, ms1m_vgg_concat, vgg_agedb, vgg_agedb_insta, vgg_adgedb_balanced]",default='vgg', type=str)
     args = parser.parse_args()
 
     conf = get_config()
