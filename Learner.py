@@ -72,9 +72,11 @@ class face_learner(object):
                 self.optimizer = optim.SGD([
                                     {'params': paras_wo_bn + [self.head.kernel], 'weight_decay': 5e-4},
                                     {'params': paras_only_bn}
-                                    # {'params': paras_wo_bn + paras_only_bn + [self.head.kernel], 'weight_decay': 5e-4} # XXX: temporary optimizer
-                                    # {'params': paras_wo_bn + paras_only_bn, 'weight_decay': 5e-4} # XXX: temporary optimizer
                                 ], lr = conf.lr, momentum = conf.momentum)
+                self.fine_tune_optimizer = optim.SGD([
+                                        {'params': paras_wo_bn, 'weight_decay': 5e-4},
+                                        {'params': paras_only_bn}
+                                    ], lr = conf.lr, momentum = conf.momentum)
             # print(self.optimizer)
             #  self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, patience=40, verbose=True)
 
@@ -241,8 +243,8 @@ class face_learner(object):
                     self.board_val('lfw', accuracy, best_threshold, roc_curve_tensor)
                     # accuracy, best_threshold, roc_curve_tensor = self.evaluate(conf, self.agedb_30, self.agedb_30_issame)
                     # self.board_val('agedb_30', accuracy, best_threshold, roc_curve_tensor)
-                    accuracy, best_threshold, roc_curve_tensor = self.evaluate(conf, self.cfp_fp, self.cfp_fp_issame)
-                    self.board_val('cfp_fp', accuracy, best_threshold, roc_curve_tensor)
+                    # accuracy, best_threshold, roc_curve_tensor = self.evaluate(conf, self.cfp_fp, self.cfp_fp_issame)
+                    # self.board_val('cfp_fp', accuracy, best_threshold, roc_curve_tensor)
                     self.model.train()
 
                 if self.step % self.save_every == 0 and self.step != 0:

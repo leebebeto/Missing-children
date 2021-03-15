@@ -58,8 +58,8 @@ def get_config(training = True):
         conf.momentum = 0.9
 
         # conf.milestones = [4, 7, 10]
-        # conf.milestones = [6, 11, 16]
-        conf.milestones = [12,15,18]
+        conf.milestones = [6, 11, 16]
+        # conf.milestones = [12,15,18]
         conf.pin_memory = True
         # conf.num_workers = 4 # when batchsize is 200
         conf.num_workers = 3

@@ -186,7 +186,7 @@ class VGGAgeDBDataset(Dataset):
 
     Returns image, label, age
     '''
-    def __init__(self, vgg_imgs_folder, agedb_imgs_folder, train_transforms):
+    def __init__(self, vgg_imgs_folder, agedb_imgs_folder, train_transforms, oversample_child_by=1):
         self.vgg_imgs_folder_name = vgg_imgs_folder.split('/')[-1]
         self.agedb_imgs_folder_name = agedb_imgs_folder.split('/')[-1]
         self.transform = train_transforms
@@ -195,11 +195,21 @@ class VGGAgeDBDataset(Dataset):
         self.agedb_class_num = len(self.agedb_class_list)
         self.class_num = self.vgg_class_num + self.agedb_class_num
 
+        self.oversample_child_by = oversample_child_by
+
         total_list = []
         for (dirpath, _, filenames) in os.walk(vgg_imgs_folder):
             total_list += [os.path.join(dirpath, file) for file in filenames]
         for (dirpath, _, filenames) in os.walk(agedb_imgs_folder):
-            total_list += [os.path.join(dirpath, file) for file in filenames]
+            if oversample_child_by > 1:
+                for file in filenames:
+                    total_list.append(os.path.join(dirpath,file))
+                    age = file.split('/')[-1].strip('.jpg')
+                    total_list += [os.path.join(dirpath,file)] * (oversample_child_by - 1) * (age == 0)
+            else: # seperate this because this is a much faster form of for-loops
+                total_list += [os.path.join(dirpath, file) for file in filenames]
+
+
 
         self.total_imgs = len(total_list)
         self.total_list = total_list
@@ -219,7 +229,7 @@ class VGGAgeDBDataset(Dataset):
         if dataset_name == self.agedb_imgs_folder_name:
             label = self.agedb_class_list.index(folder_name) + self.vgg_class_num
             age = int(file_name.split('_')[-1].strip('.jpg'))
-        elif dataset_name == self.agedb_imgs_folder_name:
+        elif dataset_name == self.vgg_imgs_folder_name:
             label = int(folder_name) 
             age = int(file_name.split('_')[0]) # this is actually meaningless
         else:
@@ -308,52 +318,6 @@ class VGGAgeDBInstaDataset(Dataset):
 
         return img, label, age
 
-
-
-
-
-class AgeDBDataset(Dataset):
-    '''
-    Dataset for folders with age labels
-    AGE DB with actual labels
-        root/person_name/filenum_{age}.jpg
-
-    Store image directories at init phase
-
-    Returns image, label, age
-    '''
-    def __init__(self, agedb_imgs_folder, train_transforms):
-        self.transform = train_transforms
-        self.agedb_class_list = os.listdir(agedb_imgs_folder)
-        self.agedb_class_num = len(self.agedb_class_list)
-        self.class_num = self.agedb_class_num
-
-        total_list = []
-        for (dirpath, _, filenames) in os.walk(agedb_imgs_folder):
-            total_list += [os.path.join(dirpath, file) for file in filenames]
-
-        self.total_imgs = len(total_list)
-        self.total_list = total_list
-        
-    def __len__(self):
-        return self.total_imgs
-    
-    def __getitem__(self, index):
-
-        img_path = self.total_list[index]
-        img_path_list = img_path.split('/')
-        dataset_name = img_path_list[-3]
-        file_name = img_path_list[-1] # {age}_filenum.jpg
-        folder_name = img_path_list[-2]# label
-
-        img = Image.open(img_path)
-        label = self.agedb_class_list.index(folder_name) + self.vgg_class_num
-        age = int(file_name.split('_')[-1].strip('.jpg'))
-
-        if self.transform is not None:
-            img = self.transform(img)
-
-        return img, label, age
 
 if __name__ == '__main__':
     # TEST CODE FOR VGGLabeledDateset

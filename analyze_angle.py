@@ -38,6 +38,7 @@ if __name__ == '__main__':
     learner = face_learner(conf)
     print(conf)
     # learner.load_state(conf, '2021-02-13-02-58_accuracy:0.957857142857143_step:465785_None.pth', model_only=False, from_save_folder=False, analyze=True) # vgg pretrained, res100, DataParallel
-    # learner.load_state(conf, '2021-03-10-14-24_accuracy:0.949_step:197144_False50.pth', model_only=False, from_save_folder=False, analyze=True)          # vgg_agedb res50
-    learner.load_state(conf, '2021-03-11-22-43_accuracy:0.945_step:123745_vgg_agedb_insta50.pth', model_only=False, from_save_folder=False, analyze=True)
+    learner.load_state(conf, '2021-03-13-08-05_accuracy:0.971_step:985720_False50.pth', model_only=False, from_save_folder=False, analyze=True)          # vgg_agedb res50
+    # learner.load_state(conf, '2021-03-11-22-43_accuracy:0.945_step:123745_vgg_agedb_insta50.pth', model_only=False, from_save_folder=False, analyze=True)# vgg_agedb_insta res50
+    
     learner.analyze_angle(conf)
