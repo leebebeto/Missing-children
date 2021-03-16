@@ -73,7 +73,8 @@ class face_learner(object):
                                     {'params': paras_wo_bn + [self.head.kernel], 'weight_decay': 5e-4},
                                     {'params': paras_only_bn}
                                 ], lr = conf.lr, momentum = conf.momentum)
-                self.fine_tune_optimizer = optim.SGD([
+            if conf.finetune_model_path is not None:
+                self.optimizer = optim.SGD([
                                         {'params': paras_wo_bn, 'weight_decay': 5e-4},
                                         {'params': paras_only_bn}
                                     ], lr = conf.lr, momentum = conf.momentum)
@@ -250,15 +251,20 @@ class face_learner(object):
                 if self.step % self.save_every == 0 and self.step != 0:
                     print('saving model....')
                     # save with most recently calculated accuracy?
-                    self.save_state(conf, accuracy, extra=str(conf.data_mode) + '_' + str(conf.net_depth) + '_' + str(conf.batch_size))
+                    if conf.finetune_model_path is not None:
+                        self.save_state(conf, accuracy, extra=str(conf.data_mode) + '_' + str(conf.net_depth) + '_' + str(conf.batch_size) + 'finetune')
+                    else:
+                        self.save_state(conf, accuracy, extra=str(conf.data_mode) + '_' + str(conf.net_depth) + '_' + str(conf.batch_size))
                     # if accuracy > best_accuracy:
                     #     best_accuracy = accuracy
                     #     print('saving best model....')
                     #     self.save_best_state(conf, accuracy, extra=str(conf.data_mode) + str(conf.net_depth))
 
                 self.step += 1
-                
-        self.save_state(conf, accuracy, to_save_folder=True, extra=str(conf.data_mode)  + '_' + str(conf.net_depth) + '_'+ str(conf.batch_size) +'_final')
+        if conf.finetune_model_path is not None:
+            self.save_state(conf, accuracy, to_save_folder=True, extra=str(conf.data_mode)  + '_' + str(conf.net_depth) + '_'+ str(conf.batch_size) +'_final')
+        else:
+            self.save_state(conf, accuracy, to_save_folder=True, extra=str(conf.data_mode)  + '_' + str(conf.net_depth) + '_'+ str(conf.batch_size) +'_finetune')
 
 
     def analyze_angle(self, conf):
