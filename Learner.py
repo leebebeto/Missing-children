@@ -247,18 +247,18 @@ class face_learner(object):
                     # self.board_val('cfp_fp', accuracy, best_threshold, roc_curve_tensor)
                     self.model.train()
 
-                # if self.step % self.save_every == 0 and self.step != 0:
-                #     print('saving model....')
-                #     # save with most recently calculated accuracy?
-                #     self.save_state(conf, accuracy, extra=str(conf.data_mode) + str(conf.net_depth))
-                #     if accuracy > best_accuracy:
-                #         best_accuracy = accuracy
-                #         print('saving best model....')
-                #         self.save_best_state(conf, accuracy, extra=str(conf.data_mode) + str(conf.net_depth))
+                if self.step % self.save_every == 0 and self.step != 0:
+                    print('saving model....')
+                    # save with most recently calculated accuracy?
+                    self.save_state(conf, accuracy, extra=str(conf.data_mode) + '_' + str(conf.net_depth) + '_' + str(conf.batch_size))
+                    # if accuracy > best_accuracy:
+                    #     best_accuracy = accuracy
+                    #     print('saving best model....')
+                    #     self.save_best_state(conf, accuracy, extra=str(conf.data_mode) + str(conf.net_depth))
 
                 self.step += 1
                 
-        self.save_state(conf, accuracy, to_save_folder=True, extra=str(conf.data_mode) + str(conf.net_depth)+'_final')
+        self.save_state(conf, accuracy, to_save_folder=True, extra=str(conf.data_mode)  + '_' + str(conf.net_depth) + '_'+ str(conf.batch_size) +'_final')
 
 
     def analyze_angle(self, conf):

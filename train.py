@@ -1,6 +1,9 @@
 from config import get_config
 from Learner import face_learner
 import argparse
+import torch
+import numpy as np
+import random
 
 # python train.py -net mobilefacenet -b 200 -w 4
 
@@ -16,6 +19,15 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     conf = get_config()
+
+    random_seed = 4885
+    torch.manual_seed(random_seed)
+    torch.cuda.manual_seed(random_seed)
+    torch.cuda.manual_seed_all(random_seed) # if use multi-GPU
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    np.random.seed(random_seed)
+    random.seed(random_seed)
 
     if args.net_mode == 'mobilefacenet':
         conf.use_mobilfacenet = True
