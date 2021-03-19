@@ -42,6 +42,7 @@ def get_config(training = True):
     conf.data_mode = 'vgg'
     # conf.data_mode = 'ms1m'
     conf.resume_analysis = False
+    conf.finetune_model_path = None
 
     # conf.vgg_folder = '/home/nas1_userE/Face_dataset/faces_vgg_112'
     conf.vgg_folder = '/home/nas1_userE/Face_dataset/Vgg_age_label'
