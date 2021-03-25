@@ -40,8 +40,7 @@ if __name__ == '__main__':
     print(conf)
     # learner.load_state(conf, '2021-02-13-02-58_accuracy:0.957857142857143_step:465785_None.pth', model_only=False, from_save_folder=False, analyze=True) # vgg pretrained, res100, DataParallel
     learner.load_state(conf, '2021-03-18-07-12_accuracy:0.990_step:185400_vgg_agedb_balanced_50_256.pth', model_only=False, from_save_folder=False, analyze=True)          # vgg_agedb res50
-    # learner.load_state(conf, '2021-03-11-22-43_accuracy:0.945_step:123745_vgg_agedb_insta50.pth', model_only=False, from_save_folder=False, analyze=True)# vgg_agedb_insta res50
-    '2021-03-18-04-18_accuracy:0.991_step:160186_vgg_agedb_50_256finetune.pth'
-    '2021-03-18-07-12_accuracy:0.990_step:185400_vgg_agedb_balanced_50_256.pth'
-    '2021-03-18-06-25_accuracy:0.602_step:642707_vgg_agedb_balanced_50_64.pth'
+    # '2021-03-18-04-18_accuracy:0.991_step:160186_vgg_agedb_50_256finetune.pth'
+    # '2021-03-18-07-12_accuracy:0.990_step:185400_vgg_agedb_balanced_50_256.pth'
+    # '2021-03-18-06-25_accuracy:0.993_step:148317_vgg_agedb_balanced_50_64.pth'
     learner.analyze_angle(conf)

@@ -45,11 +45,10 @@ def get_config(training = True):
     conf.finetune_model_path = None
 
     # conf.vgg_folder = '/home/nas1_userE/Face_dataset/faces_vgg_112'
-    conf.vgg_folder = '/home/nas1_userE/Face_dataset/Vgg_age_label'
-    conf.ms1m_folder = '/home/nas1_userE/Face_dataset/ms1m-refined-112'
-    conf.emore_folder = '/home/nas1_userE/Face_dataset/faces_emore'
-    conf.agedb_folder = '/home/nas1_userE/Face_dataset/AgeDB_new_align'
-    # conf.agedb_balanced_folder = '/home/nas1_userE/Face_dataset/AgeDB_balanced'
+    conf.vgg_folder = '/home/nas1_userE/jungsoolee/Face_dataset/Vgg_age_label'
+    conf.ms1m_folder = '/home/nas1_userE/jungsoolee/Face_dataset/ms1m-refined-112'
+    conf.emore_folder = '/home/nas1_userE/jungsoolee/Face_dataset/faces_emore'
+    conf.agedb_folder = '/home/nas1_userE/jungsoolee/Face_dataset/AgeDB_new_align'
     conf.agedb_balanced_folder = '/home/nas1_temp/jooyeolyun/AgeDB_balanced'
     conf.insta_folder = '/home/nas1_userD/yonggyu/Instagram_face_preprocessed'
 #--------------------Training Config ------------------------    
