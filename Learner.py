@@ -273,7 +273,7 @@ class face_learner(object):
             self.save_state(conf, accuracy, to_save_folder=True, extra=str(conf.data_mode)  + '_' + str(conf.net_depth) + '_'+ str(conf.batch_size) +'_final')
 
 
-    def analyze_angle(self, conf):
+    def analyze_angle(self, conf, name):
         '''
         Only works on age labeled vgg dataset, agedb dataset
         '''
@@ -323,7 +323,7 @@ class face_learner(object):
         count_df = pd.DataFrame(count)
         avg_angle_df = pd.DataFrame(avg_angle)
 
-        with pd.ExcelWriter('analysis/analyze_angle_{}_balanced256.xlsx'.format(conf.data_mode)) as writer:  
+        with pd.ExcelWriter('analysis/analyze_angle_{}_{}.xlsx'.format(conf.data_mode, name)) as writer:  
             count_df.to_excel(writer, sheet_name='count')
             avg_angle_df.to_excel(writer, sheet_name='avg_angle')
 

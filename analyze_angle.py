@@ -43,4 +43,4 @@ if __name__ == '__main__':
     # '2021-03-18-04-18_accuracy:0.991_step:160186_vgg_agedb_50_256finetune.pth'
     # '2021-03-18-07-12_accuracy:0.990_step:185400_vgg_agedb_balanced_50_256.pth'
     # '2021-03-18-06-25_accuracy:0.993_step:148317_vgg_agedb_balanced_50_64.pth'
-    learner.analyze_angle(conf)
+    learner.analyze_angle(conf, 'name')
