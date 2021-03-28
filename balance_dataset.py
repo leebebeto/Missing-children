@@ -3,7 +3,7 @@ import pdb
 import shutil
 
 source_folder = '/home/nas1_userE/Face_dataset/AgeDB_new_align'
-target_folder = '/home/nas1_userE/Face_dataset/AgeDB_balanced'
+target_folder = '/home/nas1_temp/jooyeolyun/AgeDB_balanced'
 
 # CURRENT CODE IS ONLY WRITTEN FOR AGEDB DATASET
 # CHECK 'age = split' PART FOR OTHER DIRECTORIES

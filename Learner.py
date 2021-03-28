@@ -73,7 +73,8 @@ class face_learner(object):
                                     {'params': paras_wo_bn + [self.head.kernel], 'weight_decay': 5e-4},
                                     {'params': paras_only_bn}
                                 ], lr = conf.lr, momentum = conf.momentum)
-                self.fine_tune_optimizer = optim.SGD([
+            if conf.finetune_model_path is not None:
+                self.optimizer = optim.SGD([
                                         {'params': paras_wo_bn, 'weight_decay': 5e-4},
                                         {'params': paras_only_bn}
                                     ], lr = conf.lr, momentum = conf.momentum)
@@ -88,6 +89,9 @@ class face_learner(object):
 
             # self.agedb_30, self.cfp_fp, self.lfw, self.agedb_30_issame, self.cfp_fp_issame, self.lfw_issame = get_val_data(self.loader.dataset.root.parent)
             self.agedb_30, self.cfp_fp, self.lfw, self.agedb_30_issame, self.cfp_fp_issame, self.lfw_issame = get_val_data('/home/nas1_userE/Face_dataset/faces_emore')
+            dataset_root = "/home/nas1_userD/yonggyu/Face_dataset/face_emore"
+            self.fgnetc = np.load(os.path.join(dataset_root, "FGNET_new_align_list.npy")).astype(np.float32)
+            self.fgnetc_issame = np.load(os.path.join(dataset_root, "FGNET_new_align_label.npy"))
         else:
             # Will not use anymore
             # self.model = nn.DataParallel(self.model)
@@ -245,20 +249,28 @@ class face_learner(object):
                     # self.board_val('agedb_30', accuracy, best_threshold, roc_curve_tensor)
                     # accuracy, best_threshold, roc_curve_tensor = self.evaluate(conf, self.cfp_fp, self.cfp_fp_issame)
                     # self.board_val('cfp_fp', accuracy, best_threshold, roc_curve_tensor)
+                    accuracy2, best_threshold2, roc_curve_tensor2 = self.evaluate(conf, self.lfw, self.lfw_issame)
+                    self.board_val('fgent_c', accuracy2, best_threshold2, roc_curve_tensor2)
+
                     self.model.train()
 
-                # if self.step % self.save_every == 0 and self.step != 0:
-                #     print('saving model....')
-                #     # save with most recently calculated accuracy?
-                #     self.save_state(conf, accuracy, extra=str(conf.data_mode) + str(conf.net_depth))
-                #     if accuracy > best_accuracy:
-                #         best_accuracy = accuracy
-                #         print('saving best model....')
-                #         self.save_best_state(conf, accuracy, extra=str(conf.data_mode) + str(conf.net_depth))
+                if self.step % self.save_every == 0 and self.step != 0:
+                    print('saving model....')
+                    # save with most recently calculated accuracy?
+                    if conf.finetune_model_path is not None:
+                        self.save_state(conf, accuracy2, extra=str(conf.data_mode) + '_' + str(conf.net_depth) + '_' + str(conf.batch_size) + 'finetune')
+                    else:
+                        self.save_state(conf, accuracy2, extra=str(conf.data_mode) + '_' + str(conf.net_depth) + '_' + str(conf.batch_size))
+                    # if accuracy > best_accuracy:
+                    #     best_accuracy = accuracy
+                    #     print('saving best model....')
+                    #     self.save_best_state(conf, accuracy, extra=str(conf.data_mode) + str(conf.net_depth))
 
                 self.step += 1
-                
-        self.save_state(conf, accuracy, to_save_folder=True, extra=str(conf.data_mode) + str(conf.net_depth)+'_final')
+        if conf.finetune_model_path is not None:
+            self.save_state(conf, accuracy, to_save_folder=True, extra=str(conf.data_mode)  + '_' + str(conf.net_depth) + '_'+ str(conf.batch_size) +'_finetune')
+        else:
+            self.save_state(conf, accuracy, to_save_folder=True, extra=str(conf.data_mode)  + '_' + str(conf.net_depth) + '_'+ str(conf.batch_size) +'_final')
 
 
     def analyze_angle(self, conf):
@@ -311,7 +323,7 @@ class face_learner(object):
         count_df = pd.DataFrame(count)
         avg_angle_df = pd.DataFrame(avg_angle)
 
-        with pd.ExcelWriter('analysis/analyze_angle_{}.xlsx'.format(conf.data_mode)) as writer:  
+        with pd.ExcelWriter('analysis/analyze_angle_{}_balanced256.xlsx'.format(conf.data_mode)) as writer:  
             count_df.to_excel(writer, sheet_name='count')
             avg_angle_df.to_excel(writer, sheet_name='avg_angle')
 
