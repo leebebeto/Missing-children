@@ -5,11 +5,14 @@ import matplotlib.pyplot as plt
 plt.switch_backend('agg')
 import io
 from torchvision import transforms as trans
-from data.data_pipe import de_preprocess
 import torch
 from model import l2_norm
 import pdb
 import cv2
+
+
+def de_preprocess(tensor):
+    return tensor*0.5 + 0.5
 
 def separate_bn_paras(modules):
     if not isinstance(modules, list):

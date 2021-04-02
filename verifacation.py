@@ -168,3 +168,10 @@ def evaluate(embeddings, actual_issame, nrof_folds=10, pca=0):
 #                                       np.asarray(actual_issame), 1e-3, nrof_folds=nrof_folds)
 #     return tpr, fpr, accuracy, best_thresholds, val, val_std, far
     return tpr, fpr, accuracy, best_thresholds
+
+def evaluate_child(embeddings1, embeddings2, actual_issame, nrof_folds=10, pca=0):
+    # Calculate evaluation metrics
+    thresholds = np.arange(0, 4, 0.01)
+    tpr, fpr, accuracy, best_thresholds = calculate_roc(thresholds, embeddings1, embeddings2,
+                                       np.asarray(actual_issame), nrof_folds=nrof_folds, pca=pca)
+    return tpr, fpr, accuracy, best_thresholds

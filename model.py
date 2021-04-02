@@ -139,6 +139,37 @@ class Backbone(Module):
         x = self.output_layer(x)
         return l2_norm(x)
 
+class GrowUP(Module):
+    def __init__(self):
+        super(GrowUP, self).__init__()
+        self.fc_layers = Sequential(
+            Linear(512, 512),
+            BatchNorm1d(512),
+            PReLU(),
+            Linear(512, 512),
+            PReLU(),
+            BatchNorm1d(512)
+        )
+
+    def forward(self, x):
+        out = self.fc_layers(x)
+        return l2_norm(out)
+
+
+class Discriminator(Module):
+    def __init__(self):
+        super(Discriminator, self).__init__()
+        self.d = Sequential(
+            Linear(512, 100),
+            BatchNorm1d(100),
+            PReLU(),
+            Linear(100, 1)
+        )
+
+    def forward(self, x):
+        out = self.d(x)
+        return out
+
 ##################################  MobileFaceNet #############################################################
     
 class Conv_block(Module):

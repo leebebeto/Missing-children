@@ -15,7 +15,7 @@ if __name__ == '__main__':
     parser.add_argument('-lr','--lr',help='learning rate',default=1e-3, type=float)
     parser.add_argument("-b", "--batch_size", help="batch_size", default=64, type=int)
     parser.add_argument("-w", "--num_workers", help="workers number", default=3, type=int)
-    parser.add_argument("-d", "--data_mode", help="use which database, [vgg, ms1m, emore, ms1m_vgg_concat, vgg_agedb, vgg_agedb_insta, vgg_adgedb_balanced]",default='vgg', type=str)
+    parser.add_argument("-d", "--data_mode", help="use which database, [vgg, ms1m, emore, ms1m_vgg_concat, vgg_agedb, vgg_agedb_insta, casia_agedb_insta, vgg_adgedb_balanced]",default='vgg', type=str)
     parser.add_argument("-f", "--finetune_model_path", help='finetune using balanced agedb', default=None, type=str)
     args = parser.parse_args()
 
@@ -50,4 +50,8 @@ if __name__ == '__main__':
     if conf.finetune_model_path is not None:
         conf.lr = args.lr * 0.01
         learner.load_state(conf, conf.finetune_model_path, model_only=False, from_save_folder=False, analyze=True) # analyze true == does not load optim.
-    learner.train(conf, args.epochs)
+
+    if conf.discriminator:
+        learner.train_age_invariant(conf, args.epochs)
+    else:
+        learner.train(conf, args.epochs)

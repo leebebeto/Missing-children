@@ -43,14 +43,21 @@ def get_config(training = True):
     # conf.data_mode = 'ms1m'
     conf.resume_analysis = False
     conf.finetune_model_path = None
+    conf.discriminator = True
 
     # conf.vgg_folder = '/home/nas1_userE/Face_dataset/faces_vgg_112'
     conf.vgg_folder = '/home/nas1_userE/jungsoolee/Face_dataset/Vgg_age_label'
+    # conf.vgg_folder = '/home/nas1_userD/yonggyu/Face_dataset/vgg'
     conf.ms1m_folder = '/home/nas1_userE/jungsoolee/Face_dataset/ms1m-refined-112'
     conf.emore_folder = '/home/nas1_userE/jungsoolee/Face_dataset/faces_emore'
     conf.agedb_folder = '/home/nas1_userE/jungsoolee/Face_dataset/AgeDB_new_align'
     conf.agedb_balanced_folder = '/home/nas1_temp/jooyeolyun/AgeDB_balanced'
-    conf.insta_folder = '/home/nas1_userD/yonggyu/Instagram_face_preprocessed'
+    conf.insta_folder = '/home/nas1_userD/yonggyu/Face_dataset/instagram'
+    conf.casia_folder = '/home/nas1_userD/yonggyu/Face_dataset/casia'
+
+    conf.child_folder = "/home/nas1_userD/yonggyu/Face_dataset/domain_cls_10000_d/0"
+    conf.adult_folder = "/home/nas1_userD/yonggyu/Face_dataset/domain_cls_10000_d/1"
+
 #--------------------Training Config ------------------------    
     if training:        
         conf.log_path = os.path.join(conf.work_path, 'log', conf.data_mode, conf.exp)
