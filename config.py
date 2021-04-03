@@ -38,7 +38,7 @@ def get_config(training = True):
         transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
     ])
 
-    conf.exp = str(conf.net_depth) + '_12_15_18'
+    conf.exp = str(conf.net_depth) + '_6_11_16'
     conf.data_mode = 'vgg'
     # conf.data_mode = 'ms1m'
     conf.resume_analysis = False
