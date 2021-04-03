@@ -274,32 +274,33 @@ class face_learner(object):
                 # loader : base loader that returns images with id
                 # ages : 0 == child, 1== adult
 
-                self.zero_grad()
                 
                 imgs = imgs.to(conf.device)
                 labels = labels.to(conf.device)
 
-                imgs_a, labels_a = next(self.adult_loader)
-                imgs_c, labels_c = next(self.child_loader)
+                imgs_a, labels_a = next(iter(self.adult_loader))
+                imgs_c, labels_c = next(iter(self.child_loader))
+
+                imgs_a, labels_a = imgs_a.to(conf.device), labels_a.to(conf.device)
+                imgs_c, labels_c = imgs_c.to(conf.device), labels_c.to(conf.device)
                 bs_a = imgs_a.shape[0]
-                
-                # if imgs_a.shape[0] < imgs.shape[0]:
-                #     imgs_a, labels_a = next(self.adult_loader)
-                # if imgs_c.shape[0] < imgs.shape[0]:
-                #     imgs_c, labels_c = next(self.child_loader)
+
                 imgs_ac = torch.cat([imgs_a, imgs_c], dim=0)
 
-                ##############
-                # Train head #
-                ##############
-                a = (ages == 1)  # only select adults
-                c = (ages == 0)
+                ###########################
+                #       Train head        #
+                ###########################
+                self.optimizer.zero_grad()
+                self.growup.eval()
+
+                c = (ages == 0) # select children for enhancement
 
                 embeddings = self.model(imgs)
-                embeddings_c = embeddings[c]
 
-                embeddings_a_hat = self.growup(embeddings_c)
-                embeddings[c] = embeddings_a_hat
+                if sum(c) > 0: # there might be no childern in loader's batch
+                    embeddings_c = embeddings[c]
+                    embeddings_a_hat = self.growup(embeddings_c)
+                    embeddings[c] = embeddings_a_hat
 
                 thetas = self.head(embeddings, labels)
 
@@ -308,26 +309,32 @@ class face_learner(object):
                 running_loss += loss.item()
                 self.optimizer.step()
 
-                #######################
-                # Train discriminator #
-                #######################
-                self.zero_grad()
+                ##############################
+                #    Train discriminator     #
+                ##############################
+                self.optimizer_d.zero_grad()
+                self.growup.train()
                 _embeddings = self.model(imgs_ac)
-                embeddings_a, embeddings_c = _embeddings[:a], _embeddings[a:]
+                embeddings_a, embeddings_c = _embeddings[:bs_a], _embeddings[bs_a:]
 
                 embeddings_a_hat = self.growup(embeddings_c)
                 embeddings_ac = torch.cat([embeddings_a, embeddings_a_hat], dim=0)
-                labels_ac = torch.cat(labels_a, labels_c)
+                labels_ac = torch.cat([labels_a, labels_c], dim=0)
                 pred_ac = self.discriminator(embeddings_ac)
                 d_loss = torch.mean((pred_ac - labels_ac)**2)
                 d_loss.backward()
                 self.optimizer_d.step()
 
-                ####################
-                # Train genertator #
-                ####################
-                self.zero_grad()
-                g_loss = torch.mean((pred_ac[a:] - labels_a)**2)
+                #############################
+                #      Train genertator     #
+                #############################
+                self.optimizer_g.zero_grad()
+                embeddings_c = self.model(imgs_c)
+                embeddings_a_hat = self.growup(embeddings_c)
+                pred_c = self.discriminator(embeddings_c)
+                labels_a = torch.ones_like(labels_c)
+                # generator should make child 1
+                g_loss = torch.mean((pred_c - labels_a)**2)
                 g_loss.backward()
                 self.optimizer_g.step()
 

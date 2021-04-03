@@ -397,11 +397,11 @@ class CasiaAgeDBInstaDataset(Dataset):
 
         img = Image.open(img_path)
         if dataset_name == self.agedb_imgs_folder_name:
-            label = self.agedb_class_list.index(folder_name) + self.vgg_class_num
+            label = self.agedb_class_list.index(folder_name) + self.casia_class_num
             _age = int(file_name.split('_')[-1].strip('.jpg'))
             age = 0 if _age < 13 else 1
         elif dataset_name == self.insta_imgs_folder_name:
-            label = self.insta_class_list.index(folder_name) + self.vgg_class_num + self.agedb_class_num
+            label = self.insta_class_list.index(folder_name) + self.casia_class_num + self.agedb_class_num
             age = 0 # also meaningless
         elif dataset_name == self.casia_imgs_folder_name:
             label = self.casia_class_list.index(folder_name)
