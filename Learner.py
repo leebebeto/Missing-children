@@ -356,20 +356,10 @@ class face_learner(object):
                 if self.step % self.save_every == 0 and self.step != 0:
                     print('saving model....')
                     # save with most recently calculated accuracy?
-                    if conf.finetune_model_path is not None:
-                        self.save_state(conf, accuracy2, extra=str(conf.data_mode) + '_' + str(conf.net_depth) + '_' + str(conf.batch_size) + 'finetune')
-                    else:
-                        self.save_state(conf, accuracy2, extra=str(conf.data_mode) + '_' + str(conf.net_depth) + '_' + str(conf.batch_size))
-                    # if accuracy > best_accuracy:
-                    #     best_accuracy = accuracy
-                    #     print('saving best model....')
-                    #     self.save_best_state(conf, accuracy, extra=str(conf.data_mode) + str(conf.net_depth))
+                    self.save_state(conf, accuracy2, extra=str(conf.data_mode) + '_' + str(conf.net_depth) + '_' + str(conf.batch_size) + '_discriminator')
 
                 self.step += 1
-        if conf.finetune_model_path is not None:
-            self.save_state(conf, accuracy, to_save_folder=True, extra=str(conf.data_mode)  + '_' + str(conf.net_depth) + '_'+ str(conf.batch_size) +'_finetune')
-        else:
-            self.save_state(conf, accuracy, to_save_folder=True, extra=str(conf.data_mode)  + '_' + str(conf.net_depth) + '_'+ str(conf.batch_size) +'_final')
+        self.save_state(conf, accuracy2, to_save_folder=True, extra=str(conf.data_mode)  + '_' + str(conf.net_depth) + '_'+ str(conf.batch_size) +'_discriminator_final')
 
 
     def analyze_angle(self, conf, name):
