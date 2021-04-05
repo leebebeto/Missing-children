@@ -1,7 +1,7 @@
 from easydict import EasyDict as edict
 from pathlib import Path
 import torch
-from torch.nn import CrossEntropyLoss
+from torch.nn import CrossEntropyLoss, L1Loss
 from torchvision import transforms
 import pdb
 
@@ -73,7 +73,8 @@ def get_config(training = True):
         conf.pin_memory = True
         # conf.num_workers = 4 # when batchsize is 200
         conf.num_workers = 3
-        conf.ce_loss = CrossEntropyLoss()    
+        conf.ce_loss = CrossEntropyLoss()
+        conf.l1_loss = L1Loss()
 #--------------------Inference Config ------------------------
     else:
         conf.facebank_path = conf.data_path/'facebank'

@@ -21,6 +21,7 @@ from utils import get_time, gen_plot, hflip_batch, separate_bn_paras
 from verifacation import evaluate, evaluate_child
 
 import pdb
+import time
 
 class face_learner(object):
     def __init__(self, conf, inference=False):
@@ -270,17 +271,23 @@ class face_learner(object):
             if e in self.milestones:
                 self.schedule_lr()
 
+            a_loader = iter(self.adult_loader)
+            c_loader = iter(self.child_loader)
             for imgs, labels, ages in tqdm(iter(self.loader)):
                 # loader : base loader that returns images with id
+                # a_loader, c_loader : adult, child loader with same datasize
                 # ages : 0 == child, 1== adult
-
+                try:
+                    imgs_a, labels_a = next(a_loader)
+                    imgs_c, labels_c = next(c_loader)
+                except StopIteration:
+                    a_loader = iter(self.adult_loader)
+                    c_loader = iter(self.child_loader)
+                    imgs_a, labels_a = next(a_loader)
+                    imgs_c, labels_c = next(c_loader)
                 
                 imgs = imgs.to(conf.device)
                 labels = labels.to(conf.device)
-
-                imgs_a, labels_a = next(iter(self.adult_loader))
-                imgs_c, labels_c = next(iter(self.child_loader))
-
                 imgs_a, labels_a = imgs_a.to(conf.device), labels_a.to(conf.device)
                 imgs_c, labels_c = imgs_c.to(conf.device), labels_c.to(conf.device)
                 bs_a = imgs_a.shape[0]
@@ -334,7 +341,8 @@ class face_learner(object):
                 pred_c = self.discriminator(embeddings_c)
                 labels_a = torch.ones_like(labels_c)
                 # generator should make child 1
-                g_loss = torch.mean((pred_c - labels_a)**2)
+                # g_loss = torch.mean((pred_c - labels_a)**2)
+                g_loss = torch.mean((pred_c - labels_a)**2) + conf.l1_loss(embeddings_a_hat, embeddings_c)
                 g_loss.backward()
                 self.optimizer_g.step()
 
