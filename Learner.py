@@ -19,7 +19,7 @@ from data.data_pipe import de_preprocess, get_train_loader, get_val_data
 from model import Backbone, Arcface, MobileFaceNet, l2_norm
 from utils import get_time, gen_plot, hflip_batch, separate_bn_paras
 from verifacation import evaluate
-
+from torchvision.utils import save_image
 import pdb
 
 class face_learner(object):
@@ -73,29 +73,32 @@ class face_learner(object):
                                     {'params': paras_wo_bn + [self.head.kernel], 'weight_decay': 5e-4},
                                     {'params': paras_only_bn}
                                 ], lr = conf.lr, momentum = conf.momentum)
-            if conf.finetune_model_path is not None:
-                self.optimizer = optim.SGD([
-                                        {'params': paras_wo_bn, 'weight_decay': 5e-4},
-                                        {'params': paras_only_bn}
-                                    ], lr = conf.lr, momentum = conf.momentum)
+            # if conf.finetune_model_path is not None:
+            #     self.optimizer = optim.SGD([
+            #                             {'params': paras_wo_bn, 'weight_decay': 5e-4},
+            #                             {'params': paras_only_bn}
+            #                         ], lr = conf.lr, momentum = conf.momentum)
             # print(self.optimizer)
             #  self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, patience=40, verbose=True)
 
             print('optimizers generated')
             self.board_loss_every = len(self.loader)//100
-            self.evaluate_every = len(self.loader)//2
+            # self.evaluate_every = len(self.loader)//2
+            self.evaluate_every = len(self.loader)//5
             # self.save_every = len(self.loader)//5
-            self.save_every = len(self.loader)
+            # self.save_every = len(self.loader)
+            self.save_every = len(self.loader)//5
 
             # self.agedb_30, self.cfp_fp, self.lfw, self.agedb_30_issame, self.cfp_fp_issame, self.lfw_issame = get_val_data(self.loader.dataset.root.parent)
-            self.agedb_30, self.cfp_fp, self.lfw, self.agedb_30_issame, self.cfp_fp_issame, self.lfw_issame = get_val_data('/home/nas1_userE/Face_dataset/faces_emore')
+            self.agedb_30, self.cfp_fp, self.lfw, self.agedb_30_issame, self.cfp_fp_issame, self.lfw_issame = get_val_data('/home/nas1_userE/jungsoolee/Face_dataset/faces_emore')
             dataset_root = "/home/nas1_userD/yonggyu/Face_dataset/face_emore"
             self.fgnetc = np.load(os.path.join(dataset_root, "FGNET_new_align_list.npy")).astype(np.float32)
             self.fgnetc_issame = np.load(os.path.join(dataset_root, "FGNET_new_align_label.npy"))
         else:
             # Will not use anymore
             # self.model = nn.DataParallel(self.model)
-            self.threshold = conf.threshold
+            # self.threshold = conf.threshold
+            self.threshold = 0
 
 
     def board_val(self, db_name, accuracy, best_threshold, roc_curve_tensor):
@@ -202,6 +205,86 @@ class face_learner(object):
                 plt.plot(log_lrs[10:-5], losses[10:-5])
                 return log_lrs, losses    
 
+    def train_positive(self, conf, epochs):
+        self.model.train()
+
+        running_loss = 0.
+        best_accuracy = 0.0
+
+        for e in range(epochs):
+            print('epoch {} started'.format(e))
+
+            if e in self.milestones:
+                self.schedule_lr()
+
+            for imgs, labels, ages in tqdm(iter(self.loader)):
+
+                self.optimizer.zero_grad()
+                # image_children, image_adult_a, image_adult_b = imgs[0], imgs[1], imgs[2]
+                # imgs = torch.cat((image_children, image_adult_a, image_adult_b), dim=0)
+                # labels = torch.cat((labels, labels, labels), dim=0)
+
+                image_children, image_adult_a = imgs[0], imgs[1]
+                imgs = torch.cat((image_children, image_adult_a), dim=0)
+                labels = torch.cat((labels, labels), dim=0)
+
+
+                imgs = imgs.to(conf.device)
+                labels = labels.to(conf.device)
+
+                embeddings = self.model(imgs)
+                thetas = self.head.positive_forward(embeddings, labels)
+
+                loss = conf.ce_loss(thetas, labels)
+                loss.backward()
+                running_loss += loss.item()
+
+                self.optimizer.step()
+
+                if self.step % self.board_loss_every == 0 and self.step != 0:  # XXX
+                    print('tensorboard plotting....')
+                    loss_board = running_loss / self.board_loss_every
+                    self.writer.add_scalar('train_loss', loss_board, self.step)
+                    running_loss = 0.
+
+                if self.step % self.evaluate_every == 0 and self.step != 0:
+                    print('evaluating....')
+                    accuracy, best_threshold, roc_curve_tensor = self.evaluate(conf, self.lfw, self.lfw_issame)
+                    self.board_val('lfw', accuracy, best_threshold, roc_curve_tensor)
+                    # accuracy, best_threshold, roc_curve_tensor = self.evaluate(conf, self.agedb_30, self.agedb_30_issame)
+                    # self.board_val('agedb_30', accuracy, best_threshold, roc_curve_tensor)
+                    # accuracy, best_threshold, roc_curve_tensor = self.evaluate(conf, self.cfp_fp, self.cfp_fp_issame)
+                    # self.board_val('cfp_fp', accuracy, best_threshold, roc_curve_tensor)
+                    accuracy2, best_threshold2, roc_curve_tensor2 = self.evaluate(conf, self.fgnetc, self.fgnetc_issame)
+                    self.board_val('fgent_c', accuracy2, best_threshold2, roc_curve_tensor2)
+
+                    self.model.train()
+
+                if self.step % self.save_every == 0 and self.step != 0:
+                    print('saving model....')
+                    # save with most recently calculated accuracy?
+                    if conf.finetune_model_path is not None:
+                        self.save_state(conf, accuracy2,
+                                        extra=str(conf.data_mode) + '_' + str(conf.net_depth) + '_' + str(
+                                            conf.batch_size) + 'finetune')
+                    else:
+                        self.save_state(conf, accuracy2,
+                                        extra=str(conf.data_mode) + '_' + str(conf.net_depth) + '_' + str(
+                                            conf.batch_size))
+                    # if accuracy > best_accuracy:
+                    #     best_accuracy = accuracy
+                    #     print('saving best model....')
+                    #     self.save_best_state(conf, accuracy, extra=str(conf.data_mode) + str(conf.net_depth))
+
+                self.step += 1
+        if conf.finetune_model_path is not None:
+            self.save_state(conf, accuracy, to_save_folder=True,
+                            extra=str(conf.data_mode) + '_' + str(conf.net_depth) + '_' + str(
+                                conf.batch_size) + '_finetune')
+        else:
+            self.save_state(conf, accuracy, to_save_folder=True,
+                            extra=str(conf.data_mode) + '_' + str(conf.net_depth) + '_' + str(
+                                conf.batch_size) + '_final')
 
     def train(self, conf, epochs):
         '''
@@ -234,7 +317,7 @@ class face_learner(object):
                 running_loss += loss.item()
 
                 self.optimizer.step()
-                
+
                 if self.step % self.board_loss_every == 0 and self.step != 0: # XXX
                     print('tensorboard plotting....')
                     loss_board = running_loss / self.board_loss_every
@@ -249,7 +332,7 @@ class face_learner(object):
                     # self.board_val('agedb_30', accuracy, best_threshold, roc_curve_tensor)
                     # accuracy, best_threshold, roc_curve_tensor = self.evaluate(conf, self.cfp_fp, self.cfp_fp_issame)
                     # self.board_val('cfp_fp', accuracy, best_threshold, roc_curve_tensor)
-                    accuracy2, best_threshold2, roc_curve_tensor2 = self.evaluate(conf, self.lfw, self.lfw_issame)
+                    accuracy2, best_threshold2, roc_curve_tensor2 = self.evaluate(conf, self.fgnetc, self.fgnetc_issame)
                     self.board_val('fgent_c', accuracy2, best_threshold2, roc_curve_tensor2)
 
                     self.model.train()
@@ -396,14 +479,18 @@ class face_learner(object):
                 ('/optimizer_{}_accuracy:{:.3f}_step:{}_{}.pth'.format(get_time(), accuracy, self.step, extra)))
     
 
-    def load_state(self, conf, fixed_str, from_save_folder=False, model_only=False, analyze=False):
+    def load_state(self, conf, model_path, head_path, from_save_folder=False, model_only=False, analyze=False):
         if from_save_folder:
             save_path = conf.save_path
         else:
             save_path = conf.model_path
-        self.model.load_state_dict(torch.load(os.path.join(save_path, 'model_{}'.format(fixed_str))))
-        if not model_only:
-            self.head.load_state_dict(torch.load(save_path/'head_{}'.format(fixed_str)))
-            if not analyze:
-                self.optimizer.load_state_dict(torch.load(save_path/'optimizer_{}'.format(fixed_str)))
-        
+        self.model.load_state_dict(torch.load(model_path))
+        if head_path is not None:
+            self.head.load_state_dict(torch.load(head_path))
+        # self.model.load_state_dict(torch.load(os.path.join(save_path, 'model_{}'.format(fixed_str))))
+        # self.head.load_state_dict(torch.load(os.path.join(save_path, 'head_{}'.format(fixed_str))))
+        # if not model_only:
+        #     self.head.load_state_dict(torch.load(save_path/'head_{}'.format(fixed_str)))
+        #     if not analyze:
+        #         self.optimizer.load_state_dict(torch.load(save_path/'optimizer_{}'.format(fixed_str)))
+        #

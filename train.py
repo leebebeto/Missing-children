@@ -15,11 +15,13 @@ if __name__ == '__main__':
     parser.add_argument('-lr','--lr',help='learning rate',default=1e-3, type=float)
     parser.add_argument("-b", "--batch_size", help="batch_size", default=64, type=int)
     parser.add_argument("-w", "--num_workers", help="workers number", default=3, type=int)
-    parser.add_argument("-d", "--data_mode", help="use which database, [vgg, ms1m, emore, ms1m_vgg_concat, vgg_agedb, vgg_agedb_insta, vgg_adgedb_balanced]",default='vgg', type=str)
+    parser.add_argument("-d", "--data_mode", help="use which database, [vgg, ms1m, emore, ms1m_vgg_concat, a, vgg_agedb_insta, vgg_adgedb_balanced]",default='vgg', type=str)
     parser.add_argument("-f", "--finetune_model_path", help='finetune using balanced agedb', default=None, type=str)
+    parser.add_argument("--finetune_head_path", help='head path', default=None, type=str)
+    parser.add_argument("--exp", help='experiment name', default=None, type=str)
     args = parser.parse_args()
 
-    conf = get_config()
+    conf = get_config(exp = args.exp, data_mode=args.data_mode)
 
     random_seed = 4885
     torch.manual_seed(random_seed)
@@ -38,16 +40,20 @@ if __name__ == '__main__':
     _milestone = ''
     for i in conf.milestones:
         _milestone += ('_'+str(i))
-    conf.exp = str(conf.net_depth) + _milestone
-        
+    # conf.exp = str(conf.net_depth) + _milestone
+    # conf.exp = args.exp
     conf.lr = args.lr
     conf.batch_size = args.batch_size
     conf.num_workers = args.num_workers
     conf.data_mode = args.data_mode
     conf.finetune_model_path = args.finetune_model_path
+    conf.finetune_head_path = args.finetune_head_path
+
 
     learner = face_learner(conf)
     if conf.finetune_model_path is not None:
-        conf.lr = args.lr * 0.01
-        learner.load_state(conf, conf.finetune_model_path, model_only=False, from_save_folder=False, analyze=True) # analyze true == does not load optim.
+        conf.lr = args.lr * 0.001
+        learner.load_state(conf, conf.finetune_model_path, conf.finetune_head_path, model_only=False, from_save_folder=False, analyze=True) # analyze true == does not load optim.
+        print(f'{conf.finetune_model_path} model loaded...')
+    # learner.train_positive(conf, args.epochs)
     learner.train(conf, args.epochs)

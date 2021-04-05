@@ -253,6 +253,7 @@ class Arcface(Module):
         self.sin_m = math.sin(m)
         self.mm = self.sin_m * m  # issue 1
         self.threshold = math.cos(math.pi - m)
+
     def forward(self, embbedings, label):
         # weights norm
         nB = len(embbedings)
@@ -277,6 +278,121 @@ class Arcface(Module):
         output[idx_, label] = cos_theta_m[idx_, label]
         output *= self.s # scale up in order to make softmax work, first introduced in normface
         return output
+
+
+    def positive_image_forward(self, embbedings, label):
+        # Original Arcface Loss
+        nB = len(embbedings)
+        import pdb; pdb.set_trace()
+        kernel_norm = l2_norm(self.kernel, axis=0)
+        # cos(theta+m)
+        cos_theta = torch.mm(embbedings, kernel_norm)
+        #         output = torch.mm(embbedings,kernel_norm)
+        cos_theta = cos_theta.clamp(-1, 1)  # for numerical stability
+        cos_theta_2 = torch.pow(cos_theta, 2)
+        sin_theta_2 = 1 - cos_theta_2
+        sin_theta = torch.sqrt(sin_theta_2)
+        cos_theta_m = (cos_theta * self.cos_m - sin_theta * self.sin_m)
+        # this condition controls the theta+m should in range [0, pi]
+        #      0<=theta+m<=pi
+        #     -m<=theta<=pi-m
+        cond_v = cos_theta - self.threshold
+        cond_mask = cond_v <= 0
+        keep_val = (cos_theta - self.mm)  # when theta not in [0,pi], use cosface instead
+        cos_theta_m[cond_mask] = keep_val[cond_mask]
+        output = cos_theta * 1.0  # a little bit hacky way to prevent in_place operation on cos_theta
+        idx_ = torch.arange(0, nB, dtype=torch.long)
+        output[idx_, label] = cos_theta_m[idx_, label]
+        output *= self.s  # scale up in order to make softmax work, first introduced in normface
+
+
+        # Positive loss
+        embbedings = F.normalize(embbedings)
+        child_embedding = embbedings[:int(embbedings.shape[0]/2)]
+        adult_embedding = embbedings[int(embbedings.shape[0]/2):]
+        # cosine space similarity로....
+        #
+        # # cos(theta)
+        # cosine = F.linear(F.normalize(x), F.normalize(self.weight)) # W.T * x
+        # batch_size = int(cosine.shape[0]/4)
+        # positive, negative, positive_prime = cosine[batch_size : 2 * batch_size], cosine[2 * batch_size : 3 * batch_size], cosine[3 * batch_size : 4 * batch_size]
+        # x_axis = torch.Tensor([i for i in range(batch_size)])
+        # negative_cos_selected = negative[x_axis.long(), label.long()] # W.T * x -> cos(theta1)
+        # positive_cos_selected = positive[x_axis.long(), label.long()] # W.T * x -> cos(theta2)
+        # positive_prime_cos_selected = positive_prime[x_axis.long(), label.long()] # W.T * x -> cos(theta2)
+        #
+        # # cos(theta + m)
+        # sine = torch.sqrt(1.0 - torch.pow(cosine, 2))
+        # positive_sine = sine[batch_size : 2 * batch_size]
+        # positive_sine_selected = positive_sine[x_axis.long(), label.long()]
+        #
+        # positive_prime_sine = sine[3 * batch_size : 4 * batch_size]
+        # positive_prime_sine_selected = positive_prime_sine[x_axis.long(), label.long()]
+        #
+        # positive_phi = positive_cos_selected * self.cos_m - positive_sine_selected * self.sin_m
+        # triplet_loss = torch.clamp(t * (negative_cos_selected - positive_phi), min=0.0)
+        # triplet_loss = triplet_loss.mean()
+        #
+        # # cos(beta-alpha) = cosbeta * cosalpha + sin beta sin alpha
+        # positive_prime_phi = positive_prime_cos_selected * positive_cos_selected + positive_prime_sine_selected * positive_sine_selected
+        # positive_loss = torch.clamp(t * (1-positive_prime_phi), min=0.0)
+        # positive_loss = positive_loss.mean()
+
+        return triplet_loss, positive_loss
+
+
+
+    def positive_proto_forward(self, embbedings, label):
+        nB = len(embbedings)
+        import pdb; pdb.set_trace()
+        kernel_norm = l2_norm(self.kernel, axis=0)
+        # cos(theta+m)
+        cos_theta = torch.mm(embbedings, kernel_norm)
+        #         output = torch.mm(embbedings,kernel_norm)
+        cos_theta = cos_theta.clamp(-1, 1)  # for numerical stability
+        cos_theta_2 = torch.pow(cos_theta, 2)
+        sin_theta_2 = 1 - cos_theta_2
+        sin_theta = torch.sqrt(sin_theta_2)
+        cos_theta_m = (cos_theta * self.cos_m - sin_theta * self.sin_m)
+        # this condition controls the theta+m should in range [0, pi]
+        #      0<=theta+m<=pi
+        #     -m<=theta<=pi-m
+        cond_v = cos_theta - self.threshold
+        cond_mask = cond_v <= 0
+        keep_val = (cos_theta - self.mm)  # when theta not in [0,pi], use cosface instead
+        cos_theta_m[cond_mask] = keep_val[cond_mask]
+        output = cos_theta * 1.0  # a little bit hacky way to prevent in_place operation on cos_theta
+        idx_ = torch.arange(0, nB, dtype=torch.long)
+        output[idx_, label] = cos_theta_m[idx_, label]
+        output *= self.s  # scale up in order to make softmax work, first introduced in normface
+
+        # cos(theta)
+        cosine = F.linear(F.normalize(x), F.normalize(self.weight)) # W.T * x
+        batch_size = int(cosine.shape[0]/4)
+        positive, negative, positive_prime = cosine[batch_size : 2 * batch_size], cosine[2 * batch_size : 3 * batch_size], cosine[3 * batch_size : 4 * batch_size]
+        x_axis = torch.Tensor([i for i in range(batch_size)])
+        negative_cos_selected = negative[x_axis.long(), label.long()] # W.T * x -> cos(theta1)
+        positive_cos_selected = positive[x_axis.long(), label.long()] # W.T * x -> cos(theta2)
+        positive_prime_cos_selected = positive_prime[x_axis.long(), label.long()] # W.T * x -> cos(theta2)
+
+        # cos(theta + m)
+        sine = torch.sqrt(1.0 - torch.pow(cosine, 2))
+        positive_sine = sine[batch_size : 2 * batch_size]
+        positive_sine_selected = positive_sine[x_axis.long(), label.long()]
+
+        positive_prime_sine = sine[3 * batch_size : 4 * batch_size]
+        positive_prime_sine_selected = positive_prime_sine[x_axis.long(), label.long()]
+
+        positive_phi = positive_cos_selected * self.cos_m - positive_sine_selected * self.sin_m
+        triplet_loss = torch.clamp(t * (negative_cos_selected - positive_phi), min=0.0)
+        triplet_loss = triplet_loss.mean()
+
+        # cos(beta-alpha) = cosbeta * cosalpha + sin beta sin alpha
+        positive_prime_phi = positive_prime_cos_selected * positive_cos_selected + positive_prime_sine_selected * positive_sine_selected
+        positive_loss = torch.clamp(t * (1-positive_prime_phi), min=0.0)
+        positive_loss = positive_loss.mean()
+
+        return triplet_loss, positive_loss
 
     def get_angle(self, embeddings):
         # Get angles between embeddings and labels

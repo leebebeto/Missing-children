@@ -6,10 +6,10 @@ from torchvision import transforms
 import pdb
 
 import os
-def get_config(training = True):
+def get_config(exp, data_mode, training = True):
     conf = edict()
     conf.data_path = Path('data')
-
+    conf.exp = exp
     conf.work_path = Path('work_space/')
     conf.model_path = conf.work_path/'models'
     conf.log_path = conf.work_path/'log'
@@ -38,22 +38,22 @@ def get_config(training = True):
         transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
     ])
 
-    conf.exp = str(conf.net_depth) + '_12_15_18'
-    conf.data_mode = 'vgg'
+    # conf.exp = str(conf.net_depth) + '_12_15_18'
+    conf.data_mode = data_mode
     # conf.data_mode = 'ms1m'
     conf.resume_analysis = False
     conf.finetune_model_path = None
 
     # conf.vgg_folder = '/home/nas1_userE/Face_dataset/faces_vgg_112'
-    conf.vgg_folder = '/home/nas1_userE/Face_dataset/Vgg_age_label'
-    conf.ms1m_folder = '/home/nas1_userE/Face_dataset/ms1m-refined-112'
-    conf.emore_folder = '/home/nas1_userE/Face_dataset/faces_emore'
-    conf.agedb_folder = '/home/nas1_userE/Face_dataset/AgeDB_new_align'
+    conf.vgg_folder = '/home/nas1_userE/jungsoolee/Face_dataset/Vgg_age_label'
+    conf.ms1m_folder = '/home/nas1_userE/jungsoolee/Face_dataset/ms1m-refined-112'
+    conf.emore_folder = '/home/nas1_userE/jungsoolee/Face_dataset/faces_emore'
+    conf.agedb_folder = '/home/nas1_userE/jungsoolee/Face_dataset/AgeDB_new_align'
     # conf.agedb_balanced_folder = '/home/nas1_userE/Face_dataset/AgeDB_balanced'
     conf.agedb_balanced_folder = '/home/nas1_temp/jooyeolyun/AgeDB_balanced'
     conf.insta_folder = '/home/nas1_userD/yonggyu/Instagram_face_preprocessed'
 #--------------------Training Config ------------------------    
-    if training:        
+    if training:
         conf.log_path = os.path.join(conf.work_path, 'log', conf.data_mode, conf.exp)
         conf.save_path = os.path.join(conf.work_path, 'save')
 

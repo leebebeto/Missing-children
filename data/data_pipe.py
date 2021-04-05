@@ -12,13 +12,18 @@ import pickle
 import torch
 import mxnet as mx
 from tqdm import tqdm
-
+import glob
 import pdb
 import os
+import random
 
 def de_preprocess(tensor):
     return tensor*0.5 + 0.5
-    
+
+def de_preprocess(tensor):
+    return tensor*0.5 + 0.5
+
+
 def get_train_dataset(imgs_folder):
     train_transform = transforms.Compose([
         transforms.RandomHorizontalFlip(),
@@ -41,6 +46,14 @@ def get_train_loader(conf):
         ds = VGGAgeDBDataset(conf.vgg_folder, conf.agedb_folder, train_transforms=conf.train_transform)
         class_num = ds.class_num
         print('vgg, agedb loader generated')
+    if conf.data_mode == 'vgg_agedb_agedb_only':
+        ds = VGGAgeDBOnlyDataset(conf.vgg_folder, conf.agedb_folder, train_transforms=conf.train_transform)
+        class_num = ds.class_num
+        print('vgg, agedb loader generated')
+    if conf.data_mode == 'vgg_agedb_agedb_only_positive':
+        ds = VGGAgeDBOnlyPositiveDataset(conf.vgg_folder, conf.agedb_folder, train_transforms=conf.train_transform)
+        class_num = ds.class_num
+        print('vgg, agedb positive loader generated')
     if conf.data_mode == 'vgg_agedb_insta':
         ds = VGGAgeDBInstaDataset(conf.vgg_folder, conf.agedb_folder, conf.insta_folder, train_transforms=conf.train_transform)
         class_num = ds.class_num
@@ -173,6 +186,158 @@ class VGGLabeledDataset(Dataset):
 
         return img, label, age
 
+
+
+class VGGAgeDBOnlyPositiveDataset(Dataset):
+    '''
+    Joint DB of VGG and AgeDB
+    VGG with pseudo age labels dataset
+    directory structure
+        root/person_i/{age}_filenum.jpg
+    AGE DB with actual labels
+        root/person_name/filenum_{age}.jpg
+
+    Store image directories at init phase
+    Only samples AgeDB dataset for finetuning
+
+    Returns image, label, age
+    '''
+
+    def __init__(self, vgg_imgs_folder, agedb_imgs_folder, train_transforms):
+        self.vgg_imgs_folder_name = vgg_imgs_folder.split('/')[-1]
+        self.agedb_imgs_folder_name = agedb_imgs_folder.split('/')[-1]
+        self.transform = train_transforms
+        self.vgg_class_num = len(os.listdir(vgg_imgs_folder))
+        self.agedb_class_list = os.listdir(agedb_imgs_folder)
+        self.agedb_class_num = len(self.agedb_class_list)
+        self.class_num = self.vgg_class_num + self.agedb_class_num
+
+        total_list, children_list = [], []
+        self.vgg_list, self.agedb_list = [], []
+        for (dirpath, _, filenames) in os.walk(vgg_imgs_folder):
+            self.vgg_list += [os.path.join(dirpath, file) for file in filenames]
+
+        total_list += self.vgg_list
+        for (dirpath, _, filenames) in os.walk(agedb_imgs_folder):
+            self.agedb_list += [os.path.join(dirpath, file) for file in filenames]
+
+        for path in self.agedb_list:
+            age = int(path.split('/')[-1].split('_')[-1][:-4])
+            if age <= 18:
+                children_list.append(path)
+        self.children_list = children_list
+        total_list += self.agedb_list
+        self.total_imgs = len(total_list)
+        self.total_list = total_list
+
+    def __len__(self):
+        return self.total_imgs
+
+    def __getitem__(self, index):
+        index = index % len(self.children_list)
+        img_path = self.children_list[index]
+        img_path_list = img_path.split('/')
+        dataset_name = img_path_list[-3]
+        file_name = img_path_list[-1]  # {age}_filenum.jpg
+        folder_name = img_path_list[-2]  # label
+
+        img = Image.open(img_path)
+        if dataset_name == self.agedb_imgs_folder_name:
+            label = self.agedb_class_list.index(folder_name) + self.vgg_class_num
+            age = int(file_name.split('_')[-1].strip('.jpg'))
+        elif dataset_name == self.vgg_imgs_folder_name:
+            label = int(folder_name)
+            age = int(file_name.split('_')[0])  # this is actually meaningless
+        else:
+            print('Something went wrong... What have you done!')
+            assert False
+
+        identity_adult_list = glob.glob(os.path.join('/home/nas1_userE/jungsoolee/Face_dataset/AgeDB_new_align', folder_name, '*'))
+        for path in identity_adult_list:
+            if int(path.split('/')[-1].split('_')[-1][:-4]) <= 18:
+                identity_adult_list.remove(path)
+
+        # rand_a, rand_b = random.randint(0, len(identity_adult_list)-1), random.randint(0, len(identity_adult_list)-1)
+        # adult_a_path, adult_b_path = identity_adult_list[rand_a], identity_adult_list[rand_b]
+        # adult_a, adult_b = Image.open(adult_a_path), Image.open(adult_b_path)
+
+        rand_a = random.randint(0, len(identity_adult_list)-1)
+        adult_a_path = identity_adult_list[rand_a]
+        adult_a = Image.open(adult_a_path)
+
+        if self.transform is not None:
+            img = self.transform(img)
+            img_adult_a = self.transform(adult_a)
+            # img_adult_b = self.transform(adult_b)
+        # return (img, img_adult_a, img_adult_b), label, age
+        return (img, img_adult_a), label, age
+
+
+class VGGAgeDBOnlyDataset(Dataset):
+    '''
+    Joint DB of VGG and AgeDB
+    VGG with pseudo age labels dataset
+    directory structure
+        root/person_i/{age}_filenum.jpg
+    AGE DB with actual labels
+        root/person_name/filenum_{age}.jpg
+
+    Store image directories at init phase
+    Only samples AgeDB dataset for finetuning
+
+    Returns image, label, age
+    '''
+
+    def __init__(self, vgg_imgs_folder, agedb_imgs_folder, train_transforms):
+        self.vgg_imgs_folder_name = vgg_imgs_folder.split('/')[-1]
+        self.agedb_imgs_folder_name = agedb_imgs_folder.split('/')[-1]
+        self.transform = train_transforms
+        self.vgg_class_num = len(os.listdir(vgg_imgs_folder))
+        self.agedb_class_list = os.listdir(agedb_imgs_folder)
+        self.agedb_class_num = len(self.agedb_class_list)
+        self.class_num = self.vgg_class_num + self.agedb_class_num
+
+        total_list = []
+        self.vgg_list, self.agedb_list = [], []
+        for (dirpath, _, filenames) in os.walk(vgg_imgs_folder):
+            self.vgg_list += [os.path.join(dirpath, file) for file in filenames]
+
+        total_list += self.vgg_list
+        for (dirpath, _, filenames) in os.walk(agedb_imgs_folder):
+            self.agedb_list += [os.path.join(dirpath, file) for file in filenames]
+
+        total_list += self.agedb_list
+        self.total_imgs = len(total_list)
+        self.total_list = total_list
+
+    def __len__(self):
+        return self.total_imgs
+
+    def __getitem__(self, index):
+        index = index % len(self.agedb_list)
+        img_path = self.agedb_list[index]
+        img_path_list = img_path.split('/')
+        dataset_name = img_path_list[-3]
+        file_name = img_path_list[-1]  # {age}_filenum.jpg
+        folder_name = img_path_list[-2]  # label
+
+        img = Image.open(img_path)
+        if dataset_name == self.agedb_imgs_folder_name:
+            label = self.agedb_class_list.index(folder_name) + self.vgg_class_num
+            age = int(file_name.split('_')[-1].strip('.jpg'))
+        elif dataset_name == self.vgg_imgs_folder_name:
+            label = int(folder_name)
+            age = int(file_name.split('_')[0])  # this is actually meaningless
+        else:
+            print('Something went wrong... What have you done!')
+            assert False
+
+        if self.transform is not None:
+            img = self.transform(img)
+
+        return img, label, age
+
+
 class VGGAgeDBDataset(Dataset):
     '''
     Joint DB of VGG and AgeDB
@@ -262,18 +427,55 @@ class VGGAgeDBInstaDataset(Dataset):
         self.agedb_class_list = os.listdir(agedb_imgs_folder)
         self.agedb_class_num = len(self.agedb_class_list)
 
-        self.insta_class_list = os.listdir(insta_imgs_folder)
-        self.insta_class_num = len(self.insta_class_list)
+        # self.insta_class_list = os.listdir(insta_imgs_folder)
+        # self.insta_class_num = len(self.insta_class_list)
 
-        self.class_num = self.vgg_class_num + self.agedb_class_num + self.insta_class_num
+        # self.class_num = self.vgg_class_num + self.agedb_class_num + self.insta_class_num
+        self.class_num = self.vgg_class_num + self.agedb_class_num
 
         total_list = []
-        for (dirpath, _, filenames) in os.walk(vgg_imgs_folder):
-            total_list += [os.path.join(dirpath, file) for file in filenames]
-        for (dirpath, _, filenames) in os.walk(agedb_imgs_folder):
-            total_list += [os.path.join(dirpath, file) for file in filenames]
-        for (dirpath, _, filenames) in os.walk(insta_imgs_folder):
-            total_list += [os.path.join(dirpath, file) for file in filenames]
+        vgg_list, agedb_list, insta_list = [], [], []
+        index_list, identity_list = [], []
+        # for (dirpath, _, filenames) in os.walk(vgg_imgs_folder):
+        #     vgg_list += [os.path.join(dirpath, file) for file in filenames]
+        for index, (dirpath, _, filenames) in enumerate(os.walk(agedb_imgs_folder)):
+            for j, file in enumerate(filenames):
+                print(index, file)
+                index_list.append(index)
+                identity_list.append(filenames[0].split('_')[1])
+                if j >= 1:
+                    print(j)
+                    break
+        # print(index_list)
+        # print(identity_list)
+        # index_list = list(index_list)
+        # identity_list = list(identity_list)
+        import pdb; pdb.set_trace()
+
+        import pandas as pd
+        df = pd.DataFrame(list(zip(index_list, identity_list)), columns = ['index', 'identity'])
+        df.to_csv('agedb_id.csv')
+        import sys
+        sys.exit(0)
+            # for file in filenames:
+            #     print(index, file)
+            #     import pdb; pdb.set_trace()
+            # agedb_list += [os.path.join(dirpath, file) for file in filenames]
+
+        # for (dirpath, _, filenames) in os.walk(insta_imgs_folder):
+        #     insta_list += [os.path.join(dirpath, file) for file in filenames]
+
+
+        total_list = vgg_list + agedb_list + insta_list
+        #
+        # total_list = []
+        # for (dirpath, _, filenames) in os.walk(vgg_imgs_folder):
+        #     total_list += [os.path.join(dirpath, file) for file in filenames]
+        # for (dirpath, _, filenames) in os.walk(agedb_imgs_folder):
+        #     total_list += [os.path.join(dirpath, file) for file in filenames]
+        # for (dirpath, _, filenames) in os.walk(insta_imgs_folder):
+        #     total_list += [os.path.join(dirpath, file) for file in filenames]
+
 
         self.total_imgs = len(total_list)
         self.total_list = total_list
