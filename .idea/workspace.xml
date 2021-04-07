@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ChangeListManager">
+    <list default="true" id="198a85f9-6278-49d0-81c0-daa6ef3746a9" name="Default Changelist" comment="">
+      <change beforePath="$PROJECT_DIR$/Learner.py" beforeDir="false" afterPath="$PROJECT_DIR$/Learner.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/data_pipe.py" beforeDir="false" afterPath="$PROJECT_DIR$/data/data_pipe.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/misc/filter.py" beforeDir="false" afterPath="$PROJECT_DIR$/misc/filter.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/model.py" beforeDir="false" afterPath="$PROJECT_DIR$/model.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/train.py" beforeDir="false" afterPath="$PROJECT_DIR$/train.py" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Python Script" />
+      </list>
+    </option>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="JupyterTrust" id="934f670a-d258-4cac-966c-eaf8434de415" />
+  <component name="ProjectId" id="1pHsBDNnwqCsHgHwYZTnDJwzKu8" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">
+    <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
+    <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
+    <property name="WebServerToolWindowFactoryState" value="true" />
+    <property name="WebServerToolWindowPanel.toolwindow.highlight.mappings" value="true" />
+    <property name="WebServerToolWindowPanel.toolwindow.highlight.symlinks" value="true" />
+    <property name="WebServerToolWindowPanel.toolwindow.show.date" value="false" />
+    <property name="WebServerToolWindowPanel.toolwindow.show.permissions" value="false" />
+    <property name="WebServerToolWindowPanel.toolwindow.show.size" value="false" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
+    <property name="node.js.detected.package.eslint" value="true" />
+    <property name="node.js.detected.package.tslint" value="true" />
+    <property name="node.js.path.for.package.eslint" value="project" />
+    <property name="node.js.path.for.package.tslint" value="project" />
+    <property name="node.js.selected.package.eslint" value="(autodetect)" />
+    <property name="node.js.selected.package.tslint" value="(autodetect)" />
+  </component>
+  <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/misc" />
+      <recent name="$PROJECT_DIR$/TSNE" />
+    </key>
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$" />
+    </key>
+  </component>
+  <component name="SvnConfiguration">
+    <configuration />
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="198a85f9-6278-49d0-81c0-daa6ef3746a9" name="Default Changelist" comment="" />
+      <created>1614851212180</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1614851212180</updated>
+      <workItem from="1614851213731" duration="1853000" />
+      <workItem from="1616133150736" duration="1410000" />
+      <workItem from="1616209541799" duration="11899000" />
+      <workItem from="1616299755726" duration="16372000" />
+      <workItem from="1617361462604" duration="5411000" />
+      <workItem from="1617623326896" duration="1351000" />
+      <workItem from="1617666489214" duration="7536000" />
+      <workItem from="1617761214905" duration="6273000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="2" />
+  </component>
+  <component name="WindowStateProjectService">
+    <state x="616" y="318" key="#Deployment" timestamp="1616210981351">
+      <screen x="0" y="23" width="1792" height="1026" />
+    </state>
+    <state x="375" y="-1123" key="#Deployment/-505.-1577.2560.1577/0.23.1792.1026/2055.-1386.1920.1057@-505.-1577.2560.1577" timestamp="1614851340594" />
+    <state x="616" y="318" key="#Deployment/0.23.1792.1026@0.23.1792.1026" timestamp="1616210981351" />
+    <state x="521" y="315" key="#com.intellij.execution.impl.EditConfigurationsDialog" timestamp="1616138582664">
+      <screen x="0" y="23" width="1792" height="1024" />
+    </state>
+    <state x="239" y="-1127" key="#com.intellij.execution.impl.EditConfigurationsDialog/-505.-1577.2560.1577/0.23.1792.1026/2055.-1386.1920.1057@-505.-1577.2560.1577" timestamp="1614851226566" />
+    <state x="521" y="315" key="#com.intellij.execution.impl.EditConfigurationsDialog/0.23.1792.1024@0.23.1792.1024" timestamp="1616138582664" />
+    <state x="349" y="-980" key="#com.intellij.fileTypes.FileTypeChooser" timestamp="1616323921269">
+      <screen x="-505" y="-1577" width="2560" height="1577" />
+    </state>
+    <state x="349" y="-980" key="#com.intellij.fileTypes.FileTypeChooser/-505.-1577.2560.1577/0.23.1792.1097/2055.-1386.1920.982@-505.-1577.2560.1577" timestamp="1616323921269" />
+    <state x="513" y="-1035" key="#com.intellij.refactoring.safeDelete.UnsafeUsagesDialog" timestamp="1617666551128">
+      <screen x="-505" y="-1577" width="2560" height="1577" />
+    </state>
+    <state x="513" y="-1035" key="#com.intellij.refactoring.safeDelete.UnsafeUsagesDialog/2055.-1386.1920.1057/-505.-1577.2560.1577/0.23.1792.1030@-505.-1577.2560.1577" timestamp="1617666551128" />
+    <state x="2784" y="-1386" width="1191" height="1057" maximized="true" key="dock-window-1" timestamp="1617767603370">
+      <screen x="2055" y="-1386" width="1920" height="1057" />
+    </state>
+    <state x="2784" y="-1386" width="1191" height="1057" maximized="true" key="dock-window-1/2055.-1386.1920.1057/-505.-1577.2560.1577/0.23.1792.1028@-505.-1577.2560.1577" timestamp="1617767603370" />
+    <state x="-255" y="-1577" width="2310" height="1577" key="dock-window-1/2055.-1386.1920.986/-505.-1577.2560.1577/0.23.1792.1097@-505.-1577.2560.1577" timestamp="1617361699563" />
+    <state x="682" y="-1051" width="313" height="525" key="ftp.server.browser" timestamp="1614851317495">
+      <screen x="-505" y="-1577" width="2560" height="1577" />
+    </state>
+    <state x="682" y="-1051" width="313" height="525" key="ftp.server.browser/-505.-1577.2560.1577/0.23.1792.1026/2055.-1386.1920.1057@-505.-1577.2560.1577" timestamp="1614851317495" />
+    <state x="440" y="-1212" width="670" height="676" key="search.everywhere.popup" timestamp="1617363384439">
+      <screen x="-505" y="-1577" width="2560" height="1577" />
+    </state>
+    <state x="440" y="-1212" width="670" height="676" key="search.everywhere.popup/2055.-1386.1920.986/-505.-1577.2560.1577/0.23.1792.1097@-505.-1577.2560.1577" timestamp="1617363384439" />
+  </component>
+</project>

@@ -18,7 +18,7 @@ import glob
 from data.data_pipe import de_preprocess, get_train_loader, get_val_data
 from model import Backbone, Arcface, MobileFaceNet, l2_norm
 from utils import get_time, gen_plot, hflip_batch, separate_bn_paras
-from verifacation import evaluate
+from verification import evaluate
 from torchvision.utils import save_image
 import pdb
 
