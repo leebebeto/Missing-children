@@ -5,6 +5,7 @@ from torch import optim
 from torchvision import transforms
 from tensorboardX import SummaryWriter
 import pandas as pd
+from sync_batchnorm import convert_model
 
 from tqdm import tqdm
 from matplotlib import pyplot as plt
@@ -12,7 +13,6 @@ plt.switch_backend('agg')
 from PIL import Image
 import pickle
 import math
-import bcolz
 import os
 import glob
 from data.data_pipe import de_preprocess, get_train_loader, get_val_data
@@ -30,23 +30,22 @@ class face_learner(object):
         # XXX: Why do we need this part?? == Why do we need class_num when we are not training??, 
         # I want to erase this
         if conf.data_mode == 'vgg':
-            self.class_num = len(glob.glob(conf['vgg_folder'] +'/imgs/*'))
+            self.class_num = len(glob.glob('/home/nas1_userE/jungsoolee/Face_dataset/Vgg_age_label/imgs/*'))
         elif conf.data_mode == 'ms1m':
-            self.class_num = len(glob.glob(conf['ms1m_folder'] +'/imgs/*'))
+            self.class_num = len(glob.glob('/home/nas1_userE/jungsoolee/Face_dataset/ms1m-refined-112/imgs/*'))
 
-        if conf.use_mobilfacenet:
-            self.model = MobileFaceNet(conf.embedding_size).to(conf.device)
-            print('MobileFaceNet model generated')
-        else:
-            self.model = Backbone(conf.net_depth, conf.drop_ratio, conf.net_mode).to(conf.device)
-            print('{}_{} model generated'.format(conf.net_mode, conf.net_depth))
+        self.model = Backbone(conf.net_depth, conf.drop_ratio, conf.net_mode).to(conf.device)
+        print('{}_{} model generated'.format(conf.net_mode, conf.net_depth))
 
 
         if not inference:
-            self.milestones = conf.milestones
+            self.milestones = [6, 11, 16]
             self.loader, self.class_num = get_train_loader(conf)
-            os.makedirs(conf.log_path, exist_ok=True)
-            self.writer = SummaryWriter(conf.log_path)
+
+            self.log_path = os.path.join(conf.work_path, 'log', conf.data_mode, conf.exp)
+
+            os.makedirs(self.log_path, exist_ok=True)
+            self.writer = SummaryWriter(self.log_path)
             self.step = 0
             self.head = Arcface(embedding_size=conf.embedding_size, classnum=self.class_num).to(conf.device)
             
@@ -55,22 +54,33 @@ class face_learner(object):
                 self.model = nn.DataParallel(self.model)
                 self.head = nn.DataParallel(self.head)
 
+                if conf.use_sync == True:
+                    self.model = convert_model(self.model)
+
+
             print(self.class_num)
             print(conf)
 
             print('two model heads generated')
 
             paras_only_bn, paras_wo_bn = separate_bn_paras(self.model)
-            
-            if conf.use_mobilfacenet:
-                self.optimizer = optim.SGD([
-                                    {'params': paras_wo_bn[:-1], 'weight_decay': 4e-5},
-                                    {'params': [paras_wo_bn[-1]] + [self.head.kernel], 'weight_decay': 4e-4},
+
+            if conf.use_dp:
+                self.optimizer1 = optim.SGD([
+                                    {'params': paras_wo_bn + [self.head.module.kernel], 'weight_decay': 5e-4},
+                                ], lr = conf.lr, momentum = conf.momentum)
+
+                self.optimizer2 = optim.SGD([
                                     {'params': paras_only_bn}
                                 ], lr = conf.lr, momentum = conf.momentum)
+
+
             else:
-                self.optimizer = optim.SGD([
+                self.optimizer1 = optim.SGD([
                                     {'params': paras_wo_bn + [self.head.kernel], 'weight_decay': 5e-4},
+                                ], lr = conf.lr, momentum = conf.momentum)
+
+                self.optimizer2 = optim.SGD([
                                     {'params': paras_only_bn}
                                 ], lr = conf.lr, momentum = conf.momentum)
 
@@ -147,8 +157,13 @@ class face_learner(object):
         mult = (final_value / init_value)**(1 / num)
         lr = init_value
 
-        for params in self.optimizer.param_groups:
+        for params in self.optimizer1.param_groups:
             params['lr'] = lr
+
+        for params in self.optimizer2.param_groups:
+            params['lr'] = lr
+
+
         self.model.train()
         avg_loss, best_loss, batch_num = 0., 0., 0
         losses = []
@@ -159,7 +174,8 @@ class face_learner(object):
             labels = labels.to(conf.device)
             batch_num += 1          
 
-            self.optimizer.zero_grad()
+            self.optimizer1.zero_grad()
+            self.optimizer2.zero_grad()
 
             embeddings = self.model(imgs)
             thetas = self.head(embeddings, labels)
@@ -189,87 +205,19 @@ class face_learner(object):
             #Update the lr for the next step
 
             loss.backward()
-            self.optimizer.step()
+            self.optimizer1.step()
+            self.optimizer2.step()
 
             lr *= mult
-            for params in self.optimizer.param_groups:
+
+            for params in self.optimizer1.param_groups:
                 params['lr'] = lr
+            for params in self.optimizer2.param_groups:
+                params['lr'] = lr
+
             if batch_num > num:
                 plt.plot(log_lrs[10:-5], losses[10:-5])
                 return log_lrs, losses    
-
-    def train_positive(self, conf, epochs):
-        self.model.train()
-
-        running_loss = 0.
-        best_accuracy = 0.0
-
-        for e in range(epochs):
-            print('epoch {} started'.format(e))
-
-            if e in self.milestones:
-                self.schedule_lr()
-
-            for imgs, labels, ages in tqdm(iter(self.loader)):
-
-                self.optimizer.zero_grad()
-                image_children, image_adult_a = imgs[0], imgs[1]
-                imgs = torch.cat((image_children, image_adult_a), dim=0)
-                labels = torch.cat((labels, labels), dim=0)
-
-
-                imgs = imgs.to(conf.device)
-                labels = labels.to(conf.device)
-
-                embeddings = self.model(imgs)
-                thetas = self.head.positive_forward(embeddings, labels)
-
-                loss = conf.ce_loss(thetas, labels)
-                loss.backward()
-                running_loss += loss.item()
-
-                self.optimizer.step()
-
-                if self.step % self.board_loss_every == 0 and self.step != 0:  # XXX
-                    print('tensorboard plotting....')
-                    loss_board = running_loss / self.board_loss_every
-                    self.writer.add_scalar('train_loss', loss_board, self.step)
-                    running_loss = 0.
-
-                if self.step % self.evaluate_every == 0 and self.step != 0:
-                    print('evaluating....')
-                    accuracy, best_threshold, roc_curve_tensor = self.evaluate(conf, self.lfw, self.lfw_issame)
-                    self.board_val('lfw', accuracy, best_threshold, roc_curve_tensor)
-                    accuracy2, best_threshold2, roc_curve_tensor2 = self.evaluate(conf, self.fgnetc, self.fgnetc_issame)
-                    self.board_val('fgent_c', accuracy2, best_threshold2, roc_curve_tensor2)
-
-                    self.model.train()
-
-                if self.step % self.save_every == 0 and self.step != 0:
-                    print('saving model....')
-                    # save with most recently calculated accuracy?
-                    if conf.finetune_model_path is not None:
-                        self.save_state(conf, accuracy2,
-                                        extra=str(conf.data_mode) + '_' + str(conf.net_depth) + '_' + str(
-                                            conf.batch_size) + 'finetune')
-                    else:
-                        self.save_state(conf, accuracy2,
-                                        extra=str(conf.data_mode) + '_' + str(conf.net_depth) + '_' + str(
-                                            conf.batch_size))
-                    # if accuracy > best_accuracy:
-                    #     best_accuracy = accuracy
-                    #     print('saving best model....')
-                    #     self.save_best_state(conf, accuracy, extra=str(conf.data_mode) + str(conf.net_depth))
-
-                self.step += 1
-        if conf.finetune_model_path is not None:
-            self.save_state(conf, accuracy, to_save_folder=True,
-                            extra=str(conf.data_mode) + '_' + str(conf.net_depth) + '_' + str(
-                                conf.batch_size) + '_finetune')
-        else:
-            self.save_state(conf, accuracy, to_save_folder=True,
-                            extra=str(conf.data_mode) + '_' + str(conf.net_depth) + '_' + str(
-                                conf.batch_size) + '_final')
 
     def train(self, conf, epochs):
         '''
@@ -280,7 +228,7 @@ class face_learner(object):
 
         running_loss = 0.            
         best_accuracy = 0.0
-
+        ce_loss = nn.CrossEntropyLoss()
         for e in range(epochs):
             print('epoch {} started'.format(e))
 
@@ -289,7 +237,8 @@ class face_learner(object):
 
             for imgs, labels, ages in tqdm(iter(self.loader)):
 
-                self.optimizer.zero_grad()
+                self.optimizer1.zero_grad()
+                self.optimizer2.zero_grad()
 
                 imgs = imgs.to(conf.device)
                 labels = labels.to(conf.device)
@@ -297,11 +246,12 @@ class face_learner(object):
                 embeddings = self.model(imgs)
                 thetas = self.head(embeddings, labels)
 
-                loss = conf.ce_loss(thetas, labels)
+                loss = ce_loss(thetas, labels)
                 loss.backward()
                 running_loss += loss.item()
 
-                self.optimizer.step()
+                self.optimizer1.step()
+                self.optimizer2.step()
 
                 if self.step % self.board_loss_every == 0 and self.step != 0: # XXX
                     print('tensorboard plotting....')
@@ -392,10 +342,14 @@ class face_learner(object):
             avg_angle_df.to_excel(writer, sheet_name='avg_angle')
 
     def schedule_lr(self):
-        for params in self.optimizer.param_groups:                 
+        for params in self.optimizer1.param_groups:
             params['lr'] /= 10
-        print(self.optimizer)
-    
+        for params in self.optimizer2.param_groups:
+            params['lr'] /= 10
+
+        print(self.optimizer1)
+        print(self.optimizer2)
+
     
     def infer(self, conf, faces, target_embs, tta=False):
         '''
@@ -405,14 +359,20 @@ class face_learner(object):
         tta : test time augmentation (hfilp, that's all)
         '''
         embs = []
+
+        test_transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
+        ])
+
         for img in faces:
             if tta:
                 mirror = transforms.functional.hflip(img)
-                emb = self.model(conf.test_transform(img).to(conf.device).unsqueeze(0))
-                emb_mirror = self.model(conf.test_transform(mirror).to(conf.device).unsqueeze(0))
+                emb = self.model(test_transform(img).to(conf.device).unsqueeze(0))
+                emb_mirror = self.model(test_transform(mirror).to(conf.device).unsqueeze(0))
                 embs.append(l2_norm(emb + emb_mirror))
             else:                        
-                embs.append(self.model(conf.test_transform(img).to(conf.device).unsqueeze(0)))
+                embs.append(self.model(test_transform(img).to(conf.device).unsqueeze(0)))
         source_embs = torch.cat(embs)
         
         diff = source_embs.unsqueeze(-1) - target_embs.transpose(1,0).unsqueeze(0)
@@ -437,8 +397,11 @@ class face_learner(object):
                 self.head.state_dict(),str(save_path) +
                 ('lfw_best_head_{}_accuracy:{:.3f}_step:{}_{}.pth'.format(get_time(), accuracy, self.step, extra)))
             torch.save(
-                self.optimizer.state_dict(),str(save_path) +
-                ('lfw_best_optimizer_{}_accuracy:{:.3f}_step:{}_{}.pth'.format(get_time(), accuracy, self.step, extra)))
+                self.optimizer1.state_dict(),str(save_path) +
+                ('lfw_best_optimizer1_{}_accuracy:{:.3f}_step:{}_{}.pth'.format(get_time(), accuracy, self.step, extra)))
+            torch.save(
+                self.optimizer2.state_dict(),str(save_path) +
+                ('lfw_best_optimizer2_{}_accuracy:{:.3f}_step:{}_{}.pth'.format(get_time(), accuracy, self.step, extra)))
 
 
     def save_state(self, conf, accuracy, to_save_folder=False, extra=None, model_only=False):
@@ -456,9 +419,12 @@ class face_learner(object):
                 self.head.state_dict(), str(save_path) +
                 ('/head_{}_accuracy:{:.3f}_step:{}_{}.pth'.format(get_time(), accuracy, self.step, extra)))
             torch.save(
-                self.optimizer.state_dict(), str(save_path) +
-                ('/optimizer_{}_accuracy:{:.3f}_step:{}_{}.pth'.format(get_time(), accuracy, self.step, extra)))
-    
+                self.optimizer1.state_dict(), str(save_path) +
+                ('/optimizer1_{}_accuracy:{:.3f}_step:{}_{}.pth'.format(get_time(), accuracy, self.step, extra)))
+            torch.save(
+                self.optimizer2.state_dict(), str(save_path) +
+                ('/optimizer2_{}_accuracy:{:.3f}_step:{}_{}.pth'.format(get_time(), accuracy, self.step, extra)))
+
 
     def load_state(self, conf, model_path, head_path, from_save_folder=False, model_only=False, analyze=False):
         if from_save_folder:

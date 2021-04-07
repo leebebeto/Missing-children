@@ -7,15 +7,14 @@ from PIL import Image, ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 import numpy as np
 import cv2
-import bcolz
 import pickle
 import torch
-import mxnet as mx
 from tqdm import tqdm
 import glob
 import pdb
 import os
 import random
+import bcolz
 
 def de_preprocess(tensor):
     return tensor*0.5 + 0.5
@@ -35,19 +34,39 @@ def get_train_dataset(imgs_folder):
     return ds, class_num
 
 def get_train_loader(conf):
+    casia_folder =  '/home/nas1_userE/jungsoolee/C3AE/CASIA_112'
+    vgg_folder = '/home/nas1_userE/jungsoolee/Face_dataset/Vgg_age_label'
+    ms1m_folder = '/home/nas1_userE/jungsoolee/Face_dataset/ms1m-refined-112'
+    emore_folder = '/home/nas1_userE/jungsoolee/Face_dataset/faces_emore'
+    agedb_folder = '/home/nas1_userE/jungsoolee/Face_dataset/AgeDB_new_align'
+    # conf.agedb_balanced_folder = '/home/nas1_userE/Face_dataset/AgeDB_balanced'
+    agedb_balanced_folder = '/home/nas1_temp/jooyeolyun/AgeDB_balanced'
+    insta_folder = '/home/nas1_userD/yonggyu/Instagram_face_preprocessed'
+
+    train_transform = transforms.Compose([
+        transforms.RandomHorizontalFlip(),
+        transforms.ToTensor(),
+        transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
+    ])
+
+    if conf.data_mode == 'casia':
+        ds = CASIADataset(casia_folder, train_transforms=train_transform)
+        class_num = ds.class_num
+        print('casia loader generated')
+
     if conf.data_mode in ['ms1m', 'ms1m_vgg_concat']:
-        ms1m_ds, ms1m_class_num = get_train_dataset(os.path.join(conf.ms1m_folder, 'imgs'))
+        ms1m_ds, ms1m_class_num = get_train_dataset(os.path.join(ms1m_folder, 'imgs'))
         print('ms1m loader generated')
     if conf.data_mode in ['vgg', 'ms1m_vgg_concat']:
-        vgg_ds = VGGLabeledDataset(conf.vgg_folder, train_transforms=conf.train_transform)
+        vgg_ds = VGGLabeledDataset(vgg_folder, train_transforms=train_transform)
         vgg_class_num = vgg_ds.class_num
         print('vgg loader generated')     
     if conf.data_mode == 'vgg_agedb':
-        ds = VGGAgeDBDataset(conf.vgg_folder, conf.agedb_folder, train_transforms=conf.train_transform)
+        ds = VGGAgeDBDataset(vgg_folder, agedb_folder, train_transforms=train_transform)
         class_num = ds.class_num
         print('vgg, agedb loader generated')
     if conf.data_mode == 'vgg_agedb_insta':
-        ds = VGGAgeDBInstaDataset(conf.vgg_folder, conf.agedb_folder, conf.insta_folder, train_transforms=conf.train_transform)
+        ds = VGGAgeDBInstaDataset(vgg_folder, agedb_folder, insta_folder, train_transforms=train_transform)
         class_num = ds.class_num
         print('vgg, with agedb balaned')
         
@@ -65,7 +84,7 @@ def get_train_loader(conf):
     elif conf.data_mode == 'emore':
         ds, class_num = get_train_dataset(os.path.join(conf.emore_folder, 'imgs'))
 
-    loader = DataLoader(ds, batch_size=conf.batch_size, shuffle=True, pin_memory=conf.pin_memory, num_workers=conf.num_workers)
+    loader = DataLoader(ds, batch_size=conf.batch_size, shuffle=True, pin_memory=True, num_workers=conf.num_workers)
     return loader, class_num 
     
 def load_bin(path, rootdir, transform, image_size=[112,112]):
@@ -126,6 +145,46 @@ def load_mx_rec(rec_path):
         # if not label_path.exists():
         #     label_path.mkdir()
         # img.save(label_path/'{}.jpg'.format(idx), quality=95)
+
+
+class CASIADataset(Dataset):
+    '''
+    CASIA with pseudo age labels dataset
+    directory structure
+        root/person_i/{age}_filenum.jpg
+
+    Store image directories at init phase
+
+    Returns image, label, age
+    '''
+
+    def __init__(self, imgs_folder, train_transforms):
+        self.root_dir = imgs_folder
+        self.transform = train_transforms
+        self.class_num = len(os.listdir(imgs_folder))
+
+        total_list = glob.glob(self.root_dir + '/*/*')
+
+        self.total_imgs = len(total_list)
+        self.total_list = total_list
+        print(f'{imgs_folder} length: {self.total_imgs}')
+
+    def __len__(self):
+        return self.total_imgs
+
+    def __getitem__(self, index):
+        img_path = self.total_list[index]
+        img_path_list = img_path.split('/')
+        file_name = img_path_list[-1]  # {age}_filenum.jpg
+
+        img = Image.open(img_path)
+        label = int(img_path.split('/')[-2])
+        age = int(file_name.split('/')[-1].split('_')[-1][:-4])
+
+        if self.transform is not None:
+            img = self.transform(img)
+
+        return img, label, age
 
 
 class VGGLabeledDataset(Dataset):

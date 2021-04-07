@@ -32,6 +32,14 @@ def prepare_facebank(conf, model, mtcnn, tta = True):
     model.eval()
     embeddings =  []
     names = ['Unknown']
+
+    test_transform = trans.Compose([
+        trans.ToTensor(),
+        trans.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
+    ])
+
+
+
     for path in conf.facebank_path.iterdir():
         if path.is_file():
             continue
@@ -50,11 +58,11 @@ def prepare_facebank(conf, model, mtcnn, tta = True):
                     with torch.no_grad():
                         if tta:
                             mirror = trans.functional.hflip(img)
-                            emb = model(conf.test_transform(img).to(conf.device).unsqueeze(0))
-                            emb_mirror = model(conf.test_transform(mirror).to(conf.device).unsqueeze(0))
+                            emb = model(test_transform(img).to(conf.device).unsqueeze(0))
+                            emb_mirror = model(test_transform(mirror).to(conf.device).unsqueeze(0))
                             embs.append(l2_norm(emb + emb_mirror))
                         else:                        
-                            embs.append(model(conf.test_transform(img).to(conf.device).unsqueeze(0)))
+                            embs.append(model(test_transform(img).to(conf.device).unsqueeze(0)))
         if len(embs) == 0:
             continue
         embedding = torch.cat(embs).mean(0,keepdim=True)

@@ -8,3 +8,6 @@ Pillow==7.2.0
 tensorboardX==2.1.0
 pandas
 openpyxl
+matplotlib
+sklearn
+bcolz==1.2.1
