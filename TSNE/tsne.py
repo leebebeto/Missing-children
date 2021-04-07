@@ -1,6 +1,6 @@
 from config import get_config
 import argparse
-from Learner import face_learner
+from learner import face_learner
 from data.data_pipe import get_val_pair
 from torchvision import transforms as trans
 
@@ -10,7 +10,7 @@ import numpy as np
 import os
 import torchvision.transforms as T
 import torch.nn.functional as F
-from verifacation import evaluate_dist
+from verification import evaluate_dist
 from model import Backbone, Arcface, MobileFaceNet, l2_norm
 from utils import get_time, gen_plot, hflip_batch, separate_bn_paras
 from torchvision import transforms

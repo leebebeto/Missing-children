@@ -1,6 +1,6 @@
 import torch
 from config import get_config
-from Learner import face_learner
+from learner import face_learner
 import argparse
 
 # python analyze_trained_model.py -net ir_se --batch_size 64 --data_mode vgg

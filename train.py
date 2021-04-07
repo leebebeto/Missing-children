@@ -1,5 +1,5 @@
 from config import get_config
-from Learner import face_learner
+from learner import face_learner
 import argparse
 import torch
 import numpy as np

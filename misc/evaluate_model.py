@@ -1,6 +1,6 @@
 from config import get_config
 import argparse
-from Learner import face_learner
+from learner import face_learner
 from data.data_pipe import get_val_pair
 from torchvision import transforms as trans
 
