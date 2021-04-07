@@ -87,8 +87,8 @@ def get_train_loader_d(conf):
     ds_c = ChildDataset(conf.child_folder, train_transform)
     ds_a = AdultDataset(conf.adult_folder, train_transform)
 
-    loader_c = DataLoader(ds_c, batch_size=conf.batch_size, shuffle=True, pin_memory=conf.pin_memory, num_workers=conf.num_workers)
-    loader_d = DataLoader(ds_a, batch_size=conf.batch_size, shuffle=True, pin_memory=conf.pin_memory, num_workers=conf.num_workers)
+    loader_c = DataLoader(ds_c, batch_size=conf.batch_size_d, shuffle=True, pin_memory=conf.pin_memory, num_workers=conf.num_workers)
+    loader_d = DataLoader(ds_a, batch_size=conf.batch_size_d, shuffle=True, pin_memory=conf.pin_memory, num_workers=conf.num_workers)
 
     return loader_c, loader_d
 

@@ -160,11 +160,22 @@ class Discriminator(Module):
     def __init__(self):
         super(Discriminator, self).__init__()
         self.d = Sequential(
-            Linear(512, 100),
-            BatchNorm1d(100),
+            Linear(512, 256),
+            BatchNorm1d(256),
             PReLU(),
-            Linear(100, 1)
+            Dropout(),
+            Linear(256,128),
+            BatchNorm1d(128),
+            PReLU(),
+            Dropout(),
+            Linear(128, 1)
         )
+        # self.d = Sequential(
+        #     Linear(512, 100),
+        #     BatchNorm1d(100),
+        #     PReLU(),
+        #     Linear(100, 1)
+        # )
 
     def forward(self, x):
         out = self.d(x)

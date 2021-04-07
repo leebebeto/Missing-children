@@ -12,11 +12,12 @@ if __name__ == '__main__':
     parser.add_argument("-e", "--epochs", help="training epochs", default=20, type=int)
     parser.add_argument("-net", "--net_mode", help="which network, [ir, ir_se, mobilefacenet]",default='ir_se', type=str)
     parser.add_argument("-depth", "--net_depth", help="how many layers [50,100,152]", default=50, type=int)
-    parser.add_argument('-lr','--lr',help='learning rate',default=1e-3, type=float)
+    parser.add_argument('-lr','--lr',help='learning rate',default=0.1, type=float)
     parser.add_argument("-b", "--batch_size", help="batch_size", default=64, type=int)
     parser.add_argument("-w", "--num_workers", help="workers number", default=3, type=int)
     parser.add_argument("-d", "--data_mode", help="use which database, [vgg, ms1m, emore, ms1m_vgg_concat, vgg_agedb, vgg_agedb_insta, casia_agedb_insta, vgg_adgedb_balanced]",default='vgg', type=str)
     parser.add_argument("-f", "--finetune_model_path", help='finetune using balanced agedb', default=None, type=str)
+    parser.add_argument("-name", "--model_name", help='model_name', default=None, type=str)
     args = parser.parse_args()
 
     conf = get_config()
@@ -39,6 +40,8 @@ if __name__ == '__main__':
     for i in conf.milestones:
         _milestone += ('_'+str(i))
     conf.exp = str(conf.net_depth) + _milestone
+    conf.log_path = conf.log_path + args.model_name # log sub-directory name
+    conf.model_name = args.model_name
         
     conf.lr = args.lr
     conf.batch_size = args.batch_size
@@ -48,7 +51,7 @@ if __name__ == '__main__':
 
     learner = face_learner(conf)
     if conf.finetune_model_path is not None:
-        conf.lr = args.lr * 0.01
+        conf.lr = args.lr * 0.0001
         learner.load_state(conf, conf.finetune_model_path, model_only=False, from_save_folder=False, analyze=True) # analyze true == does not load optim.
 
     if conf.discriminator:

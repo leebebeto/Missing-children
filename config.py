@@ -1,7 +1,7 @@
 from easydict import EasyDict as edict
 from pathlib import Path
 import torch
-from torch.nn import CrossEntropyLoss, L1Loss
+from torch.nn import CrossEntropyLoss, L1Loss, MSELoss
 from torchvision import transforms
 import pdb
 
@@ -15,7 +15,8 @@ def get_config(training = True):
     conf.log_path = conf.work_path/'log'
     conf.save_path = '/home/nas1_userE/jungsoolee/BMVC/pretrained/'
 
-    conf.batch_size = 100 # irse net depth 50 
+    conf.batch_size = 64 # irse net depth 50
+    conf.batch_size_d = 64 # child 4 + adult 4 = 8
 #   conf.batch_size = 200 # mobilefacenet
     conf.input_size = [112,112]
     conf.embedding_size = 512
@@ -38,12 +39,14 @@ def get_config(training = True):
         transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
     ])
 
-    conf.exp = str(conf.net_depth) + '_6_11_16'
-    conf.data_mode = 'vgg'
+    conf.exp = str(conf.net_depth)
+    # conf.data_mode = 'vgg'
+    conf.data_mode = 'casia'
     # conf.data_mode = 'ms1m'
     conf.resume_analysis = False
     conf.finetune_model_path = None
     conf.discriminator = True
+    conf.model_name = ''
 
     # conf.vgg_folder = '/home/nas1_userE/Face_dataset/faces_vgg_112'
     conf.vgg_folder = '/home/nas1_userE/jungsoolee/Face_dataset/Vgg_age_label'
@@ -75,6 +78,7 @@ def get_config(training = True):
         conf.num_workers = 3
         conf.ce_loss = CrossEntropyLoss()
         conf.l1_loss = L1Loss()
+        conf.ls_loss = MSELoss()
 #--------------------Inference Config ------------------------
     else:
         conf.facebank_path = conf.data_path/'facebank'
