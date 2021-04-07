@@ -332,9 +332,10 @@ class face_learner(object):
                 embeddings_a, embeddings_c = _embeddings[:bs_a], _embeddings[bs_a:]
 
                 embeddings_a_hat = self.growup(embeddings_c)
-                embeddings_ac = torch.cat([embeddings_a, embeddings_a_hat], dim=0)
                 labels_ac = torch.cat([labels_a, labels_c], dim=0)
-                pred_ac = torch.squeeze(self.discriminator(embeddings_ac))
+                pred_a = torch.squeeze(self.discriminator(embeddings_a)) # sperate since batchnorm exists
+                pred_c = torch.squeeze(self.discriminator(embeddings_c))
+                pred_ac = torch.cat([pred_a, pred_c], dim=0)
                 d_loss = conf.ls_loss(pred_ac, labels_ac)
                 d_loss.backward()
                 self.optimizer_d.step()
@@ -345,14 +346,15 @@ class face_learner(object):
                 self.optimizer_g.zero_grad()
                 embeddings_c = self.model(imgs_c)
                 embeddings_a_hat = self.growup(embeddings_c)
-                pred_c = torch.squeeze(self.discriminator(embeddings_c))
+                pred_c = torch.squeeze(self.discriminator(embeddings_a_hat))
                 labels_a = torch.ones_like(labels_c, dtype=torch.float)
                 # generator should make child 1
                 g_loss = conf.ls_loss(pred_c, labels_a)
-                
+
                 l1_loss = conf.l1_loss(embeddings_a_hat, embeddings_c)
                 g_total_loss = g_loss + l1_loss
                 g_total_loss.backward()
+
                 # g_loss.backward()
                 self.optimizer_g.step()
 

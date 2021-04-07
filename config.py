@@ -16,7 +16,7 @@ def get_config(training = True):
     conf.save_path = '/home/nas1_userE/jungsoolee/BMVC/pretrained/'
 
     conf.batch_size = 64 # irse net depth 50
-    conf.batch_size_d = 64 # child 4 + adult 4 = 8
+    conf.batch_size_d = 8 # child 4 + adult 4 = 8
 #   conf.batch_size = 200 # mobilefacenet
     conf.input_size = [112,112]
     conf.embedding_size = 512
