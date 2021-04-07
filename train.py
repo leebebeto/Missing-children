@@ -9,16 +9,37 @@ import random
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='for face verification')
-    parser.add_argument("-e", "--epochs", help="training epochs", default=20, type=int)
-    parser.add_argument("-net", "--net_mode", help="which network, [ir, ir_se, mobilefacenet]",default='ir_se', type=str)
-    parser.add_argument("-depth", "--net_depth", help="how many layers [50,100,152]", default=50, type=int)
-    parser.add_argument('-lr','--lr',help='learning rate',default=1e-3, type=float)
-    parser.add_argument("-b", "--batch_size", help="batch_size", default=64, type=int)
-    parser.add_argument("-w", "--num_workers", help="workers number", default=3, type=int)
-    parser.add_argument("-d", "--data_mode", help="use which database, [vgg, ms1m, emore, ms1m_vgg_concat, a, vgg_agedb_insta, vgg_adgedb_balanced]",default='vgg', type=str)
-    parser.add_argument("-f", "--finetune_model_path", help='finetune using balanced agedb', default=None, type=str)
+
+    # training
+    parser.add_argument("--epochs", help="training epochs", default=20, type=int)
+    parser.add_argument("--lr",help='learning rate',default=1e-3, type=float)
+    parser.add_argument("--momentum",help='momentum',default=0.9, type=float)
+    parser.add_argument("--batch_size", help="batch_size", default=64, type=int)
+    parser.add_argument("--num_workers", help="workers number", default=3, type=int)
+    parser.add_argument("--data_mode", help="use which database, [vgg, ms1m, emore, ms1m_vgg_concat, a, vgg_agedb_insta, vgg_adgedb_balanced]",default='vgg', type=str)
+    parser.add_argument("--finetune_model_path", help='finetune using balanced agedb', default=None, type=str)
     parser.add_argument("--finetune_head_path", help='head path', default=None, type=str)
+    parser.add_argument("--vgg_folder", help='directory for vgg_folder', default='/home/nas1_userE/jungsoolee/Face_dataset/Vgg_age_label', type=str)
+    parser.add_argument("--ms1m_folder", help='directory for vgg_folder', default='/home/nas1_userE/jungsoolee/Face_dataset/ms1m-refined-112', type=str)
+    parser.add_argument("--emore_folder", help='directory for vgg_folder', default='/home/nas1_userE/jungsoolee/Face_dataset/faces_emore', type=str)
+    parser.add_argument("--agedb_folder", help='directory for vgg_folder', default='/home/nas1_userE/jungsoolee/Face_dataset/AgeDB_new_align', type=str)
+    parser.add_argument("--agedb_balanced_folder", help='directory for vgg_folder', default='/home/nas1_temp/jooyeolyun/AgeDB_balanced', type=str)
+    parser.add_argument("--insta_folder", help='directory for vgg_folder', default='/home/nas1_userD/yonggyu/Instagram_face_preprocessed', type=str)
     parser.add_argument("--exp", help='experiment name', default=None, type=str)
+
+    # model
+    parser.add_argument("--net_mode", help="which network, [ir, ir_se, mobilefacenet]",default='ir_se', type=str)
+    parser.add_argument("--net_depth", help="how many layers [50,100,152]", default=50, type=int)
+    parser.add_argument("--embedding_size", help='embedding_size', default=512, type=int)
+    parser.add_argument("--drop_ratio", help="ratio of drop out", default=0.6, type=float)
+    parser.add_argument("--device", help="cuda or cpu", default='cuda', type=str)
+
+    # logging
+    parser.add_argument("--data_path", help='path for loading data', default='data', type=str)
+    parser.add_argument("--work_path", help='path for saving models & logs', default='work_space', type=str)
+    parser.add_argument("--model_path", help='path for saving models', default='work_space/models', type=str)
+    parser.add_argument("--log_path", help='path for saving logs', default='work_space/log', type=str)
+
     args = parser.parse_args()
 
     conf = get_config(exp = args.exp, data_mode=args.data_mode)
@@ -32,11 +53,11 @@ if __name__ == '__main__':
     np.random.seed(random_seed)
     random.seed(random_seed)
 
-    if args.net_mode == 'mobilefacenet':
-        conf.use_mobilfacenet = True
-    else:
-        conf.net_mode = args.net_mode
-        conf.net_depth = args.net_depth
+    # if args.net_mode == 'mobilefacenet':
+    #     conf.use_mobilfacenet = True
+    # else:
+    conf.net_mode = args.net_mode
+    conf.net_depth = args.net_depth
     _milestone = ''
     for i in conf.milestones:
         _milestone += ('_'+str(i))

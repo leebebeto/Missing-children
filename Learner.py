@@ -73,6 +73,7 @@ class face_learner(object):
                                     {'params': paras_wo_bn + [self.head.kernel], 'weight_decay': 5e-4},
                                     {'params': paras_only_bn}
                                 ], lr = conf.lr, momentum = conf.momentum)
+
             # if conf.finetune_model_path is not None:
             #     self.optimizer = optim.SGD([
             #                             {'params': paras_wo_bn, 'weight_decay': 5e-4},
@@ -83,13 +84,9 @@ class face_learner(object):
 
             print('optimizers generated')
             self.board_loss_every = len(self.loader)//100
-            # self.evaluate_every = len(self.loader)//2
             self.evaluate_every = len(self.loader)//5
-            # self.save_every = len(self.loader)//5
-            # self.save_every = len(self.loader)
             self.save_every = len(self.loader)//5
 
-            # self.agedb_30, self.cfp_fp, self.lfw, self.agedb_30_issame, self.cfp_fp_issame, self.lfw_issame = get_val_data(self.loader.dataset.root.parent)
             self.agedb_30, self.cfp_fp, self.lfw, self.agedb_30_issame, self.cfp_fp_issame, self.lfw_issame = get_val_data('/home/nas1_userE/jungsoolee/Face_dataset/faces_emore')
             dataset_root = "/home/nas1_userD/yonggyu/Face_dataset/face_emore"
             self.fgnetc = np.load(os.path.join(dataset_root, "FGNET_new_align_list.npy")).astype(np.float32)
@@ -105,11 +102,7 @@ class face_learner(object):
         self.writer.add_scalar('{}_accuracy'.format(db_name), accuracy, self.step)
         self.writer.add_scalar('{}_best_threshold'.format(db_name), best_threshold, self.step)
         self.writer.add_image('{}_roc_curve'.format(db_name), roc_curve_tensor, self.step)
-#         self.writer.add_scalar('{}_val:true accept ratio'.format(db_name), val, self.step)
-#         self.writer.add_scalar('{}_val_std'.format(db_name), val_std, self.step)
-#         self.writer.add_scalar('{}_far:False Acceptance Ratio'.format(db_name), far, self.step)
-        
-        
+
     def evaluate(self, conf, carray, issame, nrof_folds = 10, tta = True):
         self.model.eval()
         idx = 0
@@ -220,10 +213,6 @@ class face_learner(object):
             for imgs, labels, ages in tqdm(iter(self.loader)):
 
                 self.optimizer.zero_grad()
-                # image_children, image_adult_a, image_adult_b = imgs[0], imgs[1], imgs[2]
-                # imgs = torch.cat((image_children, image_adult_a, image_adult_b), dim=0)
-                # labels = torch.cat((labels, labels, labels), dim=0)
-
                 image_children, image_adult_a = imgs[0], imgs[1]
                 imgs = torch.cat((image_children, image_adult_a), dim=0)
                 labels = torch.cat((labels, labels), dim=0)
@@ -251,10 +240,6 @@ class face_learner(object):
                     print('evaluating....')
                     accuracy, best_threshold, roc_curve_tensor = self.evaluate(conf, self.lfw, self.lfw_issame)
                     self.board_val('lfw', accuracy, best_threshold, roc_curve_tensor)
-                    # accuracy, best_threshold, roc_curve_tensor = self.evaluate(conf, self.agedb_30, self.agedb_30_issame)
-                    # self.board_val('agedb_30', accuracy, best_threshold, roc_curve_tensor)
-                    # accuracy, best_threshold, roc_curve_tensor = self.evaluate(conf, self.cfp_fp, self.cfp_fp_issame)
-                    # self.board_val('cfp_fp', accuracy, best_threshold, roc_curve_tensor)
                     accuracy2, best_threshold2, roc_curve_tensor2 = self.evaluate(conf, self.fgnetc, self.fgnetc_issame)
                     self.board_val('fgent_c', accuracy2, best_threshold2, roc_curve_tensor2)
 
@@ -328,10 +313,6 @@ class face_learner(object):
                     print('evaluating....')
                     accuracy, best_threshold, roc_curve_tensor = self.evaluate(conf, self.lfw, self.lfw_issame)
                     self.board_val('lfw', accuracy, best_threshold, roc_curve_tensor)
-                    # accuracy, best_threshold, roc_curve_tensor = self.evaluate(conf, self.agedb_30, self.agedb_30_issame)
-                    # self.board_val('agedb_30', accuracy, best_threshold, roc_curve_tensor)
-                    # accuracy, best_threshold, roc_curve_tensor = self.evaluate(conf, self.cfp_fp, self.cfp_fp_issame)
-                    # self.board_val('cfp_fp', accuracy, best_threshold, roc_curve_tensor)
                     accuracy2, best_threshold2, roc_curve_tensor2 = self.evaluate(conf, self.fgnetc, self.fgnetc_issame)
                     self.board_val('fgent_c', accuracy2, best_threshold2, roc_curve_tensor2)
 
@@ -487,10 +468,3 @@ class face_learner(object):
         self.model.load_state_dict(torch.load(model_path))
         if head_path is not None:
             self.head.load_state_dict(torch.load(head_path))
-        # self.model.load_state_dict(torch.load(os.path.join(save_path, 'model_{}'.format(fixed_str))))
-        # self.head.load_state_dict(torch.load(os.path.join(save_path, 'head_{}'.format(fixed_str))))
-        # if not model_only:
-        #     self.head.load_state_dict(torch.load(save_path/'head_{}'.format(fixed_str)))
-        #     if not analyze:
-        #         self.optimizer.load_state_dict(torch.load(save_path/'optimizer_{}'.format(fixed_str)))
-        #
