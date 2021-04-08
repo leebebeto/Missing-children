@@ -35,13 +35,13 @@ def get_train_dataset(imgs_folder):
 
 def get_train_loader(conf):
     casia_folder =  '/home/nas1_userE/jungsoolee/C3AE/CASIA_112'
-    vgg_folder = '/home/nas1_userE/jungsoolee/Face_dataset/Vgg_age_label'
-    ms1m_folder = '/home/nas1_userE/jungsoolee/Face_dataset/ms1m-refined-112'
-    emore_folder = '/home/nas1_userE/jungsoolee/Face_dataset/faces_emore'
-    agedb_folder = '/home/nas1_userE/jungsoolee/Face_dataset/AgeDB_new_align'
-    # conf.agedb_balanced_folder = '/home/nas1_userE/Face_dataset/AgeDB_balanced'
-    agedb_balanced_folder = '/home/nas1_temp/jooyeolyun/AgeDB_balanced'
-    insta_folder = '/home/nas1_userD/yonggyu/Instagram_face_preprocessed'
+    # vgg_folder = '/home/nas1_userE/jungsoolee/Face_dataset/Vgg_age_label'
+    # ms1m_folder = '/home/nas1_userE/jungsoolee/Face_dataset/ms1m-refined-112'
+    # emore_folder = '/home/nas1_userE/jungsoolee/Face_dataset/faces_emore'
+    # agedb_folder = '/home/nas1_userE/jungsoolee/Face_dataset/AgeDB_new_align'
+    # # conf.agedb_balanced_folder = '/home/nas1_userE/Face_dataset/AgeDB_balanced'
+    # agedb_balanced_folder = '/home/nas1_temp/jooyeolyun/AgeDB_balanced'
+    # insta_folder = '/home/nas1_userD/yonggyu/Instagram_face_preprocessed'
 
     train_transform = transforms.Compose([
         transforms.RandomHorizontalFlip(),

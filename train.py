@@ -30,7 +30,7 @@ if __name__ == '__main__':
     parser.add_argument("--drop_ratio", help="ratio of drop out", default=0.6, type=float)
     parser.add_argument("--device", help="cuda or cpu", default='cuda', type=str)
     parser.add_argument("--loss", help="Arcface", default='Arcface', type=str)
-    parser.add_argument("--max_m", help="max_m for LDAM", default=0.5, type=float)
+    parser.add_argument("--max_m", help="max_m for LDAM", default=1.0, type=float)
     parser.add_argument("--scale", help="scale factor for LDAM", default=64, type=int)
 
     # logging

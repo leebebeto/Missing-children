@@ -300,6 +300,7 @@ class Am_softmax(Module):
         self.kernel.data.uniform_(-1, 1).renorm_(2,1,1e-5).mul_(1e5)
         self.m = 0.35 # additive margin recommended by the paper
         self.s = 30. # see normface https://arxiv.org/abs/1704.06369
+
     def forward(self,embbedings, label, age=None):
         kernel_norm = l2_norm(self.kernel,axis=0)
         cos_theta = torch.mm(embbedings,kernel_norm)
@@ -322,7 +323,7 @@ class Am_softmax(Module):
     # def forward(self, x, target):
 
 class LDAMLoss(Module):
-    def __init__(self, embedding_size=512, classnum=51332, max_m=0.5, s=30, cls_num_list=[]):
+    def __init__(self, embedding_size=512, classnum=51332, max_m=1.0, s=64, cls_num_list=[]):
         super(LDAMLoss, self).__init__()
         self.classnum = classnum
         self.kernel = Parameter(torch.Tensor(embedding_size,classnum))
@@ -339,7 +340,6 @@ class LDAMLoss(Module):
         self.s = s
 
     def forward(self,embbedings, label, age):
-        import pdb; pdb.set_trace()
         kernel_norm = l2_norm(self.kernel, axis=0)
         cos_theta = torch.mm(embbedings, kernel_norm)
         cos_theta = cos_theta.clamp(-1, 1)  # for numerical stability

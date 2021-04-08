@@ -58,10 +58,6 @@ class face_learner(object):
                 print('wrong loss function.. exiting...')
                 sys.exit(0)
 
-
-
-
-
             # Will not use anymore
             if conf.use_dp:
                 self.model = nn.DataParallel(self.model)
@@ -291,7 +287,7 @@ class face_learner(object):
                     # if accuracy > best_accuracy:
                     #     best_accuracy = accuracy
                     #     print('saving best model....')
-                    #     self.save_best_state(conf, accuracy, extra=str(conf.data_mode) + str(conf.net_depth))
+                    #     self.save_best_state(conf, best_accuracy, extra=str(conf.data_mode) + '_' + str(conf.exp) + '_' + str(conf.batch_size))
 
                 self.step += 1
         if conf.finetune_model_path is not None:
