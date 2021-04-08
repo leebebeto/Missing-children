@@ -4,7 +4,7 @@ import torch
 from collections import namedtuple
 import math
 import pdb
-
+import numpy as np
 ##################################  Original Arcface Model #############################################################
 
 class Flatten(Module):
@@ -254,7 +254,7 @@ class Arcface(Module):
         self.mm = self.sin_m * m  # issue 1
         self.threshold = math.cos(math.pi - m)
 
-    def forward(self, embbedings, label):
+    def forward(self, embbedings, label, age=None):
         # weights norm
         nB = len(embbedings)
         kernel_norm = l2_norm(self.kernel,axis=0)
@@ -300,17 +300,57 @@ class Am_softmax(Module):
         self.kernel.data.uniform_(-1, 1).renorm_(2,1,1e-5).mul_(1e5)
         self.m = 0.35 # additive margin recommended by the paper
         self.s = 30. # see normface https://arxiv.org/abs/1704.06369
-    def forward(self,embbedings,label):
+    def forward(self,embbedings, label, age=None):
         kernel_norm = l2_norm(self.kernel,axis=0)
         cos_theta = torch.mm(embbedings,kernel_norm)
         cos_theta = cos_theta.clamp(-1,1) # for numerical stability
         phi = cos_theta - self.m
-        label = label.view(-1,1) #size=(B,1)
-        index = cos_theta.data * 0.0 #size=(B,Classnum)
-        index.scatter_(1,label.data.view(-1,1),1)
-        index = index.byte()
+        label = label.view(-1) #size=(B,1)
+        index = torch.arange(0, label.shape[0], dtype=torch.long)
+        # index = cos_theta.data * 0.0 #size=(B,Classnum)
+        # index.scatter_(1,label.data.view(-1,1),1)
+        # index = index.byte()
         output = cos_theta * 1.0
-        output[index] = phi[index] #only change the correct predicted output
+        output[index,index] = phi[index, label] #only change the correct predicted output
         output *= self.s # scale up in order to make softmax work, first introduced in normface
+        return output
+
+##################################  LDAM head #############################################################
+
+    # def __init__(self, cls_num_list, max_m=0.5, weight=None, s=30):
+        # self.weight = weight
+    # def forward(self, x, target):
+
+class LDAMLoss(Module):
+    def __init__(self, embedding_size=512, classnum=51332, max_m=0.5, s=30, cls_num_list=[]):
+        super(LDAMLoss, self).__init__()
+        self.classnum = classnum
+        self.kernel = Parameter(torch.Tensor(embedding_size,classnum))
+        # initial kernel
+        self.kernel.data.uniform_(-1, 1).renorm_(2,1,1e-5).mul_(1e5)
+        self.s = s
+        print(f'LDAM loss with max_m: {max_m}, scale: {self.s}')
+        m_list = 1.0 / np.sqrt(np.sqrt(cls_num_list)) # child / adult: 2 classes
+        m_list = m_list * (max_m / np.max(m_list))
+        m_list = torch.cuda.FloatTensor(m_list)
+        self.m_list = m_list
+
+        assert s > 0
+        self.s = s
+
+    def forward(self,embbedings, label, age):
+        import pdb; pdb.set_trace()
+        kernel_norm = l2_norm(self.kernel, axis=0)
+        cos_theta = torch.mm(embbedings, kernel_norm)
+        cos_theta = cos_theta.clamp(-1, 1)  # for numerical stability
+        margin = self.m_list[age]
+        margin = margin.unsqueeze(1).expand(cos_theta.shape)
+
+        phi = cos_theta - margin
+        label = label.view(-1)  # size=(B,1)
+        index = torch.arange(0, label.shape[0], dtype=torch.long)
+        output = cos_theta * 1.0
+        output[index, index] = phi[index, label]  # only change the correct predicted output
+        output *= self.s  # scale up in order to make softmax work, first introduced in normface
         return output
 

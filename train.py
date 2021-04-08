@@ -12,7 +12,7 @@ if __name__ == '__main__':
 
     # training
     parser.add_argument("--epochs", help="training epochs", default=20, type=int)
-    parser.add_argument("--lr",help='learning rate',default=1e-3, type=float)
+    parser.add_argument("--lr",help='learning rate',default=1e-1, type=float)
     parser.add_argument("--momentum",help='momentum',default=0.9, type=float)
     parser.add_argument("--batch_size", help="batch_size", default=64, type=int)
     parser.add_argument("--num_workers", help="workers number", default=3, type=int)
@@ -29,6 +29,9 @@ if __name__ == '__main__':
     parser.add_argument("--embedding_size", help='embedding_size', default=512, type=int)
     parser.add_argument("--drop_ratio", help="ratio of drop out", default=0.6, type=float)
     parser.add_argument("--device", help="cuda or cpu", default='cuda', type=str)
+    parser.add_argument("--loss", help="Arcface", default='Arcface', type=str)
+    parser.add_argument("--max_m", help="max_m for LDAM", default=0.5, type=float)
+    parser.add_argument("--scale", help="scale factor for LDAM", default=64, type=int)
 
     # logging
     parser.add_argument("--data_path", help='path for loading data', default='data', type=str)

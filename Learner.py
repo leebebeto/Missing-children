@@ -16,7 +16,7 @@ import math
 import os
 import glob
 from data.data_pipe import de_preprocess, get_train_loader, get_val_data
-from model import Backbone, Arcface, MobileFaceNet, l2_norm
+from model import *
 from utils import get_time, gen_plot, hflip_batch, separate_bn_paras
 from verification import evaluate
 from torchvision.utils import save_image
@@ -40,15 +40,28 @@ class face_learner(object):
 
         if not inference:
             self.milestones = [6, 11, 16]
-            self.loader, self.class_num = get_train_loader(conf)
+            self.loader, self.class_num, ds = get_train_loader(conf)
 
             self.log_path = os.path.join(conf.work_path, 'log', conf.data_mode, conf.exp)
 
             os.makedirs(self.log_path, exist_ok=True)
             self.writer = SummaryWriter(self.log_path)
             self.step = 0
-            self.head = Arcface(embedding_size=conf.embedding_size, classnum=self.class_num).to(conf.device)
-            
+            if conf.loss == 'Arcface':
+                self.head = Arcface(embedding_size=conf.embedding_size, classnum=self.class_num).to(conf.device)
+            elif conf.loss == 'Cosface':
+                self.head = Am_softmax(embedding_size=conf.embedding_size, classnum=self.class_num).to(conf.device)
+            elif conf.loss == 'LDAM':
+                self.head = LDAMLoss(embedding_size=conf.embedding_size, classnum=self.class_num, max_m=conf.max_m, s=conf.scale, cls_num_list=ds.class_num_list).to(conf.device)
+            else:
+                import sys
+                print('wrong loss function.. exiting...')
+                sys.exit(0)
+
+
+
+
+
             # Will not use anymore
             if conf.use_dp:
                 self.model = nn.DataParallel(self.model)
@@ -244,7 +257,7 @@ class face_learner(object):
                 labels = labels.to(conf.device)
 
                 embeddings = self.model(imgs)
-                thetas = self.head(embeddings, labels)
+                thetas = self.head(embeddings, labels, ages)
 
                 loss = ce_loss(thetas, labels)
                 loss.backward()
@@ -274,7 +287,7 @@ class face_learner(object):
                     if conf.finetune_model_path is not None:
                         self.save_state(conf, accuracy2, extra=str(conf.data_mode) + '_' + str(conf.net_depth) + '_' + str(conf.batch_size) + 'finetune')
                     else:
-                        self.save_state(conf, accuracy2, extra=str(conf.data_mode) + '_' + str(conf.net_depth) + '_' + str(conf.batch_size))
+                        self.save_state(conf, accuracy2, extra=str(conf.data_mode) + '_' + str(conf.exp) + '_' + str(conf.batch_size))
                     # if accuracy > best_accuracy:
                     #     best_accuracy = accuracy
                     #     print('saving best model....')

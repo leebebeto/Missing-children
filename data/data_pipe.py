@@ -85,7 +85,7 @@ def get_train_loader(conf):
         ds, class_num = get_train_dataset(os.path.join(conf.emore_folder, 'imgs'))
 
     loader = DataLoader(ds, batch_size=conf.batch_size, shuffle=True, pin_memory=True, num_workers=conf.num_workers)
-    return loader, class_num 
+    return loader, class_num, ds
     
 def load_bin(path, rootdir, transform, image_size=[112,112]):
     if not rootdir.exists():
@@ -164,8 +164,18 @@ class CASIADataset(Dataset):
         self.class_num = len(os.listdir(imgs_folder))
 
         total_list = glob.glob(self.root_dir + '/*/*')
-
         self.total_imgs = len(total_list)
+
+        # preprocessing class num list for LDAM loss (once calculated -> may substitute with constants)
+        # self.child_num = 0
+        # for image in total_list:
+        #     if int(image.split('/')[-1].split('_')[-1][:-4]) <=18:
+        #         self.child_num += 1
+        # self.adult_num = self.total_imgs - self.child_num
+        # print(f'child: {self.child_num} || adult: {self.adult_num}')
+        # self.class_num_list = [self.child_num, self.adult_num]
+
+        self.class_num_list = [7336, 483287]
         self.total_list = total_list
         print(f'{imgs_folder} length: {self.total_imgs}')
 
@@ -183,6 +193,8 @@ class CASIADataset(Dataset):
 
         if self.transform is not None:
             img = self.transform(img)
+
+        age= 0 if age<= 18 else 1
 
         return img, label, age
 

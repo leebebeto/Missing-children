@@ -5,10 +5,8 @@
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Learner.py" beforeDir="false" afterPath="$PROJECT_DIR$/Learner.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data/data_pipe.py" beforeDir="false" afterPath="$PROJECT_DIR$/data/data_pipe.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/misc/filter.py" beforeDir="false" afterPath="$PROJECT_DIR$/misc/filter.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/model.py" beforeDir="false" afterPath="$PROJECT_DIR$/model.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/train.py" beforeDir="false" afterPath="$PROJECT_DIR$/train.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -75,7 +73,8 @@
       <workItem from="1617623326896" duration="1351000" />
       <workItem from="1617666489214" duration="7536000" />
       <workItem from="1617761214905" duration="6273000" />
-      <workItem from="1617767958651" duration="8905000" />
+      <workItem from="1617767958651" duration="12101000" />
+      <workItem from="1617850146433" duration="6072000" />
     </task>
     <servers />
   </component>
@@ -102,11 +101,11 @@
       <screen x="-505" y="-1577" width="2560" height="1577" />
     </state>
     <state x="513" y="-1035" key="#com.intellij.refactoring.safeDelete.UnsafeUsagesDialog/2055.-1386.1920.1057/-505.-1577.2560.1577/0.23.1792.1030@-505.-1577.2560.1577" timestamp="1617666551128" />
-    <state x="1792" y="143" width="1920" height="1057" maximized="true" key="dock-window-1" timestamp="1617792463575">
-      <screen x="0" y="23" width="1792" height="1028" />
+    <state x="2522" y="-1386" width="966" height="1057" maximized="true" key="dock-window-1" timestamp="1617858673030">
+      <screen x="2055" y="-1386" width="1920" height="1057" />
     </state>
-    <state x="1792" y="143" width="1920" height="1057" maximized="true" key="dock-window-1/2055.-1386.1920.1057/-505.-1577.2560.1577/0.23.1792.1026@-505.-1577.2560.1577" timestamp="1617790398760" />
-    <state x="1792" y="143" width="1920" height="1057" maximized="true" key="dock-window-1/2055.-1386.1920.1057/-505.-1577.2560.1577/0.23.1792.1028@-505.-1577.2560.1577" timestamp="1617792463575" />
+    <state x="2522" y="-1386" width="966" height="1057" maximized="true" key="dock-window-1/2055.-1386.1920.1057/-505.-1577.2560.1577/0.23.1792.1026@-505.-1577.2560.1577" timestamp="1617858673030" />
+    <state x="1792" y="143" width="1920" height="1057" maximized="true" key="dock-window-1/2055.-1386.1920.1057/-505.-1577.2560.1577/0.23.1792.1028@-505.-1577.2560.1577" timestamp="1617806512069" />
     <state x="-255" y="-1577" width="2310" height="1577" key="dock-window-1/2055.-1386.1920.986/-505.-1577.2560.1577/0.23.1792.1097@-505.-1577.2560.1577" timestamp="1617361699563" />
     <state x="682" y="-1051" width="313" height="525" key="ftp.server.browser" timestamp="1617773251316">
       <screen x="-505" y="-1577" width="2560" height="1577" />
