@@ -30,9 +30,9 @@ class face_learner(object):
         # XXX: Why do we need this part?? == Why do we need class_num when we are not training??, 
         # I want to erase this
         if conf.data_mode == 'vgg':
-            self.class_num = len(glob.glob('/home/nas1_userE/jungsoolee/Face_dataset/Vgg_age_label/imgs/*'))
+            self.class_num = len(glob.glob('./dataset/Vgg_age_label/imgs/*'))
         elif conf.data_mode == 'ms1m':
-            self.class_num = len(glob.glob('/home/nas1_userE/jungsoolee/Face_dataset/ms1m-refined-112/imgs/*'))
+            self.class_num = len(glob.glob('./dataset/ms1m-refined-112/imgs/*'))
 
         self.model = Backbone(conf.net_depth, conf.drop_ratio, conf.net_mode).to(conf.device)
         print('{}_{} model generated'.format(conf.net_mode, conf.net_depth))
@@ -106,8 +106,8 @@ class face_learner(object):
             self.evaluate_every = len(self.loader)//5
             self.save_every = len(self.loader)//5
 
-            self.agedb_30, self.cfp_fp, self.lfw, self.agedb_30_issame, self.cfp_fp_issame, self.lfw_issame = get_val_data('/home/nas1_userE/jungsoolee/Face_dataset/faces_emore')
-            dataset_root = "/home/nas1_userD/yonggyu/Face_dataset/face_emore"
+            self.lfw, self.lfw_issame = get_val_data('./dataset/')
+            dataset_root = "./dataset/"
             self.fgnetc = np.load(os.path.join(dataset_root, "FGNET_new_align_list.npy")).astype(np.float32)
             self.fgnetc_issame = np.load(os.path.join(dataset_root, "FGNET_new_align_label.npy"))
         else:

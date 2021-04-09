@@ -1,13 +1,14 @@
-from torch.nn import Linear, Conv2d, BatchNorm1d, BatchNorm2d, PReLU, ReLU, Sigmoid, Dropout2d, Dropout, AvgPool2d, MaxPool2d, AdaptiveAvgPool2d, Sequential, Module, Parameter
-import torch.nn.functional as F
 import torch
-from collections import namedtuple
+import torch.nn as nn
+import torch.nn.functional as F
 import math
-import pdb
 import numpy as np
+from collections import namedtuple
+
+
 ##################################  Original Arcface Model #############################################################
 
-class Flatten(Module):
+class Flatten(nn.Module):
     def forward(self, input):
         return input.view(input.size(0), -1)
 
@@ -16,16 +17,14 @@ def l2_norm(input,axis=1):
     output = torch.div(input, norm)
     return output
 
-class SEModule(Module):
+class SEModule(nn.Module):
     def __init__(self, channels, reduction):
         super(SEModule, self).__init__()
-        self.avg_pool = AdaptiveAvgPool2d(1)
-        self.fc1 = Conv2d(
-            channels, channels // reduction, kernel_size=1, padding=0 ,bias=False)
-        self.relu = ReLU(inplace=True)
-        self.fc2 = Conv2d(
-            channels // reduction, channels, kernel_size=1, padding=0 ,bias=False)
-        self.sigmoid = Sigmoid()
+        self.avg_pool = nn.AdaptiveAvgPool2d(1)
+        self.fc1 = nn.Conv2d(channels, channels // reduction, kernel_size=1, padding=0 ,bias=False)
+        self.relu = nn.ReLU(inplace=True)
+        self.fc2 = nn.Conv2d(channels // reduction, channels, kernel_size=1, padding=0 ,bias=False)
+        self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):
         module_input = x
@@ -36,39 +35,39 @@ class SEModule(Module):
         x = self.sigmoid(x)
         return module_input * x
 
-class bottleneck_IR(Module):
+class bottleneck_IR(nn.Module):
     def __init__(self, in_channel, depth, stride):
         super(bottleneck_IR, self).__init__()
         if in_channel == depth:
-            self.shortcut_layer = MaxPool2d(1, stride)
+            self.shortcut_layer = nn.MaxPool2d(1, stride)
         else:
-            self.shortcut_layer = Sequential(
-                Conv2d(in_channel, depth, (1, 1), stride ,bias=False), BatchNorm2d(depth))
-        self.res_layer = Sequential(
-            BatchNorm2d(in_channel),
-            Conv2d(in_channel, depth, (3, 3), (1, 1), 1 ,bias=False), PReLU(depth),
-            Conv2d(depth, depth, (3, 3), stride, 1 ,bias=False), BatchNorm2d(depth))
+            self.shortcut_layer = nn.Sequential(
+                nn.Conv2d(in_channel, depth, (1, 1), stride ,bias=False), nn.BatchNorm2d(depth))
+        self.res_layer = nn.Sequential(
+            nn.BatchNorm2d(in_channel),
+            nn.Conv2d(in_channel, depth, (3, 3), (1, 1), 1 ,bias=False), nn.PReLU(depth),
+            nn.Conv2d(depth, depth, (3, 3), stride, 1 ,bias=False), nn.BatchNorm2d(depth))
 
     def forward(self, x):
         shortcut = self.shortcut_layer(x)
         res = self.res_layer(x)
         return res + shortcut
 
-class bottleneck_IR_SE(Module):
+class bottleneck_IR_SE(nn.Module):
     def __init__(self, in_channel, depth, stride):
         super(bottleneck_IR_SE, self).__init__()
         if in_channel == depth:
-            self.shortcut_layer = MaxPool2d(1, stride)
+            self.shortcut_layer = nn.MaxPool2d(1, stride)
         else:
-            self.shortcut_layer = Sequential(
-                Conv2d(in_channel, depth, (1, 1), stride ,bias=False), 
-                BatchNorm2d(depth))
-        self.res_layer = Sequential(
-            BatchNorm2d(in_channel),
-            Conv2d(in_channel, depth, (3,3), (1,1),1 ,bias=False),
-            PReLU(depth),
-            Conv2d(depth, depth, (3,3), stride, 1 ,bias=False),
-            BatchNorm2d(depth),
+            self.shortcut_layer = nn.Sequential(
+                nn.Conv2d(in_channel, depth, (1, 1), stride ,bias=False), 
+                nn.BatchNorm2d(depth))
+        self.res_layer = nn.Sequential(
+            nn.BatchNorm2d(in_channel),
+            nn.Conv2d(in_channel, depth, (3,3), (1,1),1 ,bias=False),
+            nn.PReLU(depth),
+            nn.Conv2d(depth, depth, (3,3), stride, 1 ,bias=False),
+            nn.BatchNorm2d(depth),
             SEModule(depth,16)
             )
     def forward(self,x):
@@ -106,7 +105,7 @@ def get_blocks(num_layers):
         ]
     return blocks
 
-class Backbone(Module):
+class Backbone(nn.Module):
     def __init__(self, num_layers, drop_ratio, mode='ir'):
         super(Backbone, self).__init__()
         assert num_layers in [50, 100, 152], 'num_layers should be 50,100, or 152'
@@ -116,14 +115,14 @@ class Backbone(Module):
             unit_module = bottleneck_IR
         elif mode == 'ir_se':
             unit_module = bottleneck_IR_SE
-        self.input_layer = Sequential(Conv2d(3, 64, (3, 3), 1, 1 ,bias=False), 
-                                      BatchNorm2d(64), 
-                                      PReLU(64))
-        self.output_layer = Sequential(BatchNorm2d(512), 
-                                       Dropout(drop_ratio),
+        self.input_layer = nn.Sequential(nn.Conv2d(3, 64, (3, 3), 1, 1 ,bias=False), 
+                                      nn.BatchNorm2d(64), 
+                                      nn.PReLU(64))
+        self.output_layer = nn.Sequential(nn.BatchNorm2d(512), 
+                                       nn.Dropout(drop_ratio),
                                        Flatten(),
-                                       Linear(512 * 7 * 7, 512),
-                                       BatchNorm1d(512))
+                                       nn.Linear(512 * 7 * 7, 512),
+                                       nn.BatchNorm1d(512))
         modules = []
         for block in blocks:
             for bottleneck in block:
@@ -131,7 +130,7 @@ class Backbone(Module):
                     unit_module(bottleneck.in_channel,
                                 bottleneck.depth,
                                 bottleneck.stride))
-        self.body = Sequential(*modules)
+        self.body = nn.Sequential(*modules)
     
     def forward(self,x):
         x = self.input_layer(x)
@@ -141,29 +140,29 @@ class Backbone(Module):
 
 ##################################  MobileFaceNet #############################################################
     
-class Conv_block(Module):
+class Conv_block(nn.Module):
     def __init__(self, in_c, out_c, kernel=(1, 1), stride=(1, 1), padding=(0, 0), groups=1):
         super(Conv_block, self).__init__()
-        self.conv = Conv2d(in_c, out_channels=out_c, kernel_size=kernel, groups=groups, stride=stride, padding=padding, bias=False)
-        self.bn = BatchNorm2d(out_c)
-        self.prelu = PReLU(out_c)
+        self.conv = nn.Conv2d(in_c, out_channels=out_c, kernel_size=kernel, groups=groups, stride=stride, padding=padding, bias=False)
+        self.bn = nn.BatchNorm2d(out_c)
+        self.prelu = nn.PReLU(out_c)
     def forward(self, x):
         x = self.conv(x)
         x = self.bn(x)
         x = self.prelu(x)
         return x
 
-class Linear_block(Module):
+class Linear_block(nn.Module):
     def __init__(self, in_c, out_c, kernel=(1, 1), stride=(1, 1), padding=(0, 0), groups=1):
         super(Linear_block, self).__init__()
-        self.conv = Conv2d(in_c, out_channels=out_c, kernel_size=kernel, groups=groups, stride=stride, padding=padding, bias=False)
-        self.bn = BatchNorm2d(out_c)
+        self.conv = nn.Conv2d(in_c, out_channels=out_c, kernel_size=kernel, groups=groups, stride=stride, padding=padding, bias=False)
+        self.bn = nn.BatchNorm2d(out_c)
     def forward(self, x):
         x = self.conv(x)
         x = self.bn(x)
         return x
 
-class Depth_Wise(Module):
+class Depth_Wise(nn.Module):
      def __init__(self, in_c, out_c, residual = False, kernel=(3, 3), stride=(2, 2), padding=(1, 1), groups=1):
         super(Depth_Wise, self).__init__()
         self.conv = Conv_block(in_c, out_c=groups, kernel=(1, 1), padding=(0, 0), stride=(1, 1))
@@ -182,69 +181,50 @@ class Depth_Wise(Module):
             output = x
         return output
 
-class Residual(Module):
+class Residual(nn.Module):
     def __init__(self, c, num_block, groups, kernel=(3, 3), stride=(1, 1), padding=(1, 1)):
         super(Residual, self).__init__()
         modules = []
         for _ in range(num_block):
             modules.append(Depth_Wise(c, c, residual=True, kernel=kernel, padding=padding, stride=stride, groups=groups))
-        self.model = Sequential(*modules)
+        self.model = nn.Sequential(*modules)
     def forward(self, x):
         return self.model(x)
 
-class MobileFaceNet(Module):
+class MobileFaceNet(nn.Module):
     def __init__(self, embedding_size):
         super(MobileFaceNet, self).__init__()
-        self.conv1 = Conv_block(3, 64, kernel=(3, 3), stride=(2, 2), padding=(1, 1))
-        self.conv2_dw = Conv_block(64, 64, kernel=(3, 3), stride=(1, 1), padding=(1, 1), groups=64)
-        self.conv_23 = Depth_Wise(64, 64, kernel=(3, 3), stride=(2, 2), padding=(1, 1), groups=128)
-        self.conv_3 = Residual(64, num_block=4, groups=128, kernel=(3, 3), stride=(1, 1), padding=(1, 1))
-        self.conv_34 = Depth_Wise(64, 128, kernel=(3, 3), stride=(2, 2), padding=(1, 1), groups=256)
-        self.conv_4 = Residual(128, num_block=6, groups=256, kernel=(3, 3), stride=(1, 1), padding=(1, 1))
-        self.conv_45 = Depth_Wise(128, 128, kernel=(3, 3), stride=(2, 2), padding=(1, 1), groups=512)
-        self.conv_5 = Residual(128, num_block=2, groups=256, kernel=(3, 3), stride=(1, 1), padding=(1, 1))
-        self.conv_6_sep = Conv_block(128, 512, kernel=(1, 1), stride=(1, 1), padding=(0, 0))
-        self.conv_6_dw = Linear_block(512, 512, groups=512, kernel=(7,7), stride=(1, 1), padding=(0, 0))
-        self.conv_6_flatten = Flatten()
-        self.linear = Linear(512, embedding_size, bias=False)
-        self.bn = BatchNorm1d(embedding_size)
+        self.model = nn.Sequential(
+            Conv_block(3, 64, kernel=(3, 3), stride=(2, 2), padding=(1, 1)),
+            Conv_block(64, 64, kernel=(3, 3), stride=(1, 1), padding=(1, 1), groups=64),
+            Depth_Wise(64, 64, kernel=(3, 3), stride=(2, 2), padding=(1, 1), groups=128),
+            Residual(64, num_block=4, groups=128, kernel=(3, 3), stride=(1, 1), padding=(1, 1)),
+            Depth_Wise(64, 128, kernel=(3, 3), stride=(2, 2), padding=(1, 1), groups=256),
+            Residual(128, num_block=6, groups=256, kernel=(3, 3), stride=(1, 1), padding=(1, 1)),
+            Depth_Wise(128, 128, kernel=(3, 3), stride=(2, 2), padding=(1, 1), groups=512),
+            Residual(128, num_block=2, groups=256, kernel=(3, 3), stride=(1, 1), padding=(1, 1)),
+            Conv_block(128, 512, kernel=(1, 1), stride=(1, 1), padding=(0, 0)),
+            Linear_block(512, 512, groups=512, kernel=(7,7), stride=(1, 1), padding=(0, 0))
+        )
+        self.flatten = Flatten()
+        self.linear = nn.Sequential(
+            nn.Linear(512, embedding_size, bias=False),
+            nn.BatchNorm1d(embedding_size)
+        )
     
     def forward(self, x):
-        out = self.conv1(x)
-
-        out = self.conv2_dw(out)
-
-        out = self.conv_23(out)
-
-        out = self.conv_3(out)
-        
-        out = self.conv_34(out)
-
-        out = self.conv_4(out)
-
-        out = self.conv_45(out)
-
-        out = self.conv_5(out)
-
-        out = self.conv_6_sep(out)
-
-        out = self.conv_6_dw(out)
-
-        out = self.conv_6_flatten(out)
-
-        out = self.linear(out)
-
-        out = self.bn(out)
+        out = self.model(x)
+        out = self.linear(self.flatten(out))
         return l2_norm(out)
 
 ##################################  Arcface head #############################################################
 
-class Arcface(Module):
+class Arcface(nn.Module):
     # implementation of additive margin softmax loss in https://arxiv.org/abs/1801.05599    
     def __init__(self, embedding_size=512, classnum=51332,  s=64., m=0.5):
         super(Arcface, self).__init__()
         self.classnum = classnum
-        self.kernel = Parameter(torch.Tensor(embedding_size,classnum))
+        self.kernel = nn.Parameter(torch.Tensor(embedding_size,classnum))
         # initial kernel
         self.kernel.data.uniform_(-1, 1).renorm_(2,1,1e-5).mul_(1e5)
         self.m = m # the margin value, default is 0.5
@@ -290,12 +270,12 @@ class Arcface(Module):
 
 ##################################  Cosface head #############################################################    
     
-class Am_softmax(Module):
+class Am_softmax(nn.Module):
     # implementation of additive margin softmax loss in https://arxiv.org/abs/1801.05599    
     def __init__(self,embedding_size=512,classnum=51332):
         super(Am_softmax, self).__init__()
         self.classnum = classnum
-        self.kernel = Parameter(torch.Tensor(embedding_size,classnum))
+        self.kernel = nn.Parameter(torch.Tensor(embedding_size,classnum))
         # initial kernel
         self.kernel.data.uniform_(-1, 1).renorm_(2,1,1e-5).mul_(1e5)
         self.m = 0.35 # additive margin recommended by the paper
@@ -308,9 +288,6 @@ class Am_softmax(Module):
         phi = cos_theta - self.m
         label = label.view(-1) #size=(B,1)
         index = torch.arange(0, label.shape[0], dtype=torch.long)
-        # index = cos_theta.data * 0.0 #size=(B,Classnum)
-        # index.scatter_(1,label.data.view(-1,1),1)
-        # index = index.byte()
         output = cos_theta * 1.0
         output[index,index] = phi[index, label] #only change the correct predicted output
         output *= self.s # scale up in order to make softmax work, first introduced in normface
@@ -318,15 +295,11 @@ class Am_softmax(Module):
 
 ##################################  LDAM head #############################################################
 
-    # def __init__(self, cls_num_list, max_m=0.5, weight=None, s=30):
-        # self.weight = weight
-    # def forward(self, x, target):
-
-class LDAMLoss(Module):
+class LDAMLoss(nn.Module):
     def __init__(self, embedding_size=512, classnum=51332, max_m=1.0, s=64, cls_num_list=[]):
         super(LDAMLoss, self).__init__()
         self.classnum = classnum
-        self.kernel = Parameter(torch.Tensor(embedding_size,classnum))
+        self.kernel = nn.Parameter(torch.Tensor(embedding_size,classnum))
         # initial kernel
         self.kernel.data.uniform_(-1, 1).renorm_(2,1,1e-5).mul_(1e5)
         self.s = s
