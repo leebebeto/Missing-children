@@ -2,6 +2,7 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="198a85f9-6278-49d0-81c0-daa6ef3746a9" name="Default Changelist" comment="">
+      <change afterPath="$PROJECT_DIR$/age_distribution.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -43,12 +44,13 @@
     <property name="node.js.selected.package.tslint" value="(autodetect)" />
   </component>
   <component name="RecentsManager">
-    <key name="MoveFile.RECENT_KEYS">
-      <recent name="$PROJECT_DIR$/misc" />
-      <recent name="$PROJECT_DIR$/TSNE" />
-    </key>
     <key name="CopyFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$" />
+    </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$" />
+      <recent name="$PROJECT_DIR$/misc" />
+      <recent name="$PROJECT_DIR$/TSNE" />
     </key>
   </component>
   <component name="SvnConfiguration">
@@ -71,6 +73,7 @@
       <workItem from="1617761214905" duration="6273000" />
       <workItem from="1617767958651" duration="12101000" />
       <workItem from="1617850146433" duration="10090000" />
+      <workItem from="1617967055783" duration="4249000" />
     </task>
     <servers />
   </component>
@@ -108,9 +111,10 @@
     </state>
     <state x="682" y="-1051" width="313" height="525" key="ftp.server.browser/-505.-1577.2560.1577/0.23.1792.1026/2055.-1386.1920.1057@-505.-1577.2560.1577" timestamp="1614851317495" />
     <state x="682" y="-1051" key="ftp.server.browser/2055.-1386.1920.1057/-505.-1577.2560.1577/0.23.1792.1028@-505.-1577.2560.1577" timestamp="1617773251316" />
-    <state x="440" y="-1212" width="670" height="676" key="search.everywhere.popup" timestamp="1617363384439">
-      <screen x="-505" y="-1577" width="2560" height="1577" />
+    <state x="662" y="260" width="670" height="439" key="search.everywhere.popup" timestamp="1617969526162">
+      <screen x="0" y="23" width="1792" height="1024" />
     </state>
+    <state x="662" y="260" width="670" height="439" key="search.everywhere.popup/0.23.1792.1024@0.23.1792.1024" timestamp="1617969526162" />
     <state x="440" y="-1212" width="670" height="676" key="search.everywhere.popup/2055.-1386.1920.986/-505.-1577.2560.1577/0.23.1792.1097@-505.-1577.2560.1577" timestamp="1617363384439" />
   </component>
 </project>
