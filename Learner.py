@@ -75,6 +75,10 @@ class face_learner(object):
                 self.optimizer_g = optim.Adam(self.growup.parameters(), lr = 1e-4, betas=(0.5,0.999))
                 self.optimizer_g2 = optim.Adam(self.growup.parameters(), lr = 1e-4, betas=(0.5,0.999))
                 self.optimizer_d = optim.Adam(self.discriminator.parameters(), lr = 1e-4, betas=(0.5, 0.999))
+                self.optimizer2 = optim.SGD([
+                                    {'params': paras_wo_bn + [self.head.kernel], 'weight_decay': 5e-4},
+                                    {'params': paras_only_bn}
+                                ], lr = conf.lr, momentum = conf.momentum)
 
             if conf.finetune_model_path is not None:
                 self.optimizer = optim.SGD([
@@ -234,7 +238,7 @@ class face_learner(object):
                     print('evaluating....')
                     accuracy, best_threshold, roc_curve_tensor = self.evaluate(conf, self.lfw, self.lfw_issame)
                     self.board_val('lfw', accuracy, best_threshold, roc_curve_tensor)
-                    accuracy2, best_threshold2, roc_curve_tensor2 = self.evaluate(conf, self.lfw, self.lfw_issame)
+                    accuracy2, best_threshold2, roc_curve_tensor2 = self.evaluate(conf, self.fgnetc, self.fgnetc_issame)
                     self.board_val('fgent_c', accuracy2, best_threshold2, roc_curve_tensor2)
 
                     self.model.train()
@@ -244,10 +248,10 @@ class face_learner(object):
                     # save with most recently calculated accuracy?
                     if conf.finetune_model_path is not None:
                         self.save_state(conf, accuracy2, extra=str(conf.data_mode) + '_' + str(conf.net_depth) \
-                            + '_' + str(conf.batch_size) + 'finetune')
+                            + '_' + str(conf.batch_size) + conf.model_name)
                     else:
                         self.save_state(conf, accuracy2, extra=str(conf.data_mode) + '_' + str(conf.net_depth) \
-                            + '_' + str(conf.batch_size))
+                            + '_' + str(conf.batch_size) + conf.model_name)
 
                 self.step += 1
         if conf.finetune_model_path is not None:
@@ -258,7 +262,7 @@ class face_learner(object):
                 + '_'+ str(conf.batch_size) +'_final')
 
 
-    def train_age_invariant(self, conf, epochs):
+    def train_with_growup(self, conf, epochs):
         '''
         Our method
         '''
@@ -334,7 +338,7 @@ class face_learner(object):
                 embeddings_a_hat = self.growup(embeddings_c)
                 labels_ac = torch.cat([labels_a, labels_c], dim=0)
                 pred_a = torch.squeeze(self.discriminator(embeddings_a)) # sperate since batchnorm exists
-                pred_c = torch.squeeze(self.discriminator(embeddings_c))
+                pred_c = torch.squeeze(self.discriminator(embeddings_a_hat))
                 pred_ac = torch.cat([pred_a, pred_c], dim=0)
                 d_loss = conf.ls_loss(pred_ac, labels_ac)
                 d_loss.backward()
@@ -352,7 +356,7 @@ class face_learner(object):
                 g_loss = conf.ls_loss(pred_c, labels_a)
 
                 l1_loss = conf.l1_loss(embeddings_a_hat, embeddings_c)
-                g_total_loss = g_loss + l1_loss
+                g_total_loss = g_loss + 10 * l1_loss
                 g_total_loss.backward()
 
                 # g_loss.backward()
@@ -372,6 +376,221 @@ class face_learner(object):
                     accuracy, best_threshold, roc_curve_tensor = self.evaluate(conf, self.lfw, self.lfw_issame)
                     self.board_val('lfw', accuracy, best_threshold, roc_curve_tensor)
                     accuracy2, best_threshold2, roc_curve_tensor2 = self.evaluate_child(conf, self.fgnetc, self.fgnetc_issame)
+                    self.board_val('fgent_c', accuracy2, best_threshold2, roc_curve_tensor2)
+
+                    self.model.train()
+
+                if self.step % self.save_every == 0 and self.step != 0:
+                    print('saving model....')
+                    # save with most recently calculated accuracy?
+                    self.save_state(conf, accuracy2, extra=str(conf.data_mode) + '_' + str(conf.net_depth) \
+                        + '_' + str(conf.batch_size) + conf.model_name)
+
+                self.step += 1
+        self.save_state(conf, accuracy2, to_save_folder=True, extra=str(conf.data_mode)  + '_' + str(conf.net_depth)\
+             + '_'+ str(conf.batch_size) +'_discriminator_final')
+
+
+    def train_age_invariant(self, conf, epochs):
+        '''
+        Our method, without growup
+        '''
+        self.model.train()
+        running_loss = 0.
+        l1_loss = 0
+        for e in range(epochs):
+            print('epoch {} started'.format(e))
+
+            if e in self.milestones:
+                self.schedule_lr()
+                self.schedule_lr2()
+
+            a_loader = iter(self.adult_loader)
+            c_loader = iter(self.child_loader)
+            for imgs, labels, ages in tqdm(iter(self.loader)):
+                # loader : base loader that returns images with id
+                # a_loader, c_loader : adult, child loader with same datasize
+                # ages : 0 == child, 1== adult
+                try:
+                    imgs_a, labels_a = next(a_loader)
+                    imgs_c, labels_c = next(c_loader)
+                except StopIteration:
+                    a_loader = iter(self.adult_loader)
+                    c_loader = iter(self.child_loader)
+                    imgs_a, labels_a = next(a_loader)
+                    imgs_c, labels_c = next(c_loader)
+                
+                imgs = imgs.to(conf.device)
+                labels = labels.to(conf.device)
+                imgs_a, labels_a = imgs_a.to(conf.device), labels_a.to(conf.device).type(torch.float32)
+                imgs_c, labels_c = imgs_c.to(conf.device), labels_c.to(conf.device).type(torch.float32)
+                bs_a = imgs_a.shape[0]
+
+                imgs_ac = torch.cat([imgs_a, imgs_c], dim=0)
+
+                ###########################
+                #       Train head        #
+                ###########################
+                self.optimizer.zero_grad()
+
+                embeddings = self.model(imgs)
+
+                thetas = self.head(embeddings, labels)
+
+                loss = conf.ce_loss(thetas, labels)
+                loss.backward()
+                running_loss += loss.item()
+                self.optimizer.step()
+
+                ##############################
+                #    Train discriminator     #
+                ##############################
+                self.optimizer_d.zero_grad()
+                _embeddings = self.model(imgs_ac)
+                embeddings_a, embeddings_c = _embeddings[:bs_a], _embeddings[bs_a:]
+
+                labels_ac = torch.cat([labels_a, labels_c], dim=0)
+                pred_a = torch.squeeze(self.discriminator(embeddings_a)) # sperate since batchnorm exists
+                pred_c = torch.squeeze(self.discriminator(embeddings_c))
+                pred_ac = torch.cat([pred_a, pred_c], dim=0)
+                d_loss = conf.ls_loss(pred_ac, labels_ac)
+                d_loss.backward()
+                self.optimizer_d.step()
+
+                #############################
+                #      Train genertator     #
+                #############################
+                self.optimizer2.zero_grad()
+                embeddings_c = self.model(imgs_c)
+                pred_c = torch.squeeze(self.discriminator(embeddings_c))
+                labels_a = torch.ones_like(labels_c, dtype=torch.float)
+                # generator should make child 1
+                g_loss = conf.ls_loss(pred_c, labels_a)
+
+                g_loss.backward()
+                self.optimizer2.step()
+
+                if self.step % self.board_loss_every == 0 and self.step != 0: # XXX
+                    print('tensorboard plotting....')
+                    loss_board = running_loss / self.board_loss_every
+                    self.writer.add_scalar('train_loss', loss_board, self.step)
+                    self.writer.add_scalar('d_loss', d_loss, self.step)
+                    self.writer.add_scalar('g_loss', g_loss, self.step)
+                    self.writer.add_scalar('l1_loss', l1_loss, self.step)
+                    running_loss = 0.
+                
+                if self.step % self.evaluate_every == 0 and self.step != 0:
+                    print('evaluating....')
+                    accuracy, best_threshold, roc_curve_tensor = self.evaluate(conf, self.lfw, self.lfw_issame)
+                    self.board_val('lfw', accuracy, best_threshold, roc_curve_tensor)
+                    accuracy2, best_threshold2, roc_curve_tensor2 = self.evaluate(conf, self.fgnetc, self.fgnetc_issame)
+                    self.board_val('fgent_c', accuracy2, best_threshold2, roc_curve_tensor2)
+
+                    self.model.train()
+
+                if self.step % self.save_every == 0 and self.step != 0:
+                    print('saving model....')
+                    # save with most recently calculated accuracy?
+                    self.save_state(conf, accuracy2, extra=str(conf.data_mode) + '_' + str(conf.net_depth) \
+                        + '_' + str(conf.batch_size) + conf.model_name)
+
+                self.step += 1
+        self.save_state(conf, accuracy2, to_save_folder=True, extra=str(conf.data_mode)  + '_' + str(conf.net_depth)\
+             + '_'+ str(conf.batch_size) +'_discriminator_final')
+
+    def train_age_invariant2(self, conf, epochs):
+        '''
+        Our method, without growup, using paired dataset TODO
+        '''
+        self.model.train()
+        running_loss = 0.
+        l1_loss = 0
+        for e in range(epochs):
+            print('epoch {} started'.format(e))
+
+            if e in self.milestones:
+                self.schedule_lr()
+                self.schedule_lr2()
+
+            a_loader = iter(self.adult_loader)
+            c_loader = iter(self.child_loader)
+            for imgs, labels, ages in tqdm(iter(self.loader)):
+                # loader : base loader that returns images with id
+                # a_loader, c_loader : adult, child loader with same datasize
+                # ages : 0 == child, 1== adult
+                try:
+                    imgs_a, labels_a = next(a_loader)
+                    imgs_c, labels_c = next(c_loader)
+                except StopIteration:
+                    a_loader = iter(self.adult_loader)
+                    c_loader = iter(self.child_loader)
+                    imgs_a, labels_a = next(a_loader)
+                    imgs_c, labels_c = next(c_loader)
+                
+                imgs = imgs.to(conf.device)
+                labels = labels.to(conf.device)
+                imgs_a, labels_a = imgs_a.to(conf.device), labels_a.to(conf.device).type(torch.float32)
+                imgs_c, labels_c = imgs_c.to(conf.device), labels_c.to(conf.device).type(torch.float32)
+                bs_a = imgs_a.shape[0]
+
+                imgs_ac = torch.cat([imgs_a, imgs_c], dim=0)
+
+                ###########################
+                #       Train head        #
+                ###########################
+                self.optimizer.zero_grad()
+
+                embeddings = self.model(imgs)
+
+                thetas = self.head(embeddings, labels)
+
+                loss = conf.ce_loss(thetas, labels)
+                loss.backward()
+                running_loss += loss.item()
+                self.optimizer.step()
+
+                ##############################
+                #    Train discriminator     #
+                ##############################
+                self.optimizer_d.zero_grad()
+                _embeddings = self.model(imgs_ac)
+                embeddings_a, embeddings_c = _embeddings[:bs_a], _embeddings[bs_a:]
+
+                labels_ac = torch.cat([labels_a, labels_c], dim=0)
+                pred_a = torch.squeeze(self.discriminator(embeddings_a)) # sperate since batchnorm exists
+                pred_c = torch.squeeze(self.discriminator(embeddings_c))
+                pred_ac = torch.cat([pred_a, pred_c], dim=0)
+                d_loss = conf.ls_loss(pred_ac, labels_ac)
+                d_loss.backward()
+                self.optimizer_d.step()
+
+                #############################
+                #      Train genertator     #
+                #############################
+                self.optimizer2.zero_grad()
+                embeddings_c = self.model(imgs_c)
+                pred_c = torch.squeeze(self.discriminator(embeddings_c))
+                labels_a = torch.ones_like(labels_c, dtype=torch.float)
+                # generator should make child 1
+                g_loss = conf.ls_loss(pred_c, labels_a)
+
+                g_loss.backward()
+                self.optimizer2.step()
+
+                if self.step % self.board_loss_every == 0 and self.step != 0: # XXX
+                    print('tensorboard plotting....')
+                    loss_board = running_loss / self.board_loss_every
+                    self.writer.add_scalar('train_loss', loss_board, self.step)
+                    self.writer.add_scalar('d_loss', d_loss, self.step)
+                    self.writer.add_scalar('g_loss', g_loss, self.step)
+                    self.writer.add_scalar('l1_loss', l1_loss, self.step)
+                    running_loss = 0.
+                
+                if self.step % self.evaluate_every == 0 and self.step != 0:
+                    print('evaluating....')
+                    accuracy, best_threshold, roc_curve_tensor = self.evaluate(conf, self.lfw, self.lfw_issame)
+                    self.board_val('lfw', accuracy, best_threshold, roc_curve_tensor)
+                    accuracy2, best_threshold2, roc_curve_tensor2 = self.evaluate(conf, self.fgnetc, self.fgnetc_issame)
                     self.board_val('fgent_c', accuracy2, best_threshold2, roc_curve_tensor2)
 
                     self.model.train()
@@ -445,6 +664,11 @@ class face_learner(object):
         for params in self.optimizer.param_groups:                 
             params['lr'] /= 10
         print(self.optimizer)
+
+    def schedule_lr2(self):
+        for params in self.optimizer2.param_groups:                 
+            params['lr'] /= 10
+        print(self.optimizer2)
     
     
     def infer(self, conf, faces, target_embs, tta=False):
@@ -508,6 +732,11 @@ class face_learner(object):
             torch.save(
                 self.optimizer.state_dict(), str(save_path) +
                 ('/optimizer_{}_accuracy:{:.3f}_step:{}_{}.pth'.format(get_time(), accuracy, self.step, extra)))
+            if conf.discriminator:
+                torch.save(
+                    self.growup.state_dict(),str(save_path) +
+                    ('/growup_{}_accuracy:{:.3f}_step:{}_{}.pth'.format(get_time(), accuracy, self.step, extra))
+                )
     
 
     def load_state(self, conf, fixed_str, from_save_folder=False, model_only=False, analyze=False):
