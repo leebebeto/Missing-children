@@ -3,6 +3,7 @@ import argparse
 import torch
 import numpy as np
 import random
+import os
 
 # python train.py -net mobilefacenet -b 200 -w 4
 
@@ -21,6 +22,14 @@ if __name__ == '__main__':
     parser.add_argument("--use_dp", help='use data parallel', default=True)
     parser.add_argument("--use_sync", help='use sync batchnorm', default=True)
     parser.add_argument("--exp", help='experiment name', default='debugging', type=str)
+    parser.add_argument("--angle", help='whether to analyze angles', default=False)
+    parser.add_argument("--casia_vgg_mode", help='how to select vgg', default='random')
+    parser.add_argument("--minus_m", help='margin for negative pair of child', default=0.5, type=float)
+
+    # data path -> added for temporarily
+    parser.add_argument("--vgg_folder", help='vgg folder directory', default='/home/nas1_userD/yonggyu/Face_dataset/vgg')
+    parser.add_argument("--agedb_folder", help='agedb folder directory', default='/home/nas1_userE/jungsoolee/Face_dataset/AgeDB_new_align')
+    parser.add_argument("--insta_folder", help='instagram folder directory', default='/home/nas1_userD/yonggyu/Face_dataset/instagram')
 
     # model
     parser.add_argument("--net_mode", help="which network, [ir, ir_se, mobilefacenet]",default='ir_se', type=str)
@@ -59,5 +68,19 @@ if __name__ == '__main__':
         learner.load_state(args, args.finetune_model_path, args.finetune_head_path, model_only=False, from_save_folder=False, analyze=True) # analyze true == does not load optim.
         print(f'{args.finetune_model_path} model loaded...')
 
+    # analyze angles with a pretrained model
+    if args.angle == 'True':
+        save_path = './work_space/models/'
+        # model_path = os.path.join(save_path, 'model_2021-04-10-00-23_accuracy:0.846_step:113442_casia_SYNC_64.pth')
+        # head_path = os.path.join(save_path, 'head_2021-04-10-00-23_accuracy:0.846_step:113442_casia_SYNC_64.pth')
+
+        model_path = os.path.join(save_path, 'model_2021-04-10-07-09_accuracy:0.770_step:153300_casia_LDAM_05_64_64.pth')
+        head_path = os.path.join(save_path, 'head_2021-04-10-07-09_accuracy:0.770_step:153300_casia_LDAM_05_64_64.pth')
+
+        learner.load_state(args, model_path = model_path, head_path = head_path)
+        print(f'pretrained {model_path} loaded finished...')
+        learner.analyze_angle(args)
+        import sys
+        sys.exit(0)
     # actual training
     learner.train(args, args.epochs)

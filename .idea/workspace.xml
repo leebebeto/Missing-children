@@ -2,8 +2,13 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="198a85f9-6278-49d0-81c0-daa6ef3746a9" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/age_distribution.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/adience_process.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Learner.py" beforeDir="false" afterPath="$PROJECT_DIR$/learner.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/TSNE/tsne.py" beforeDir="false" afterPath="$PROJECT_DIR$/tsne.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/data_pipe.py" beforeDir="false" afterPath="$PROJECT_DIR$/data/data_pipe.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/model.py" beforeDir="false" afterPath="$PROJECT_DIR$/model.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/train.py" beforeDir="false" afterPath="$PROJECT_DIR$/train.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -46,11 +51,12 @@
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$" />
+      <recent name="$PROJECT_DIR$/TSNE" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$" />
-      <recent name="$PROJECT_DIR$/misc" />
       <recent name="$PROJECT_DIR$/TSNE" />
+      <recent name="$PROJECT_DIR$/misc" />
     </key>
   </component>
   <component name="SvnConfiguration">
@@ -73,7 +79,15 @@
       <workItem from="1617761214905" duration="6273000" />
       <workItem from="1617767958651" duration="12101000" />
       <workItem from="1617850146433" duration="10090000" />
-      <workItem from="1617967055783" duration="4249000" />
+      <workItem from="1617967055783" duration="4861000" />
+      <workItem from="1618029543707" duration="8609000" />
+      <workItem from="1618151012542" duration="944000" />
+      <workItem from="1618189381589" duration="14748000" />
+      <workItem from="1618280211727" duration="19382000" />
+      <workItem from="1618325876816" duration="1792000" />
+      <workItem from="1618373456694" duration="11721000" />
+      <workItem from="1618458197424" duration="4577000" />
+      <workItem from="1618542802395" duration="6618000" />
     </task>
     <servers />
   </component>
@@ -100,21 +114,29 @@
       <screen x="-505" y="-1577" width="2560" height="1577" />
     </state>
     <state x="513" y="-1035" key="#com.intellij.refactoring.safeDelete.UnsafeUsagesDialog/2055.-1386.1920.1057/-505.-1577.2560.1577/0.23.1792.1030@-505.-1577.2560.1577" timestamp="1617666551128" />
-    <state x="2522" y="-1386" width="966" height="1057" maximized="true" key="dock-window-1" timestamp="1617858673030">
-      <screen x="2055" y="-1386" width="1920" height="1057" />
+    <state x="93" y="23" width="1699" height="1022" key="dock-window-1" timestamp="1618325881595">
+      <screen x="0" y="23" width="1792" height="1022" />
     </state>
+    <state x="93" y="23" width="1699" height="1022" key="dock-window-1/-70.-1057.1920.1057/0.23.1792.1022@-70.-1057.1920.1057" timestamp="1618325881595" />
+    <state x="2276" y="-1386" width="1699" height="1057" key="dock-window-1/2055.-1386.1920.1057/-505.-1577.2560.1577/0.23.1792.1022@-505.-1577.2560.1577" timestamp="1618283334205" />
     <state x="2522" y="-1386" width="966" height="1057" maximized="true" key="dock-window-1/2055.-1386.1920.1057/-505.-1577.2560.1577/0.23.1792.1026@-505.-1577.2560.1577" timestamp="1617858673030" />
     <state x="1792" y="143" width="1920" height="1057" maximized="true" key="dock-window-1/2055.-1386.1920.1057/-505.-1577.2560.1577/0.23.1792.1028@-505.-1577.2560.1577" timestamp="1617806512069" />
     <state x="-255" y="-1577" width="2310" height="1577" key="dock-window-1/2055.-1386.1920.986/-505.-1577.2560.1577/0.23.1792.1097@-505.-1577.2560.1577" timestamp="1617361699563" />
+    <state x="2055" y="-1386" width="888" height="1057" key="dock-window-2" timestamp="1618227006782">
+      <screen x="2055" y="-1386" width="1920" height="1057" />
+    </state>
+    <state x="2055" y="-1386" width="888" height="1057" key="dock-window-2/2055.-1386.1920.1057/-505.-1577.2560.1577/0.23.1792.1022@-505.-1577.2560.1577" timestamp="1618227006782" />
     <state x="682" y="-1051" width="313" height="525" key="ftp.server.browser" timestamp="1617773251316">
       <screen x="-505" y="-1577" width="2560" height="1577" />
     </state>
     <state x="682" y="-1051" width="313" height="525" key="ftp.server.browser/-505.-1577.2560.1577/0.23.1792.1026/2055.-1386.1920.1057@-505.-1577.2560.1577" timestamp="1614851317495" />
     <state x="682" y="-1051" key="ftp.server.browser/2055.-1386.1920.1057/-505.-1577.2560.1577/0.23.1792.1028@-505.-1577.2560.1577" timestamp="1617773251316" />
-    <state x="662" y="260" width="670" height="439" key="search.everywhere.popup" timestamp="1617969526162">
-      <screen x="0" y="23" width="1792" height="1024" />
+    <state x="441" y="-1212" width="958" height="677" key="search.everywhere.popup" timestamp="1618401201748">
+      <screen x="-505" y="-1577" width="2560" height="1577" />
     </state>
+    <state x="441" y="-1212" width="958" height="677" key="search.everywhere.popup/-505.-1577.2560.1577/0.23.1792.1022/2055.-1386.1920.1057@-505.-1577.2560.1577" timestamp="1618401201748" />
     <state x="662" y="260" width="670" height="439" key="search.everywhere.popup/0.23.1792.1024@0.23.1792.1024" timestamp="1617969526162" />
+    <state x="441" y="-1212" width="958" height="677" key="search.everywhere.popup/2055.-1386.1920.1057/-505.-1577.2560.1577/0.23.1792.1022@-505.-1577.2560.1577" timestamp="1618151972324" />
     <state x="440" y="-1212" width="670" height="676" key="search.everywhere.popup/2055.-1386.1920.986/-505.-1577.2560.1577/0.23.1792.1097@-505.-1577.2560.1577" timestamp="1617363384439" />
   </component>
 </project>
