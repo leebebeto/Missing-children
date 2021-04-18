@@ -45,7 +45,7 @@ def get_config(training = True):
     # conf.data_mode = 'ms1m'
     conf.resume_analysis = False
     conf.finetune_model_path = None
-    conf.discriminator = False
+    conf.discriminator = True
     conf.model_name = ''
 
     # conf.vgg_folder = '/home/nas1_userE/Face_dataset/faces_vgg_112'
