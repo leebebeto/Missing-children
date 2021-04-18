@@ -25,8 +25,10 @@ if __name__ == '__main__':
     parser.add_argument("--angle", help='whether to analyze angles', default=False)
     parser.add_argument("--casia_vgg_mode", help='how to select vgg', default='random')
     parser.add_argument("--minus_m", help='margin for negative pair of child', default=0.5, type=float)
+    parser.add_argument("--use_memory", help='whether to use memory', default=False)
+    parser.add_argument("--alpha", help='update ratio for memory bank', default=0.999, type=float)
 
-    # data path -> added for temporarily
+    # data path -> added temporarily
     parser.add_argument("--vgg_folder", help='vgg folder directory', default='/home/nas1_userD/yonggyu/Face_dataset/vgg')
     parser.add_argument("--agedb_folder", help='agedb folder directory', default='/home/nas1_userE/jungsoolee/Face_dataset/AgeDB_new_align')
     parser.add_argument("--insta_folder", help='instagram folder directory', default='/home/nas1_userD/yonggyu/Face_dataset/instagram')
@@ -82,5 +84,9 @@ if __name__ == '__main__':
         learner.analyze_angle(args)
         import sys
         sys.exit(0)
+
     # actual training
-    learner.train(args, args.epochs)
+    if args.use_memory == 'True': # our memory bank method
+        learner.train_memory(args, args.epochs)
+    else:
+        learner.train(args, args.epochs) # other normal training

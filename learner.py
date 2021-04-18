@@ -24,20 +24,12 @@ import pdb
 
 class face_learner(object):
     def __init__(self, conf, inference=False):
-        # conf.data_mode = 'vgg'
-        # conf.data_mode = 'ms1m'
-
-        # XXX: Why do we need this part?? == Why do we need class_num when we are not training??, 
-        # I want to erase this
-        # if conf.data_mode == 'vgg':
-        #     self.class_num = len(glob.glob('./dataset/Vgg_age_label/imgs/*'))
-        # elif conf.data_mode == 'ms1m':
-        #     self.class_num = len(glob.glob('./dataset/ms1m-refined-112/imgs/*'))
-
         self.model = Backbone(conf.net_depth, conf.drop_ratio, conf.net_mode).to(conf.device)
+        self.alpha = conf.alpha
         print('{}_{} model generated'.format(conf.net_mode, conf.net_depth))
-        # self.head = Arcface(embedding_size=conf.embedding_size, classnum=11076).to(conf.device)
 
+        # For Tsne -> you can ignore these codes
+        # self.head = Arcface(embedding_size=conf.embedding_size, classnum=11076).to(conf.device)
         # if conf.use_dp==True:
         #     self.model = nn.DataParallel(self.model)
         #     self.head = nn.DataParallel(self.head)
@@ -52,6 +44,7 @@ class face_learner(object):
             self.step = 0
             if conf.loss == 'Arcface':
                 self.head = Arcface(embedding_size=conf.embedding_size, classnum=self.class_num).to(conf.device)
+            # Arcface with minus margin for children
             elif conf.loss == 'ArcfaceMinus':
                 self.head = ArcfaceMinus(embedding_size=conf.embedding_size, classnum=self.class_num, minus_m=conf.minus_m).to(conf.device)
             elif conf.loss == 'Cosface':
@@ -63,7 +56,7 @@ class face_learner(object):
                 print('wrong loss function.. exiting...')
                 sys.exit(0)
 
-            # Will not use anymore
+            # Currently use Data Parallel as default
             if conf.use_dp:
                 self.model = nn.DataParallel(self.model)
                 self.head = nn.DataParallel(self.head)
@@ -97,14 +90,6 @@ class face_learner(object):
                 self.optimizer2 = optim.SGD([
                                     {'params': paras_only_bn}
                                 ], lr = conf.lr, momentum = conf.momentum)
-
-            # if conf.finetune_model_path is not None:
-            #     self.optimizer = optim.SGD([
-            #                             {'params': paras_wo_bn, 'weight_decay': 5e-4},
-            #                             {'params': paras_only_bn}
-            #                         ], lr = conf.lr, momentum = conf.momentum)
-            # print(self.optimizer)
-            #  self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, patience=40, verbose=True)
 
             print('optimizers generated')
             self.board_loss_every = len(self.loader)//100
@@ -235,6 +220,7 @@ class face_learner(object):
                 plt.plot(log_lrs[10:-5], losses[10:-5])
                 return log_lrs, losses    
 
+    # training with other methods
     def train(self, conf, epochs):
         '''
         Train function for original vgg dataset
@@ -245,6 +231,7 @@ class face_learner(object):
         running_loss = 0.            
         best_accuracy = 0.0
         ce_loss = nn.CrossEntropyLoss()
+
         for e in range(epochs):
             print('epoch {} started'.format(e))
 
@@ -275,7 +262,8 @@ class face_learner(object):
                     loss_board = running_loss / self.board_loss_every
                     self.writer.add_scalar('train_loss', loss_board, self.step)
                     running_loss = 0.
-                
+
+                # added wrong on evaluations
                 if self.step % self.evaluate_every == 0 and self.step != 0:
                     print('evaluating....')
                     # LFW evaluation
@@ -320,6 +308,121 @@ class face_learner(object):
         else:
             self.save_state(conf, accuracy, to_save_folder=True, extra=str(conf.data_mode)  + '_' + str(conf.net_depth) + '_'+ str(conf.batch_size) +'_final')
 
+    # training with memory bank
+    def train_memory(self, conf, epochs):
+        '''
+        Train function for original vgg dataset
+        XXX: Need to make a new funtion train_age_invariant(conf, epochs)
+        '''
+        self.model.train()
+
+        running_loss = 0.
+        best_accuracy = 0.0
+        ce_loss = nn.CrossEntropyLoss()
+        self.child_memory = {}
+        for e in range(epochs):
+            print('epoch {} started'.format(e))
+
+            if e in self.milestones:
+                self.schedule_lr()
+
+            for imgs, labels, ages in tqdm(iter(self.loader)):
+                # for imgs, labels in tqdm(iter(self.loader)):
+                child_idx = torch.where(ages == 0)[0]
+
+                self.optimizer1.zero_grad()
+                self.optimizer2.zero_grad()
+
+                imgs = imgs.to(conf.device)
+                labels = labels.to(conf.device)
+
+                embeddings = self.model(imgs)
+                # thetas = self.head(embeddings, labels)
+                thetas = self.head(embeddings, labels, ages)
+                arcface_loss = ce_loss(thetas, labels)
+
+                if len(child_idx) > 0:
+                    child_idx = child_idx.numpy().tolist()
+                    for idx in child_idx:
+                        child_label = labels[idx].item()
+                        if e == 0:
+                            self.child_memory[child_label] = embeddings[idx].clone()
+                        elif e > 0:
+                            self.child_memory[child_label] = self.alpha * embeddings[idx].clone()  + (1-self.alpha) * self.child_memory[child_label].clone()
+
+                child_embeddings = torch.stack(list(self.child_memory.values())).cuda()
+                child_labels = torch.tensor(np.array(list(self.child_memory.keys()))).long().cuda()
+                child_thetas = self.head(child_embeddings, child_labels)
+                child_loss = ce_loss(child_thetas, child_labels)
+
+                loss = arcface_loss + child_loss
+
+
+                loss.backward(retain_graph=True)
+                running_loss += loss.item()
+
+                self.optimizer1.step()
+                self.optimizer2.step()
+
+                if self.step % self.board_loss_every == 0 and self.step != 0:  # XXX
+                    print('tensorboard plotting....')
+                    loss_board = running_loss / self.board_loss_every
+                    self.writer.add_scalar('train_loss', loss_board, self.step)
+                    running_loss = 0.
+
+                if self.step % self.evaluate_every == 0 and self.step != 0:
+                    print('evaluating....')
+                    # LFW evaluation
+                    accuracy, best_threshold, roc_curve_tensor, dist = self.evaluate(conf, self.lfw, self.lfw_issame)
+                    # NEGATIVE WRONG
+                    wrong_list = np.where((self.lfw_issame == False) & (dist < best_threshold))[0]
+                    negative_wrong = len(wrong_list)
+                    # POSITIVE WRONG
+                    wrong_list = np.where((self.lfw_issame == True) & (dist > best_threshold))[0]
+                    positive_wrong = len(wrong_list)
+                    self.board_val('lfw', accuracy, best_threshold, roc_curve_tensor, negative_wrong, positive_wrong)
+
+                    # FGNETC evaluation
+                    accuracy2, best_threshold2, roc_curve_tensor2, dist2 = self.evaluate(conf, self.fgnetc,
+                                                                                         self.fgnetc_issame)
+                    # NEGATIVE WRONG
+                    wrong_list = np.where((self.fgnetc_issame == False) & (dist2 < best_threshold2))[0]
+                    negative_wrong2 = len(wrong_list)
+                    # POSITIVE WRONG
+                    wrong_list = np.where((self.fgnetc_issame == True) & (dist2 > best_threshold2))[0]
+                    positive_wrong2 = len(wrong_list)
+                    self.board_val('fgent_c', accuracy2, best_threshold2, roc_curve_tensor2, negative_wrong2,
+                                   positive_wrong2)
+
+                    self.model.train()
+
+                if self.step % self.save_every == 0 and self.step != 0:
+                    print('saving model....')
+                    # save with most recently calculated accuracy?
+                    if conf.finetune_model_path is not None:
+                        self.save_state(conf, accuracy2,
+                                        extra=str(conf.data_mode) + '_' + str(conf.net_depth) + '_' + str(
+                                            conf.batch_size) + 'finetune')
+                    else:
+                        self.save_state(conf, accuracy2,
+                                        extra=str(conf.data_mode) + '_' + str(conf.exp) + '_' + str(conf.batch_size))
+
+                    if accuracy2 > best_accuracy:
+                        best_accuracy = accuracy2
+                        print('saving best model....')
+                        self.save_best_state(conf, best_accuracy,
+                                             extra=str(conf.data_mode) + '_' + str(conf.exp) + '_' + str(
+                                                 conf.batch_size))
+
+                self.step += 1
+        if conf.finetune_model_path is not None:
+            self.save_state(conf, accuracy, to_save_folder=True,
+                            extra=str(conf.data_mode) + '_' + str(conf.net_depth) + '_' + str(
+                                conf.batch_size) + '_finetune')
+        else:
+            self.save_state(conf, accuracy, to_save_folder=True,
+                            extra=str(conf.data_mode) + '_' + str(conf.net_depth) + '_' + str(
+                                conf.batch_size) + '_final')
 
     def analyze_angle(self, conf):
         '''
