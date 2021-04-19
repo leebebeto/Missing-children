@@ -319,7 +319,13 @@ class face_learner(object):
         running_loss = 0.
         best_accuracy = 0.0
         ce_loss = nn.CrossEntropyLoss()
-        self.child_memory = {}
+        # will not be used due to memory leak
+        # self.child_memory = {}
+
+        # initialize memory bank
+        # reversed shape to use like dictionary
+        self.child_memory = nn.Parameter(torch.Tensor(self.class_num, conf.embedding_size)).to(conf.device)
+        self.child_identity = []
         for e in range(epochs):
             print('epoch {} started'.format(e))
 
@@ -329,6 +335,7 @@ class face_learner(object):
             for imgs, labels, ages in tqdm(iter(self.loader)):
                 # for imgs, labels in tqdm(iter(self.loader)):
                 child_idx = torch.where(ages == 0)[0]
+                self.child_identity += child_idx.numpy().tolist()
 
                 self.optimizer1.zero_grad()
                 self.optimizer2.zero_grad()
@@ -341,28 +348,35 @@ class face_learner(object):
                 thetas = self.head(embeddings, labels, ages)
                 arcface_loss = ce_loss(thetas, labels)
 
-                if len(child_idx) > 0:
-                    child_idx = child_idx.numpy().tolist()
-                    for idx in child_idx:
-                        child_label = labels[idx].item()
-                        if e == 0:
-                            self.child_memory[child_label] = embeddings[idx].clone()
-                        elif e > 0:
-                            self.child_memory[child_label] = self.alpha * embeddings[idx].clone()  + (1-self.alpha) * self.child_memory[child_label].clone()
+                # import pdb; pdb.set_trace()
+                with torch.no_grad():
+                    if len(child_idx) > 0:
+                        self.child_memory[child_idx] = embeddings[child_idx].detach().clone()
 
-                child_embeddings = torch.stack(list(self.child_memory.values())).cuda()
-                child_labels = torch.tensor(np.array(list(self.child_memory.keys()))).long().cuda()
+                        if e == 0:
+                            self.child_memory[child_idx] = embeddings[child_idx].detach().clone()
+                        elif e > 0:
+                            self.child_memory[child_idx] = self.alpha * embeddings[child_idx].detach().clone() + (1 - self.alpha) * self.child_memory[child_idx].detach().clone()
+
+                self.child_identity = list(set(self.child_identity))
+                child_embeddings = self.child_memory[torch.tensor(self.child_identity)].cuda()
+                child_labels = torch.tensor(self.child_identity).cuda()
                 child_thetas = self.head(child_embeddings, child_labels)
                 child_loss = ce_loss(child_thetas, child_labels)
 
                 loss = arcface_loss + child_loss
 
 
-                loss.backward(retain_graph=True)
+                loss.backward()
                 running_loss += loss.item()
 
                 self.optimizer1.step()
                 self.optimizer2.step()
+
+                del embeddings
+                del child_embeddings, child_labels, child_thetas
+                del imgs, labels, thetas, arcface_loss
+                del child_idx, ages
 
                 if self.step % self.board_loss_every == 0 and self.step != 0:  # XXX
                     print('tensorboard plotting....')
