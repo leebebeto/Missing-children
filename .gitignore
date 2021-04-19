@@ -15,5 +15,9 @@
 .idea/modules.xml
 .idea/vcs.xml
 .idea/workspace.xml
-.vscode/sftp.json
+.vscode
 .DS_Store
+
+data
+work_space
+__pycache__
