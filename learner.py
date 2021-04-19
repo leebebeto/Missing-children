@@ -356,7 +356,7 @@ class face_learner(object):
                         if e == 0:
                             self.child_memory[child_idx] = embeddings[child_idx].detach().clone()
                         elif e > 0:
-                            self.child_memory[child_idx] = self.alpha * embeddings[child_idx].detach().clone() + (1 - self.alpha) * self.child_memory[child_idx].detach().clone()
+                            self.child_memory[child_idx] = (1-self.alpha) * embeddings[child_idx].detach().clone() + self.alpha * self.child_memory[child_idx].detach().clone()
 
                 self.child_identity = list(set(self.child_identity))
                 child_embeddings = self.child_memory[torch.tensor(self.child_identity)].cuda()
