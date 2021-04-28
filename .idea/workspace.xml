@@ -2,8 +2,34 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="198a85f9-6278-49d0-81c0-daa6ef3746a9" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/learner.py" beforeDir="false" afterPath="$PROJECT_DIR$/learner.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/AGE_ANALYSIS/AGE_DIST_CASIA_ONLY_NEGATIVE_CORRECT.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/AGE_ANALYSIS/AGE_DIST_CASIA_ONLY_NEGATIVE_TOTAL.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/AGE_ANALYSIS/AGE_DIST_CASIA_ONLY_NEGATIVE_WRONG.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/AGE_ANALYSIS/AGE_DIST_CASIA_ONLY_POSITIVE_CORRECT.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/AGE_ANALYSIS/AGE_DIST_CASIA_ONLY_POSITIVE_TOTAL.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/AGE_ANALYSIS/AGE_DIST_CASIA_ONLY_POSITIVE_WRONG.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/TSNE/FGNETC_85.8_NEGATIVE_CORRECT_20.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/TSNE/FGNETC_85.8_NEGATIVE_WRONG_20.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/TSNE/FGNETC_85.8_POSITIVE_CORRECT_20.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/TSNE/FGNETC_85.8_POSITIVE_WRONG_20.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/TSNE/tsne_agedb.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/age_distribution/CASIA_age_histogram_density_10.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/age_distribution/CASIA_age_histogram_density_20.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/age_distribution/CASIA_age_histogram_density_5.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/analysis/analyze_angle_analyze.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/analysis/analyze_angle_analyze_ldam.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/analysis/analyze_angle_debugging.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dataset/.gitkeep" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mtcnn_pytorch/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mtcnn_pytorch/LICENSE" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mtcnn_pytorch/README.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mtcnn_pytorch/caffe_models/det1.prototxt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mtcnn_pytorch/extract_weights_from_caffe_models.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mtcnn_pytorch/get_aligned_face_from_mtcnn.ipynb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mtcnn_pytorch/mtcnn_aligned.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mtcnn_pytorch/refine_faces.ipynb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mtcnn_pytorch/src/__init__.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mtcnn_pytorch/src/visualization_utils.py" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -22,6 +48,7 @@
   </component>
   <component name="JupyterTrust" id="934f670a-d258-4cac-966c-eaf8434de415" />
   <component name="ProjectId" id="1pHsBDNnwqCsHgHwYZTnDJwzKu8" />
+  <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
@@ -86,6 +113,13 @@
       <workItem from="1618732459229" duration="447000" />
       <workItem from="1618757608992" duration="1885000" />
       <workItem from="1618796188091" duration="3643000" />
+      <workItem from="1619193681849" duration="19000" />
+      <workItem from="1619233523096" duration="219000" />
+      <workItem from="1619269867816" duration="1342000" />
+      <workItem from="1619335520218" duration="9888000" />
+      <workItem from="1619407485923" duration="4227000" />
+      <workItem from="1619532313700" duration="1326000" />
+      <workItem from="1619585938137" duration="1963000" />
     </task>
     <servers />
   </component>
@@ -93,11 +127,12 @@
     <option name="version" value="2" />
   </component>
   <component name="WindowStateProjectService">
-    <state x="375" y="-1124" key="#Deployment" timestamp="1617773252412">
-      <screen x="-505" y="-1577" width="2560" height="1577" />
+    <state x="2672" y="306" key="#Deployment" timestamp="1619335588176">
+      <screen x="1792" y="-125" width="2560" height="1502" />
     </state>
     <state x="375" y="-1123" key="#Deployment/-505.-1577.2560.1577/0.23.1792.1026/2055.-1386.1920.1057@-505.-1577.2560.1577" timestamp="1614851340594" />
     <state x="616" y="318" key="#Deployment/0.23.1792.1026@0.23.1792.1026" timestamp="1616210981351" />
+    <state x="2672" y="306" key="#Deployment/1792.-125.2560.1502/0.23.1792.1097/4352.66.1920.1057@1792.-125.2560.1502" timestamp="1619335588176" />
     <state x="375" y="-1124" key="#Deployment/2055.-1386.1920.1057/-505.-1577.2560.1577/0.23.1792.1028@-505.-1577.2560.1577" timestamp="1617773252412" />
     <state x="521" y="315" key="#com.intellij.execution.impl.EditConfigurationsDialog" timestamp="1616138582664">
       <screen x="0" y="23" width="1792" height="1024" />
@@ -124,17 +159,19 @@
       <screen x="2055" y="-1386" width="1920" height="1057" />
     </state>
     <state x="2055" y="-1386" width="888" height="1057" key="dock-window-2/2055.-1386.1920.1057/-505.-1577.2560.1577/0.23.1792.1022@-505.-1577.2560.1577" timestamp="1618227006782" />
-    <state x="682" y="-1051" width="313" height="525" key="ftp.server.browser" timestamp="1617773251316">
-      <screen x="-505" y="-1577" width="2560" height="1577" />
+    <state x="2979" y="376" width="313" height="525" key="ftp.server.browser" timestamp="1619335586969">
+      <screen x="1792" y="-125" width="2560" height="1502" />
     </state>
     <state x="682" y="-1051" width="313" height="525" key="ftp.server.browser/-505.-1577.2560.1577/0.23.1792.1026/2055.-1386.1920.1057@-505.-1577.2560.1577" timestamp="1614851317495" />
+    <state x="2979" y="376" key="ftp.server.browser/1792.-125.2560.1502/0.23.1792.1097/4352.66.1920.1057@1792.-125.2560.1502" timestamp="1619335586969" />
     <state x="682" y="-1051" key="ftp.server.browser/2055.-1386.1920.1057/-505.-1577.2560.1577/0.23.1792.1028@-505.-1577.2560.1577" timestamp="1617773251316" />
-    <state x="441" y="-1212" width="958" height="677" key="search.everywhere.popup" timestamp="1618592245302">
-      <screen x="-505" y="-1577" width="2560" height="1577" />
+    <state x="2738" y="223" width="958" height="645" key="search.everywhere.popup" timestamp="1619337038351">
+      <screen x="1792" y="-125" width="2560" height="1502" />
     </state>
     <state x="441" y="-1212" width="958" height="677" key="search.everywhere.popup/-505.-1577.2560.1577/0.23.1792.1022/2055.-1386.1920.1057@-505.-1577.2560.1577" timestamp="1618401201748" />
     <state x="441" y="-1212" width="958" height="677" key="search.everywhere.popup/-505.-1577.2560.1577/0.23.1792.1097/2055.-1386.1920.982@-505.-1577.2560.1577" timestamp="1618592245302" />
     <state x="662" y="260" width="670" height="439" key="search.everywhere.popup/0.23.1792.1024@0.23.1792.1024" timestamp="1617969526162" />
+    <state x="2738" y="223" width="958" height="645" key="search.everywhere.popup/1792.-125.2560.1502/0.23.1792.1097/4352.66.1920.1057@1792.-125.2560.1502" timestamp="1619337038351" />
     <state x="441" y="-1212" width="958" height="677" key="search.everywhere.popup/2055.-1386.1920.1057/-505.-1577.2560.1577/0.23.1792.1022@-505.-1577.2560.1577" timestamp="1618151972324" />
     <state x="440" y="-1212" width="670" height="676" key="search.everywhere.popup/2055.-1386.1920.986/-505.-1577.2560.1577/0.23.1792.1097@-505.-1577.2560.1577" timestamp="1617363384439" />
   </component>

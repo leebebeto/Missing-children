@@ -25,8 +25,12 @@ if __name__ == '__main__':
     parser.add_argument("--angle", help='whether to analyze angles', default=False)
     parser.add_argument("--casia_vgg_mode", help='how to select vgg', default='random')
     parser.add_argument("--minus_m", help='margin for negative pair of child', default=0.5, type=float)
+    parser.add_argument("--alpha", help='update ratio for memory bank', default=0.9, type=float)
+    parser.add_argument("--new_id", help='number of new identities', default=100, type=int)
+    parser.add_argument("--lambda_mode", help='lambda option for memory bank', default='normal', type=str)
+    parser.add_argument("--lambda_mixup", help='lambda for mixup', default=1.0, type=float)
     parser.add_argument("--use_memory", help='whether to use memory', default=False)
-    parser.add_argument("--alpha", help='update ratio for memory bank', default=0.999, type=float)
+    parser.add_argument("--use_sorted", help='whether to sort child index', default='random', type=str)
 
     # data path -> added temporarily
     parser.add_argument("--vgg_folder", help='vgg folder directory', default='/home/nas1_userD/yonggyu/Face_dataset/vgg')
@@ -46,8 +50,8 @@ if __name__ == '__main__':
     # logging
     parser.add_argument("--data_path", help='path for loading data', default='data', type=str)
     parser.add_argument("--work_path", help='path for saving models & logs', default='work_space', type=str)
-    parser.add_argument("--model_path", help='path for saving models', default='work_space/models', type=str)
-    parser.add_argument("--log_path", help='path for saving logs', default='work_space/log', type=str)
+    parser.add_argument("--model_path", help='path for saving models', default='work_space/models2', type=str)
+    parser.add_argument("--log_path", help='path for saving logs', default='work_space/log2', type=str)
 
     args = parser.parse_args()
 
