@@ -36,12 +36,19 @@ class face_learner(object):
 
         if not inference:
             self.milestones = [6, 11, 16]
-            self.loader, self.class_num, self.ds = get_train_loader(conf)
-            self.log_path = os.path.join(conf.work_path, 'log', conf.data_mode, conf.exp)
+            # self.milestones = [11, 16, 21]
+            print(f'curr milestones: {self.milestones}')
+
+            self.loader, self.class_num, self.ds, self.child_identity, self.child_identity_min, self.child_identity_max = get_train_loader(conf)
+            self.log_path = os.path.join(conf.log_path, conf.data_mode, conf.exp)
 
             os.makedirs(self.log_path, exist_ok=True)
             self.writer = SummaryWriter(self.log_path)
             self.step = 0
+
+            if 'MIXUP' in conf.exp:
+                self.class_num += conf.new_id
+
             if conf.loss == 'Arcface':
                 self.head = Arcface(embedding_size=conf.embedding_size, classnum=self.class_num).to(conf.device)
             # Arcface with minus margin for children
@@ -317,6 +324,8 @@ class face_learner(object):
         self.model.train()
 
         running_loss = 0.
+        running_arcface_loss, running_child_loss, running_child_total_loss = 0.0, 0.0, 0.0
+        running_mixup_loss, running_mixup_total_loss = 0.0, 0.0
         best_accuracy = 0.0
         ce_loss = nn.CrossEntropyLoss()
         # will not be used due to memory leak
@@ -325,7 +334,8 @@ class face_learner(object):
         # initialize memory bank
         # reversed shape to use like dictionary
         self.child_memory = nn.Parameter(torch.Tensor(self.class_num, conf.embedding_size)).to(conf.device)
-        self.child_identity = []
+        child_loss = 0.0
+        mixup_loss = torch.tensor(0.0)
         for e in range(epochs):
             print('epoch {} started'.format(e))
 
@@ -335,7 +345,7 @@ class face_learner(object):
             for imgs, labels, ages in tqdm(iter(self.loader)):
                 # for imgs, labels in tqdm(iter(self.loader)):
                 child_idx = torch.where(ages == 0)[0]
-                self.child_identity += child_idx.numpy().tolist()
+                # self.child_identity += child_idx.numpy().tolist()
 
                 self.optimizer1.zero_grad()
                 self.optimizer2.zero_grad()
@@ -348,41 +358,117 @@ class face_learner(object):
                 thetas = self.head(embeddings, labels, ages)
                 arcface_loss = ce_loss(thetas, labels)
 
-                # import pdb; pdb.set_trace()
+
+                if conf.lambda_mode == 'normal':
+                    child_lambda = 0.0 if (e == 0) or (e in self.milestones) else 1.0
+                elif conf.lambda_mode == 'zero':
+                    child_lambda = 0.0 if (e == 0) or (e >= self.milestones[0]) else 1.0
+                elif conf.lambda_mode == 'decay':
+                    if (e == 0) or (e in self.milestones):
+                        child_lambda = 0.0
+                    elif e < self.milestones[0]:
+                        child_lambda = 1.0
+                    elif e > self.milestones[0] and e < self.milestones[1]:
+                        child_lambda = 0.1
+                    elif e > self.milestones[1] and e < self.milestones[2]:
+                        child_lambda = 0.01
+                    elif e > self.milestones[2]:
+                        child_lambda = 0.001
+
+
                 with torch.no_grad():
                     if len(child_idx) > 0:
                         self.child_memory[child_idx] = embeddings[child_idx].detach().clone()
-
-                        if e == 0:
+                        if (e == 0) or (e in self.milestones):
                             self.child_memory[child_idx] = embeddings[child_idx].detach().clone()
-                        elif e > 0:
+                        else:
                             self.child_memory[child_idx] = (1-self.alpha) * embeddings[child_idx].detach().clone() + self.alpha * self.child_memory[child_idx].detach().clone()
 
-                self.child_identity = list(set(self.child_identity))
-                child_embeddings = self.child_memory[torch.tensor(self.child_identity)].cuda()
-                child_labels = torch.tensor(self.child_identity).cuda()
-                child_thetas = self.head(child_embeddings, child_labels)
-                child_loss = ce_loss(child_thetas, child_labels)
+                # self.child_identity = list(set(self.child_identity))
+                # if len(self.child_identity) ==0:
+                #     continue
 
-                loss = arcface_loss + child_loss
+                # ''' module for positive pair -> child memory bank '''
+                # child_labels = torch.tensor(self.child_identity).cuda()
+                # child_embeddings = self.child_memory[torch.tensor(self.child_identity)].cuda()
+                # child_thetas = self.head(child_embeddings, child_labels)
+                # child_loss = ce_loss(child_thetas, child_labels)
+                # child_total_loss = child_lambda * child_loss
+                # loss = arcface_loss + child_total_loss
+                # ''' adding child loss finished '''
 
+                # ''' module for negative pair -> create fake prototypes '''
+                # if e >= 1:
+                    # if conf.use_sorted == 'random':
+                if e >= 1:
+                    if conf.use_sorted == 'min_first':
+                        child_labels = torch.tensor(self.child_identity_min).cuda()
+                    if conf.use_sorted == 'max_first':
+                        child_labels = torch.tensor(self.child_identity_max).cuda()
+                    elif conf.use_sorted == 'random':
+                        child_labels_np = np.array(self.child_identity)
+                        np.random.shuffle(child_labels_np)
+                        child_labels_np = child_labels_np[:conf.new_id+1]
+                        child_labels = torch.tensor(child_labels_np).cuda()
+
+                    child_embeddings = self.child_memory[child_labels].cuda()
+
+                    feature_a, feature_b = child_embeddings[:-1], child_embeddings[1:]
+
+                    mixup_features = (feature_a + feature_b) / 2
+                    mixup_labels = torch.arange(self.class_num - mixup_features.shape[0], self.class_num).cuda()
+                    mixup_thetas = self.head(mixup_features, mixup_labels)
+
+                    mixup_loss = ce_loss(mixup_thetas, mixup_labels)
+
+                mixup_total_loss = conf.lambda_mixup * mixup_loss
+                loss = arcface_loss + mixup_total_loss
 
                 loss.backward()
                 running_loss += loss.item()
+
+                running_arcface_loss += arcface_loss.item()
+                if 'CHILD' in conf.exp:
+                    running_child_loss += child_loss.item()
+                    running_child_total_loss += child_total_loss.item()
+                elif 'MIXUP' in conf.exp:
+                    running_mixup_loss += mixup_loss.item()
+                    running_mixup_total_loss += mixup_total_loss.item()
 
                 self.optimizer1.step()
                 self.optimizer2.step()
 
                 del embeddings
-                del child_embeddings, child_labels, child_thetas
+                # del child_embeddings, child_labels, child_thetas
                 del imgs, labels, thetas, arcface_loss
                 del child_idx, ages
 
                 if self.step % self.board_loss_every == 0 and self.step != 0:  # XXX
                     print('tensorboard plotting....')
                     loss_board = running_loss / self.board_loss_every
+
+                    arcface_loss_board = running_arcface_loss / self.board_loss_every
                     self.writer.add_scalar('train_loss', loss_board, self.step)
+                    self.writer.add_scalar('arcface_loss', arcface_loss_board, self.step)
+                    if 'CHILD' in conf.exp:
+                        child_loss_board = running_child_loss / self.board_loss_every
+                        child_total_loss_board = running_child_total_loss / self.board_loss_every
+
+                        self.writer.add_scalar('child_loss', child_loss_board, self.step)
+                        self.writer.add_scalar('child_total_loss', child_total_loss_board, self.step)
+                    elif 'MIXUP' in conf.exp:
+                        mixup_loss_board = running_mixup_loss / self.board_loss_every
+                        mixup_total_loss_board = running_mixup_total_loss / self.board_loss_every
+
+                        self.writer.add_scalar('mixup_loss', mixup_loss_board, self.step)
+                        self.writer.add_scalar('mixup_total_loss', mixup_total_loss_board, self.step)
+
                     running_loss = 0.
+                    running_arcface_loss = 0.0
+                    running_child_loss = 0.0
+                    running_child_total_loss = 0.0
+                    running_mixup_loss = 0.0
+                    running_mixup_total_loss = 0.0
 
                 if self.step % self.evaluate_every == 0 and self.step != 0:
                     print('evaluating....')
@@ -540,7 +626,7 @@ class face_learner(object):
         #     save_path = conf.save_path
         # else:
         #     save_path = conf.model_path
-        save_path = f'work_space/models/{conf.exp}'
+        save_path = f'{conf.model_path}/{conf.exp}'
         os.makedirs(save_path, exist_ok=True)
         torch.save(self.model.state_dict(), os.path.join(save_path, ('lfw_best_model_{}_accuracy:{:.3f}_step:{}_{}.pth'.format(get_time(), accuracy, self.step, extra))))
         if not model_only:
@@ -558,7 +644,7 @@ class face_learner(object):
         else:
             save_path = conf.model_path
 
-        os.makedirs('work_space/models', exist_ok=True)
+        os.makedirs(conf.model_path, exist_ok=True)
         torch.save(
             self.model.state_dict(), str(save_path) +
             ('/model_{}_accuracy:{:.3f}_step:{}_{}.pth'.format(get_time(), accuracy, self.step, extra)))

@@ -41,8 +41,11 @@ def get_train_loader(conf):
     ])
 
     if conf.data_mode == 'casia':
-        ds = CASIADataset(casia_folder, train_transforms=train_transform)
+        ds = CASIADataset(casia_folder, train_transforms=train_transform,  conf=conf)
         class_num = ds.class_num
+        child_identity = ds.child_identity
+        child_identity_min = ds.child_identity_min
+        child_identity_max = ds.child_identity_max
         print('casia loader generated')
 
     if conf.data_mode == 'casia_vgg':
@@ -70,7 +73,7 @@ def get_train_loader(conf):
         print('vgg_agedb_insta loader generated')
 
     loader = DataLoader(ds, batch_size=conf.batch_size, shuffle=True, pin_memory=True, num_workers=conf.num_workers)
-    return loader, class_num, ds
+    return loader, class_num, ds, child_identity, child_identity_min, child_identity_max
 
 def get_val_pair(path, name):
     '''
@@ -172,12 +175,22 @@ class CASIADataset(Dataset):
     Returns image, label, age
     '''
 
-    def __init__(self, imgs_folder, train_transforms):
+    def __init__(self, imgs_folder, train_transforms, conf):
         self.root_dir = imgs_folder
         self.transform = train_transforms
         self.class_num = len(os.listdir(imgs_folder))
         self.age_file = open('/home/nas1_userE/jungsoolee/Face_dataset/casia-webface.txt').readlines()
         self.id2age = { os.path.join(str(int(line.split(' ')[1].split('/')[1])), str(int(line.split(' ')[1].split('/')[2][:-4]))) : float(line.split(' ')[2]) for line in self.age_file}
+        self.child_image2age = { os.path.join(str(int(line.split(' ')[1].split('/')[1])), str(int(line.split(' ')[1].split('/')[2][:-4]))) : float(line.split(' ')[2]) for line in self.age_file if float(line.split(' ')[2]) <= 13}
+        self.child_image2freq = {id.split('/')[0]: 0 for id in self.child_image2age.keys()}
+        for k, v in self.child_image2age.items():
+            self.child_image2freq[k.split('/')[0]] += 1
+
+        # sorted in ascending order
+        self.child_identity_freq = {int(k): v for k, v in sorted(self.child_image2freq.items(), key=lambda item: item[1])}
+        self.child_identity = list(self.child_identity_freq.keys())
+        self.child_identity_min = list(self.child_identity_freq.keys())[:conf.new_id + 1]
+        self.child_identity_max = list(self.child_identity_freq.keys())[-(conf.new_id + 1):]
 
         total_list = glob.glob(self.root_dir + '/*/*')
         self.total_imgs = len(total_list)
@@ -202,7 +215,6 @@ class CASIADataset(Dataset):
         img_path_list = img_path.split('/')
         file_name = img_path_list[-1]  # {age}_filenum.jpg
         id_img = '/'.join((img_path.split('/')[-2], img_path.split('/')[-1][:-4]))
-
         try:
             age = self.id2age[id_img]
         except:
