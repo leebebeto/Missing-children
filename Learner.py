@@ -18,7 +18,7 @@ import glob
 from data.data_pipe import get_train_loader, get_train_loader_d
 from model import Backbone, Arcface, MobileFaceNet, l2_norm, GrowUP, Discriminator
 from utils import get_time, gen_plot, hflip_batch, separate_bn_paras
-from verifacation import evaluate, evaluate_child
+from verifacation import evaluate, evaluate_child, evaluate_dist
 
 import pdb
 import time
@@ -102,17 +102,17 @@ class face_learner(object):
             self.threshold = conf.threshold
 
 
-    def board_val(self, db_name, accuracy, best_threshold, roc_curve_tensor):
+    def board_val(self, db_name, accuracy, best_threshold, roc_curve_tensor, negative_wrong, positive_wrong):
         self.writer.add_scalar('{}_accuracy'.format(db_name), accuracy, self.step)
         self.writer.add_scalar('{}_best_threshold'.format(db_name), best_threshold, self.step)
+        self.writer.add_scalar('{}_negative_wrong'.format(db_name), negative_wrong, self.step)
+        self.writer.add_scalar('{}_positive_wrong'.format(db_name), positive_wrong, self.step)
         self.writer.add_image('{}_roc_curve'.format(db_name), roc_curve_tensor, self.step)
    
-        
     def evaluate(self, conf, carray, issame, nrof_folds = 10, tta = True):
         self.model.eval()
         self.growup.eval()
         self.discriminator.eval()
-
         idx = 0
         embeddings = np.zeros([len(carray), conf.embedding_size])
         with torch.no_grad():
@@ -133,11 +133,11 @@ class face_learner(object):
                     embeddings[idx:] = l2_norm(emb_batch).cpu()
                 else:
                     embeddings[idx:] = self.model(batch.to(conf.device)).cpu()
-        tpr, fpr, accuracy, best_thresholds = evaluate(embeddings, issame, nrof_folds)
+        tpr, fpr, accuracy, best_thresholds, dist = evaluate_dist(embeddings, issame, nrof_folds)
         buf = gen_plot(fpr, tpr)
         roc_curve = Image.open(buf)
         roc_curve_tensor = transforms.ToTensor()(roc_curve)
-        return accuracy.mean(), best_thresholds.mean(), roc_curve_tensor
+        return accuracy.mean(), best_thresholds.mean(), roc_curve_tensor, dist
     
     def evaluate_child(self, conf, carray, issame, nrof_folds=10, tta=True):
         self.model.eval()
@@ -234,12 +234,28 @@ class face_learner(object):
                     self.writer.add_scalar('train_loss', loss_board, self.step)
                     running_loss = 0.
                 
+                # added wrong on evaluations
                 if self.step % self.evaluate_every == 0 and self.step != 0:
                     print('evaluating....')
-                    accuracy, best_threshold, roc_curve_tensor = self.evaluate(conf, self.lfw, self.lfw_issame)
-                    self.board_val('lfw', accuracy, best_threshold, roc_curve_tensor)
-                    accuracy2, best_threshold2, roc_curve_tensor2 = self.evaluate(conf, self.fgnetc, self.fgnetc_issame)
-                    self.board_val('fgent_c', accuracy2, best_threshold2, roc_curve_tensor2)
+                    # LFW evaluation
+                    accuracy, best_threshold, roc_curve_tensor, dist = self.evaluate(conf, self.lfw, self.lfw_issame)
+                    # NEGATIVE WRONG
+                    wrong_list = np.where((self.lfw_issame == False) & (dist < best_threshold))[0]
+                    negative_wrong = len(wrong_list)
+                    # POSITIVE WRONG
+                    wrong_list = np.where((self.lfw_issame == True) & (dist > best_threshold))[0]
+                    positive_wrong = len(wrong_list)
+                    self.board_val('lfw', accuracy, best_threshold, roc_curve_tensor, negative_wrong, positive_wrong)
+
+                    # FGNETC evaluation
+                    accuracy2, best_threshold2, roc_curve_tensor2, dist2 = self.evaluate(conf, self.fgnetc, self.fgnetc_issame)
+                    # NEGATIVE WRONG
+                    wrong_list = np.where((self.fgnetc_issame == False) & (dist2 < best_threshold2))[0]
+                    negative_wrong2 = len(wrong_list)
+                    # POSITIVE WRONG
+                    wrong_list = np.where((self.fgnetc_issame == True) & (dist2 > best_threshold2))[0]
+                    positive_wrong2 = len(wrong_list)
+                    self.board_val('fgent_c', accuracy2, best_threshold2, roc_curve_tensor2, negative_wrong2, positive_wrong2)
 
                     self.model.train()
 
@@ -254,12 +270,7 @@ class face_learner(object):
                             + '_' + str(conf.batch_size) + conf.model_name)
 
                 self.step += 1
-        if conf.finetune_model_path is not None:
-            self.save_state(conf, accuracy, to_save_folder=True, extra=str(conf.data_mode)  + '_' + str(conf.net_depth) \
-                + '_'+ str(conf.batch_size) +'_finetune')
-        else:
-            self.save_state(conf, accuracy, to_save_folder=True, extra=str(conf.data_mode)  + '_' + str(conf.net_depth) \
-                + '_'+ str(conf.batch_size) +'_final')
+        print('Horray!')
 
 
     def train_with_growup(self, conf, epochs):

@@ -1,4 +1,3 @@
-from pathlib import Path
 from torch.utils.data import Dataset, ConcatDataset, DataLoader
 from torchvision.datasets import ImageFolder, folder
 from torchvision import transforms
@@ -16,6 +15,7 @@ from tqdm import tqdm
 import pdb
 import os
 import glob
+import random
 
 
 def get_train_dataset(imgs_folder):
@@ -67,6 +67,10 @@ def get_train_loader(conf):
         ds = CasiaAgeDBDataset(conf.casia_folder, conf.agedb_folder, train_transforms=conf.train_transform)
         class_num = ds.class_num
         print('casia, agedb loader generated')
+    if conf.data_mode == 'casia_mixup':
+        ds = CasiaMixupDataset(conf.casia_folder, conf.casia_prettiermonster300_folder, train_transforms=conf.train_transform)
+        class_num = ds.class_num
+        print('casia, mixup loader generated')
         
     if conf.data_mode == 'vgg':
         ds = vgg_ds
@@ -263,6 +267,77 @@ class CasiaDataset(Dataset):
             label = self.casia_class_list.index(folder_name)
             # age = int(file_name.split('_')[0]) # this is actually meaningless
             age = 1
+        else:
+            print('Something went wrong. What have you done!')
+            assert False
+
+        if self.transform is not None:
+            img = self.transform(img)
+
+        return img, label, age
+
+class CasiaMixupDataset(Dataset):
+    '''
+    Joint DB of Casia, Mixup(BabyMonster) Dataset
+
+    Casia with no age labels
+    directory structure
+        root/person_name/{age}_filenum.jpg
+    BabyMonster with no age labels
+    directory structure
+        root/id1-id2/filenum.jpg
+
+    Store image directories at init phase
+
+    Returns image, label, age
+    '''
+    def __init__(self, casia_imgs_folder, babymonster_imgs_folder, train_transforms):
+
+        self.casia_imgs_folder_name = casia_imgs_folder.split('/')[-1]
+        self.babymonster_imgs_folder_name = babymonster_imgs_folder.split('/')[-1]
+
+        self.transform = train_transforms
+
+        self.casia_class_list = os.listdir(casia_imgs_folder)
+        self.casia_class_num = len(os.listdir(casia_imgs_folder))
+        self.babymonster_class_list = os.listdir(babymonster_imgs_folder)
+        self.babymonster_class_num = len(os.listdir(babymonster_imgs_folder))
+
+        self.class_num = self.casia_class_num + self.babymonster_class_num
+
+        total_list = []
+        for (dirpath, _, filenames) in os.walk(casia_imgs_folder):
+            total_list += [os.path.join(dirpath, file) for file in filenames]
+        for (dirpath, _, filenames) in os.walk(babymonster_imgs_folder):
+            # NOTE : random suffle and reduce images to n
+            id_list = [os.path.join(dirpath, file) for file in filenames]
+            if id_list is not []:
+                random.shuffle(id_list)
+                id_list = id_list[:20]
+            total_list += id_list
+
+        self.total_imgs = len(total_list)
+        self.total_list = total_list
+        
+    def __len__(self):
+        return self.total_imgs
+    
+    def __getitem__(self, index):
+
+        img_path = self.total_list[index]
+        img_path_list = img_path.split('/')
+        dataset_name = img_path_list[-3]
+        file_name = img_path_list[-1] # {age}_filenum.jpg
+        folder_name = img_path_list[-2]# label
+
+        img = Image.open(img_path)
+        if dataset_name == self.casia_imgs_folder_name:
+            label = self.casia_class_list.index(folder_name)
+            # age = int(file_name.split('_')[0]) # this is actually meaningless
+            age = 1
+        elif dataset_name == self.babymonster_imgs_folder_name:
+            label = self.babymonster_class_list.index(folder_name)
+            age = 0
         else:
             print('Something went wrong. What have you done!')
             assert False
