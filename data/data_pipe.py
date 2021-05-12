@@ -68,7 +68,7 @@ def get_train_loader(conf):
         class_num = ds.class_num
         print('casia, agedb loader generated')
     if conf.data_mode == 'casia_mixup':
-        ds = CasiaMixupDataset(conf.casia_folder, conf.casia_prettiermonster300_folder, train_transforms=conf.train_transform)
+        ds = CasiaMixupDataset(conf.casia_folder, conf.casia_prettiermonster100_folder, train_transforms=conf.train_transform)
         class_num = ds.class_num
         print('casia, mixup loader generated')
         
@@ -311,9 +311,9 @@ class CasiaMixupDataset(Dataset):
         for (dirpath, _, filenames) in os.walk(babymonster_imgs_folder):
             # NOTE : random suffle and reduce images to n
             id_list = [os.path.join(dirpath, file) for file in filenames]
-            if id_list is not []:
-                random.shuffle(id_list)
-                id_list = id_list[:20]
+            # if id_list is not []:
+            #     random.shuffle(id_list)
+            #     id_list = id_list[:20]
             total_list += id_list
 
         self.total_imgs = len(total_list)
