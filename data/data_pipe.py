@@ -68,7 +68,7 @@ def get_train_loader(conf):
         class_num = ds.class_num
         print('casia, agedb loader generated')
     if conf.data_mode == 'casia_mixup':
-        ds = CasiaMixupDataset(conf.casia_folder, conf.casia_prettymonster500_folder, train_transforms=conf.train_transform)
+        ds = CasiaMixupDataset(conf.casia_folder, conf.casia_prettiermonster47_folder, train_transforms=conf.train_transform)
         class_num = ds.class_num
         print('casia, mixup loader generated')
         

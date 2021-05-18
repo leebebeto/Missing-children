@@ -66,10 +66,11 @@ def get_config(training = True):
     conf.casia_prettymonster100_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_PrettyMonster100'
     conf.casia_prettymonster300_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_PrettyMonster300'
     conf.casia_prettymonster500_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_PrettyMonster500'
-    conf.casia_prettiermonster60_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_PrettierMonster60'
-    conf.casia_prettiermonster100_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_PrettierMonster100'
-    conf.casia_prettiermonster300_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_PrettierMonster300'
-    conf.casia_prettiermonster500_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_PrettierMonster500'
+    conf.casia_prettiermonster47_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_PrettierMonster47'
+    conf.casia_prettiermonster92_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_PrettierMonster92'
+    conf.casia_prettiermonster150_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_PrettierMonster150'
+    conf.casia_prettiermonster294_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_PrettierMonster294'
+    conf.casia_prettiermonster489_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_PrettierMonster489'
 
     conf.child_folder = "/home/nas1_userD/yonggyu/Face_dataset/domain_cls_10000_d/0"
     conf.adult_folder = "/home/nas1_userD/yonggyu/Face_dataset/domain_cls_10000_d/1"
