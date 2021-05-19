@@ -19,7 +19,7 @@ if __name__ == '__main__':
     parser.add_argument("--data_mode", help="use which database, [casia, vgg, ms1m, emore, ms1m_vgg_concat, a, vgg_agedb_insta, vgg_adgedb_balanced]",default='casia', type=str)
     parser.add_argument("--finetune_model_path", help='finetune using balanced agedb', default=None, type=str)
     parser.add_argument("--finetune_head_path", help='head path', default=None, type=str)
-    parser.add_argument("--use_dp", help='use data parallel', default=True)
+    parser.add_argument("--use_dp", help='use data parallel', action= 'store_true')
     parser.add_argument("--use_sync", help='use sync batchnorm', default=True)
     parser.add_argument("--exp", help='experiment name', default='debugging', type=str)
     parser.add_argument("--angle", help='whether to analyze angles', default=False)
@@ -91,6 +91,7 @@ if __name__ == '__main__':
 
     # actual training
     if args.use_memory == 'True': # our memory bank method
+        print('using memory bank...')
         learner.train_memory(args, args.epochs)
     else:
         learner.train(args, args.epochs) # other normal training

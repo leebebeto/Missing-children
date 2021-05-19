@@ -30,12 +30,10 @@ class face_learner(object):
 
         # For Tsne -> you can ignore these codes
         # self.head = Arcface(embedding_size=conf.embedding_size, classnum=11076).to(conf.device)
-        # if conf.use_dp==True:
-        #     self.model = nn.DataParallel(self.model)
-        #     self.head = nn.DataParallel(self.head)
 
         if not inference:
-            self.milestones = [6, 11, 16]
+            # self.milestones = [6, 11, 16]
+            self.milestones = [9, 15, 21]
             # self.milestones = [11, 16, 21]
             print(f'curr milestones: {self.milestones}')
 
@@ -103,8 +101,11 @@ class face_learner(object):
             self.evaluate_every = len(self.loader)//5
             self.save_every = len(self.loader)//5
 
-            self.lfw, self.lfw_issame = get_val_data('dataset/')
-            dataset_root = "./dataset/"
+            dataset_root= '/home/nas1_userD/yonggyu/Face_dataset/face_emore'
+            # self.lfw, self.lfw_issame = get_val_data(dataset_root)
+            # dataset_root = "./dataset/"
+            self.lfw = np.load(os.path.join(dataset_root, "lfw_align_112_list.npy")).astype(np.float32)
+            self.lfw_issame = np.load(os.path.join(dataset_root, "lfw_align_112_label.npy"))
             self.fgnetc = np.load(os.path.join(dataset_root, "FGNET_new_align_list.npy")).astype(np.float32)
             self.fgnetc_issame = np.load(os.path.join(dataset_root, "FGNET_new_align_label.npy"))
         else:
@@ -120,6 +121,8 @@ class face_learner(object):
         self.writer.add_scalar('{}_negative_wrong'.format(db_name), negative_wrong, self.step)
         self.writer.add_scalar('{}_positive_wrong'.format(db_name), positive_wrong, self.step)
         self.writer.add_image('{}_roc_curve'.format(db_name), roc_curve_tensor, self.step)
+
+        print(f'{db_name} accuracy: {accuracy}')
 
     def evaluate(self, conf, carray, issame, nrof_folds = 10, tta = True):
         self.model.eval()
@@ -375,6 +378,7 @@ class face_learner(object):
                     elif e > self.milestones[2]:
                         child_lambda = 0.001
 
+                # child_lambda=1.0
 
                 with torch.no_grad():
                     if len(child_idx) > 0:
@@ -388,47 +392,50 @@ class face_learner(object):
                 # if len(self.child_identity) ==0:
                 #     continue
 
-                # ''' module for positive pair -> child memory bank '''
-                # child_labels = torch.tensor(self.child_identity).cuda()
-                # child_embeddings = self.child_memory[torch.tensor(self.child_identity)].cuda()
-                # child_thetas = self.head(child_embeddings, child_labels)
-                # child_loss = ce_loss(child_thetas, child_labels)
-                # child_total_loss = child_lambda * child_loss
-                # loss = arcface_loss + child_total_loss
-                # ''' adding child loss finished '''
+                ''' module for positive pair -> child memory bank '''
+                # if e >= 1 or e < self.milestones[0]:
+                child_labels = torch.tensor(self.child_identity).cuda()
+                child_embeddings = self.child_memory[torch.tensor(self.child_identity)].cuda()
+                child_thetas = self.head(child_embeddings, child_labels)
+                child_loss = ce_loss(child_thetas, child_labels)
+                child_total_loss = child_lambda * child_loss
+                loss = arcface_loss + child_total_loss
 
-                # ''' module for negative pair -> create fake prototypes '''
+                ''' adding child loss finished '''
+
+                # # ''' module for negative pair -> create fake prototypes '''
+                # # if e >= 1:
+                #     # if conf.use_sorted == 'random':
                 # if e >= 1:
-                    # if conf.use_sorted == 'random':
-                if e >= 1:
-                    if conf.use_sorted == 'min_first':
-                        child_labels = torch.tensor(self.child_identity_min).cuda()
-                    if conf.use_sorted == 'max_first':
-                        child_labels = torch.tensor(self.child_identity_max).cuda()
-                    elif conf.use_sorted == 'random':
-                        child_labels_np = np.array(self.child_identity)
-                        np.random.shuffle(child_labels_np)
-                        child_labels_np = child_labels_np[:conf.new_id+1]
-                        child_labels = torch.tensor(child_labels_np).cuda()
-
-                    child_embeddings = self.child_memory[child_labels].cuda()
-
-                    feature_a, feature_b = child_embeddings[:-1], child_embeddings[1:]
-
-                    mixup_features = (feature_a + feature_b) / 2
-                    mixup_labels = torch.arange(self.class_num - mixup_features.shape[0], self.class_num).cuda()
-                    mixup_thetas = self.head(mixup_features, mixup_labels)
-
-                    mixup_loss = ce_loss(mixup_thetas, mixup_labels)
-
-                mixup_total_loss = conf.lambda_mixup * mixup_loss
-                loss = arcface_loss + mixup_total_loss
+                #     if conf.use_sorted == 'min_first':
+                #         child_labels = torch.tensor(self.child_identity_min).cuda()
+                #     if conf.use_sorted == 'max_first':
+                #         child_labels = torch.tensor(self.child_identity_max).cuda()
+                #     elif conf.use_sorted == 'random':
+                #         child_labels_np = np.array(self.child_identity)
+                #         np.random.shuffle(child_labels_np)
+                #         child_labels_np = child_labels_np[:conf.new_id+1]
+                #         child_labels = torch.tensor(child_labels_np).cuda()
+                #
+                #     child_embeddings = self.child_memory[child_labels].cuda()
+                #
+                #     feature_a, feature_b = child_embeddings[:-1], child_embeddings[1:]
+                #
+                #     mixup_features = (feature_a + feature_b) / 2
+                #     mixup_labels = torch.arange(self.class_num - mixup_features.shape[0], self.class_num).cuda()
+                #     mixup_thetas = self.head(mixup_features, mixup_labels)
+                #
+                #     mixup_loss = ce_loss(mixup_thetas, mixup_labels)
+                #
+                # mixup_total_loss = conf.lambda_mixup * mixup_loss
+                # loss = arcface_loss + mixup_total_loss
+                ''' adding fake prototype loss finished '''
 
                 loss.backward()
                 running_loss += loss.item()
 
                 running_arcface_loss += arcface_loss.item()
-                if 'CHILD' in conf.exp:
+                if 'POSITIVE' in conf.exp:
                     running_child_loss += child_loss.item()
                     running_child_total_loss += child_total_loss.item()
                 elif 'MIXUP' in conf.exp:
@@ -450,7 +457,7 @@ class face_learner(object):
                     arcface_loss_board = running_arcface_loss / self.board_loss_every
                     self.writer.add_scalar('train_loss', loss_board, self.step)
                     self.writer.add_scalar('arcface_loss', arcface_loss_board, self.step)
-                    if 'CHILD' in conf.exp:
+                    if 'POSITIVE' in conf.exp:
                         child_loss_board = running_child_loss / self.board_loss_every
                         child_total_loss_board = running_child_total_loss / self.board_loss_every
 
