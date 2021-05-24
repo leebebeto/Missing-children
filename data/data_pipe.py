@@ -33,8 +33,10 @@ def get_train_loader(conf):
     # casia_folder =  './dataset/CASIA_112'
     casia_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_NATIONAL'
     # casia_folder =  '/home/nas1_userD/yonggyu/Face_dataset/casia'
-    if conf.data_mode == 'casia_mixup':
-        casia_prettiermonster100_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_PrettierMonster100'
+    if conf.data_mode == 'casia_prettiermonster':
+        casia_prettiermonster47_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_PrettierMonster47'
+        casia_prettiermonster92_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_PrettierMonster92'
+        casia_prettiermonster150_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_PrettierMonster150'
 
     print(casia_folder)
     train_transform = transforms.Compose([
@@ -75,14 +77,19 @@ def get_train_loader(conf):
         class_num = ds.class_num
         print('vgg_agedb_insta loader generated')
 
-    elif conf.data_mode == 'casia_mixup':
-        ds = CasiaMixupDataset(casia_folder, casia_prettiermonster100_folder, train_transforms=train_transform, conf=conf)
+    elif 'casia_prettiermonster' in conf.data_mode:
+        assert conf.data_mode in ['casia_prettiermonster47','casia_prettiermonster92','casia_prettiermonster150']
+        casia_prettiermonster_folder = eval(conf.data_mode+'_folder')
+        ds = CasiaMixupDataset(casia_folder, casia_prettiermonster_folder, train_transforms=train_transform, conf=conf)
         class_num = ds.class_num
         child_identity = ds.child_identity
         child_identity_min = ds.child_identity_min
         child_identity_max = ds.child_identity_max
 
         print('casia, mixup loader generated')
+    else:
+        print('Wrong dataset name')
+        raise NotImplementedError
 
 
     loader = DataLoader(ds, batch_size=conf.batch_size, shuffle=True, pin_memory=True, num_workers=conf.num_workers)
