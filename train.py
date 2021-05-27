@@ -50,10 +50,11 @@ if __name__ == '__main__':
     # logging
     parser.add_argument("--data_path", help='path for loading data', default='data', type=str)
     parser.add_argument("--work_path", help='path for saving models & logs', default='work_space', type=str)
-    parser.add_argument("--model_path", help='path for saving models', default='work_space/models2', type=str)
-    parser.add_argument("--log_path", help='path for saving logs', default='work_space/log2', type=str)
+    parser.add_argument("--model_path", help='path for saving models', default='work_space/models_serious', type=str)
+    parser.add_argument("--log_path", help='path for saving logs', default='work_space/log_serious', type=str)
 
     args = parser.parse_args()
+    args.home = os.path.expanduser('~')
 
     # fix random seeds
     random_seed = 4885
@@ -67,7 +68,6 @@ if __name__ == '__main__':
 
     # init learner
     learner = face_learner(args)
-
     # codes for fine tune
     if args.finetune_model_path is not None:
         args.lr = args.lr * 0.001

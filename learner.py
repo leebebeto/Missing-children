@@ -32,8 +32,8 @@ class face_learner(object):
         # self.head = Arcface(embedding_size=conf.embedding_size, classnum=11076).to(conf.device)
 
         if not inference:
-            # self.milestones = [6, 11, 16]
-            self.milestones = [9, 15, 21]
+            self.milestones = [6, 11, 16]
+            # self.milestones = [9, 15, 21]
             # self.milestones = [11, 16, 21]
             print(f'curr milestones: {self.milestones}')
 
@@ -54,6 +54,8 @@ class face_learner(object):
                 self.head = ArcfaceMinus(embedding_size=conf.embedding_size, classnum=self.class_num, minus_m=conf.minus_m).to(conf.device)
             elif conf.loss == 'Cosface':
                 self.head = Am_softmax(embedding_size=conf.embedding_size, classnum=self.class_num, scale=conf.scale).to(conf.device)
+            elif conf.loss == 'Sphereface':
+                self.head = AngleLinear(embedding_size=conf.embedding_size, classnum=self.class_num).to(conf.device)
             elif conf.loss == 'LDAM':
                 self.head = LDAMLoss(embedding_size=conf.embedding_size, classnum=self.class_num, max_m=conf.max_m, s=conf.scale, cls_num_list=self.ds.class_num_list).to(conf.device)
             else:
@@ -101,11 +103,13 @@ class face_learner(object):
             self.evaluate_every = len(self.loader)//5
             self.save_every = len(self.loader)//5
 
-            dataset_root= '/home/nas1_userD/yonggyu/Face_dataset/face_emore'
+            dataset_root= os.path.join(conf.home, 'dataset/face_emore')
             # self.lfw, self.lfw_issame = get_val_data(dataset_root)
             # dataset_root = "./dataset/"
             self.lfw = np.load(os.path.join(dataset_root, "lfw_align_112_list.npy")).astype(np.float32)
             self.lfw_issame = np.load(os.path.join(dataset_root, "lfw_align_112_label.npy"))
+            self.cfp_fp, self.cfp_fp_issame = get_val_data(dataset_root, 'cfp_fp')
+            self.agedb, self.agedb_issame = get_val_data(dataset_root, 'agedb_30')
             self.fgnetc = np.load(os.path.join(dataset_root, "FGNET_new_align_list.npy")).astype(np.float32)
             self.fgnetc_issame = np.load(os.path.join(dataset_root, "FGNET_new_align_label.npy"))
         else:
@@ -241,6 +245,9 @@ class face_learner(object):
         running_loss = 0.            
         best_accuracy = 0.0
         ce_loss = nn.CrossEntropyLoss()
+        if conf.loss == 'Sphereface':
+            ce_loss = AngleLoss()
+            print('using sphereface')
 
         for e in range(epochs):
             print('epoch {} started'.format(e))
@@ -285,6 +292,26 @@ class face_learner(object):
                     wrong_list = np.where((self.lfw_issame == True) & (dist > best_threshold))[0]
                     positive_wrong = len(wrong_list)
                     self.board_val('lfw', accuracy, best_threshold, roc_curve_tensor, negative_wrong, positive_wrong)
+
+                    # CFP FP evaluation
+                    accuracy, best_threshold, roc_curve_tensor, dist = self.evaluate(conf, self.cfp_fp, self.cfp_fp_issame)
+                    # NEGATIVE WRONG
+                    wrong_list = np.where((self.cfp_fp_issame == False) & (dist < best_threshold))[0]
+                    negative_wrong = len(wrong_list)
+                    # POSITIVE WRONG
+                    wrong_list = np.where((self.cfp_fp_issame == True) & (dist > best_threshold))[0]
+                    positive_wrong = len(wrong_list)
+                    self.board_val('cfp_fp', accuracy, best_threshold, roc_curve_tensor, negative_wrong, positive_wrong)
+
+                    # agedb evaluation
+                    accuracy, best_threshold, roc_curve_tensor, dist = self.evaluate(conf, self.agedb, self.agedb_issame)
+                    # NEGATIVE WRONG
+                    wrong_list = np.where((self.agedb_issame == False) & (dist < best_threshold))[0]
+                    negative_wrong = len(wrong_list)
+                    # POSITIVE WRONG
+                    wrong_list = np.where((self.agedb_issame == True) & (dist > best_threshold))[0]
+                    positive_wrong = len(wrong_list)
+                    self.board_val('agedb', accuracy, best_threshold, roc_curve_tensor, negative_wrong, positive_wrong)
 
                     # FGNETC evaluation
                     accuracy2, best_threshold2, roc_curve_tensor2, dist2 = self.evaluate(conf, self.fgnetc, self.fgnetc_issame)
@@ -635,10 +662,10 @@ class face_learner(object):
         #     save_path = conf.model_path
         save_path = f'{conf.model_path}/{conf.exp}'
         os.makedirs(save_path, exist_ok=True)
-        torch.save(self.model.state_dict(), os.path.join(save_path, ('lfw_best_model_{}_accuracy:{:.3f}_step:{}_{}.pth'.format(get_time(), accuracy, self.step, extra))))
+        torch.save(self.model.state_dict(), os.path.join(save_path, ('fgnetc_best_model_{}_accuracy:{:.3f}_step:{}_{}.pth'.format(get_time(), accuracy, self.step, extra))))
         if not model_only:
             torch.save(
-                self.head.state_dict(), os.path.join(save_path, ('lfw_best_head_{}_accuracy:{:.3f}_step:{}_{}.pth'.format(get_time(), accuracy, self.step, extra))))
+                self.head.state_dict(), os.path.join(save_path, ('fgnetc_best_head_{}_accuracy:{:.3f}_step:{}_{}.pth'.format(get_time(), accuracy, self.step, extra))))
             # torch.save(
             #     self.optimizer1.state_dict(), os.path.join( save_path, ('lfw_best_optimizer1_{}_accuracy:{:.3f}_step:{}_{}.pth'.format(get_time(), accuracy, self.step, extra))))
             # torch.save(

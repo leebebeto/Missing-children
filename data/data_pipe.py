@@ -31,12 +31,16 @@ def get_train_dataset(imgs_folder):
 
 def get_train_loader(conf):
     # casia_folder =  './dataset/CASIA_112'
-    casia_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_NATIONAL'
+    # casia_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_NATIONAL'
+    casia_folder = os.path.join(conf.home,'dataset/CASIA_REAL_NATIONAL')
     # casia_folder =  '/home/nas1_userD/yonggyu/Face_dataset/casia'
     if conf.data_mode == 'casia_prettiermonster':
-        casia_prettiermonster47_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_PrettierMonster47'
-        casia_prettiermonster92_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_PrettierMonster92'
-        casia_prettiermonster150_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_PrettierMonster150'
+        # casia_prettiermonster47_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_PrettierMonster47'
+        # casia_prettiermonster92_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_PrettierMonster92'
+        # casia_prettiermonster150_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_PrettierMonster150'
+        casia_prettiermonster47_folder = os.path.join(conf.home,'dataset/CASIA_REAL_PrettierMonster47')
+        casia_prettiermonster92_folder = os.path.join(conf.home,'dataset/CASIA_REAL_PrettierMonster92')
+        casia_prettiermonster150_folder =os.path.join(conf.home,'dataset/CASIA_REAL_PrettierMonster150')
 
     print(casia_folder)
     train_transform = transforms.Compose([
@@ -53,7 +57,7 @@ def get_train_loader(conf):
         child_identity_max = ds.child_identity_max
         print('casia loader generated')
 
-    if conf.data_mode == 'casia_vgg':
+    elif conf.data_mode == 'casia_vgg':
         ds = CASIAVGGDataset(casia_folder, mode=conf.casia_vgg_mode, train_transforms=train_transform)
         class_num = ds.class_num
         print('casia_vgg loader generated')
@@ -107,9 +111,9 @@ def get_val_pair(path, name):
 
     return carray, issame
 
-def get_val_data(data_path):
-    lfw, lfw_issame = get_val_pair(data_path, 'lfw')
-    return lfw, lfw_issame
+def get_val_data(data_path, name='cfp_fp'):
+    data, data_issame = get_val_pair(data_path, name)
+    return data, data_issame
 
 class CASIAVGGDataset(Dataset):
     '''
