@@ -338,30 +338,57 @@ class ArcfaceMinus(nn.Module):
         return cos_theta
 
 
-##################################  Cosface head #############################################################    
-    
-class Am_softmax(nn.Module):
-    # implementation of additive margin softmax loss in https://arxiv.org/abs/1801.05599    
-    def __init__(self,embedding_size=512,classnum=51332, scale=64):
-        super(Am_softmax, self).__init__()
-        self.classnum = classnum
-        self.kernel = nn.Parameter(torch.Tensor(embedding_size,classnum))
-        # initial kernel
-        self.kernel.data.uniform_(-1, 1).renorm_(2,1,1e-5).mul_(1e5)
-        self.m = 0.35 # additive margin recommended by the paper
-        self.s = scale # see normface https://arxiv.org/abs/1704.06369
-        print(f"Cosface margin : {self.m}, scale: {self.s}")
+########################################  Cosface head (Gura) ####################################
+# class Am_softmax(nn.Module):
+#     # implementation of additive margin softmax loss in https://arxiv.org/abs/1801.05599    
+#     def __init__(self,embedding_size=512,classnum=51332, scale=64):
+#         super(Am_softmax, self).__init__()
+#         self.classnum = classnum
+#         self.kernel = nn.Parameter(torch.Tensor(embedding_size,classnum))
+#         # initial kernel
+#         self.kernel.data.uniform_(-1, 1).renorm_(2,1,1e-5).mul_(1e5)
+#         self.m = 0.35 # additive margin recommended by the paper
+#         self.s = scale # see normface https://arxiv.org/abs/1704.06369
+#         print(f"Cosface margin : {self.m}, scale: {self.s}")
 
-    def forward(self,embbedings, label, age=None):
-        kernel_norm = l2_norm(self.kernel,axis=0)
-        cos_theta = torch.mm(embbedings,kernel_norm)
-        cos_theta = cos_theta.clamp(-1,1) # for numerical stability
-        phi = cos_theta - self.m
-        label = label.view(-1) #size=(B,1)
-        index = torch.arange(0, label.shape[0], dtype=torch.long)
-        output = cos_theta * 1.0
-        output[index,index] = phi[index, label] #only change the correct predicted output
-        output *= self.s # scale up in order to make softmax work, first introduced in normface
+#     def forward(self,embbedings, label, age=None):
+#         kernel_norm = l2_norm(self.kernel,axis=0)
+#         cos_theta = torch.mm(embbedings,kernel_norm)
+#         cos_theta = cos_theta.clamp(-1,1) # for numerical stability
+#         phi = cos_theta - self.m
+#         label = label.view(-1) #size=(B,1)
+#         index = torch.arange(0, label.shape[0], dtype=torch.long)
+#         output = cos_theta * 1.0
+#         output[index,index] = phi[index, label] #only change the correct predicted output
+#         output *= self.s # scale up in order to make softmax work, first introduced in normface
+#         return output
+
+########################################  Cosface head (Real) ####################################
+
+class CosineMarginProduct(nn.Module):
+    def __init__(self, embedding_size=512, classnum=10575, scale=30.0, m=0.35):
+        super(CosineMarginProduct, self).__init__()
+        self.in_feature = embedding_size
+        self.out_feature = classnum
+        self.s = scale
+        self.m = m
+        self.kernel = nn.Parameter(torch.Tensor(classnum, embedding_size))
+        nn.init.xavier_uniform_(self.kernel)
+
+        self.cos_m = math.cos(m)
+        self.sin_m = math.sin(m)
+
+        # make the function cos(theta+m) monotonic decreasing while theta in [0°,180°]
+        self.th = math.cos(math.pi - m)
+        self.mm = math.sin(math.pi - m) * m
+
+    def forward(self, input, label, age=None):
+        cosine = F.linear(F.normalize(input), F.normalize(self.kernel))
+        # one_hot = torch.zeros(cosine.size(), device='cuda' if torch.cuda.is_available() else 'cpu')
+        one_hot = torch.zeros_like(cosine)
+        one_hot.scatter_(1, label.view(-1, 1), 1.0)
+
+        output = self.s * (cosine - one_hot * self.m)
         return output
 
 ##################################  LDAM head #############################################################
@@ -399,90 +426,58 @@ class LDAMLoss(nn.Module):
         return output
 
 ############################################### SphereFace Head ########################################################
-# https://github.com/clcarwin/sphereface_pytorch/blob/master/net_sphere.py
 
-class AngleLinear(nn.Module):
-    def __init__(self, embedding_size, classnum, m = 4, phiflag=True):
-        super(AngleLinear, self).__init__()
-        self.in_features = embedding_size
-        self.out_features = classnum
-        self.kernel = nn.Parameter(torch.Tensor(embedding_size, classnum))
-        self.kernel.data.uniform_(-1, 1).renorm_(2,1,1e-5).mul_(1e5)
-        self.phiflag = phiflag
+class SphereMarginProduct(nn.Module):
+    def __init__(self, embedding_size, classnum, m=4, base=1000.0, gamma=0.0001, power=2, lambda_min=5.0, iter=0):
+        super(SphereMarginProduct, self).__init__()
+        assert m in [1, 2, 3, 4], 'margin should be 1, 2, 3 or 4'
+        self.in_feature = embedding_size
+        self.out_feature = classnum
         self.m = m
-        self.mlambda = [
-            lambda x: x**0,
-            lambda x: x**1,
-            lambda x: 2*x**2-1,
-            lambda x: 4*x**3-3*x,
-            lambda x: 8*x**4-8*x**2+1,
-            lambda x: 16*x**5-20*x**3+5*x
+        self.base = base
+        self.gamma = gamma
+        self.power = power
+        self.lambda_min = lambda_min
+        self.iter = 0
+        self.kernel = nn.Parameter(torch.Tensor(classnum, embedding_size))
+        nn.init.xavier_uniform_(self.kernel)
+
+        self.cos_m = math.cos(m)
+        self.sin_m = math.sin(m)
+
+        # make the function cos(theta+m) monotonic decreasing while theta in [0°,180°]
+        self.th = math.cos(math.pi - m)
+        self.mm = math.sin(math.pi - m) * m
+
+        # duplication formula
+        self.margin_formula = [
+            lambda x : x ** 0,
+            lambda x : x ** 1,
+            lambda x : 2 * x ** 2 - 1,
+            lambda x : 4 * x ** 3 - 3 * x,
+            lambda x : 8 * x ** 4 - 8 * x ** 2 + 1,
+            lambda x : 16 * x ** 5 - 20 * x ** 3 + 5 * x
         ]
 
-    def forward(self, input, labels=None, ages=None):
-        '''
-        labels and ages : dummy arguments for consistency
-        '''
-        x = input   # size=(B,F)    F is feature len
-        w = self.kernel # size=(F,Classnum) F=in_features Classnum=out_features
+    def forward(self, input, label, age=None):
+        self.iter += 1
+        self.cur_lambda = max(self.lambda_min, self.base * (1 + self.gamma * self.iter) ** (-1 * self.power))
 
-        ww = w.renorm(2,1,1e-5).mul(1e5)
-        xlen = x.pow(2).sum(1).pow(0.5) # size=B
-        wlen = ww.pow(2).sum(0).pow(0.5) # size=Classnum
+        cos_theta = F.linear(F.normalize(input), F.normalize(self.kernel))
+        cos_theta = torch.clamp(cos_theta, min=-1.0, max=1.0)
+        # cos_theta = cos_theta(-1, 1)
 
-        cos_theta = x.mm(ww) # size=(B,Classnum)
-        cos_theta = cos_theta / xlen.view(-1,1) / wlen.view(1,-1)
-        cos_theta = cos_theta.clamp(-1,1)
+        cos_m_theta = self.margin_formula[self.m](cos_theta)
+        theta = cos_theta.data.acos()
+        k = ((self.m * theta) / math.pi).floor()
+        phi_theta = ((-1.0) ** k) * cos_m_theta - 2 * k
+        phi_theta_ = (self.cur_lambda * cos_theta + phi_theta) / (1 + self.cur_lambda)
+        norm_of_feature = torch.norm(input, 2, 1)
 
-        if self.phiflag:
-            cos_m_theta = self.mlambda[self.m](cos_theta)
-            theta = Variable(cos_theta.data.acos())
-            k = (self.m*theta/3.14159265).floor()
-            n_one = k*0.0 - 1
-            phi_theta = (n_one**k) * cos_m_theta - 2*k
-        else:
-            theta = cos_theta.acos()
-            phi_theta = self.myphi(theta,self.m)
-            phi_theta = phi_theta.clamp(-1*self.m,1)
+        one_hot = torch.zeros_like(cos_theta)
+        one_hot.scatter_(1, label.view(-1, 1), 1)
 
-        cos_theta = cos_theta * xlen.view(-1,1)
-        phi_theta = phi_theta * xlen.view(-1,1)
-        output = (cos_theta,phi_theta)
-        return output # size=(B,Classnum,2)
+        output = one_hot * phi_theta_ + (1 - one_hot) * cos_theta
+        output *= norm_of_feature.view(-1, 1)
 
-    def myphi(x,m):
-        x = x * m
-        return 1-x**2/math.factorial(2)+x**4/math.factorial(4)-x**6/math.factorial(6) + \
-            x**8/math.factorial(8) - x**9/math.factorial(9)
-
-class AngleLoss(nn.Module):
-    def __init__(self, gamma=0):
-        super(AngleLoss, self).__init__()
-        self.gamma   = gamma
-        self.it = 0
-        self.LambdaMin = 5.0
-        self.LambdaMax = 1500.0
-        self.lamb = 1500.0
-
-    def forward(self, input, target):
-        self.it += 1
-        cos_theta,phi_theta = input
-        target = target.view(-1,1) #size=(B,1)
-
-        index = cos_theta.data * 0.0 #size=(B,Classnum)
-        index.scatter_(1,target.data.view(-1,1),1)
-        index = index.type(torch.BoolTensor)
-
-        self.lamb = max(self.LambdaMin,self.LambdaMax/(1+0.1*self.it ))
-        output = cos_theta * 1.0 #size=(B,Classnum)
-        output[index] -= cos_theta[index]*(1.0+0)/(1+self.lamb)
-        output[index] += phi_theta[index]*(1.0+0)/(1+self.lamb)
-
-        logpt = F.log_softmax(output, dim=-1)
-        logpt = logpt.gather(1,target)
-        pt = logpt.exp()
-
-        loss = -1 * (1-pt)**self.gamma * logpt
-        loss = loss.mean()
-
-        return loss
+        return output

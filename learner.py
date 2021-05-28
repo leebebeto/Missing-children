@@ -32,9 +32,12 @@ class face_learner(object):
         # self.head = Arcface(embedding_size=conf.embedding_size, classnum=11076).to(conf.device)
 
         if not inference:
-            self.milestones = [6, 11, 16]
+            # self.milestones = [6, 11, 16]
+            self.milestones = [8, 16, 24] # Ours 30 naive
             # self.milestones = [9, 15, 21]
             # self.milestones = [11, 16, 21]
+            # self.milestones = [6, 11] # Sphereface paper 28epoch
+            # self.milestones = [16, 24, 28] # Cosface paper 30epoch
             print(f'curr milestones: {self.milestones}')
 
             self.loader, self.class_num, self.ds, self.child_identity, self.child_identity_min, self.child_identity_max = get_train_loader(conf)
@@ -53,9 +56,9 @@ class face_learner(object):
             elif conf.loss == 'ArcfaceMinus':
                 self.head = ArcfaceMinus(embedding_size=conf.embedding_size, classnum=self.class_num, minus_m=conf.minus_m).to(conf.device)
             elif conf.loss == 'Cosface':
-                self.head = Am_softmax(embedding_size=conf.embedding_size, classnum=self.class_num, scale=conf.scale).to(conf.device)
+                self.head = CosineMarginProduct(embedding_size=conf.embedding_size, classnum=self.class_num, scale=conf.scale).to(conf.device)
             elif conf.loss == 'Sphereface':
-                self.head = AngleLinear(embedding_size=conf.embedding_size, classnum=self.class_num).to(conf.device)
+                self.head = SphereMarginProduct(embedding_size=conf.embedding_size, classnum=self.class_num).to(conf.device)
             elif conf.loss == 'LDAM':
                 self.head = LDAMLoss(embedding_size=conf.embedding_size, classnum=self.class_num, max_m=conf.max_m, s=conf.scale, cls_num_list=self.ds.class_num_list).to(conf.device)
             else:
@@ -245,9 +248,6 @@ class face_learner(object):
         running_loss = 0.            
         best_accuracy = 0.0
         ce_loss = nn.CrossEntropyLoss()
-        if conf.loss == 'Sphereface':
-            ce_loss = AngleLoss()
-            print('using sphereface')
 
         for e in range(epochs):
             print('epoch {} started'.format(e))
