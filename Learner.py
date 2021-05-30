@@ -25,7 +25,6 @@ import time
 
 class face_learner(object):
     def __init__(self, conf, inference=False):
-
         if conf.use_mobilfacenet:
             self.model = MobileFaceNet(conf.embedding_size).to(conf.device)
             print('MobileFaceNet model generated')
