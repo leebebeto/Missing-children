@@ -31,8 +31,8 @@ def get_train_dataset(imgs_folder):
 
 def get_train_loader(conf):
     # casia_folder =  './dataset/CASIA_112'
-    # casia_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_NATIONAL'
-    casia_folder = os.path.join(conf.home,'dataset/CASIA_REAL_NATIONAL')
+    casia_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_NATIONAL'
+    # casia_folder = os.path.join(conf.home,'dataset/CASIA_REAL_NATIONAL')
     # casia_folder =  '/home/nas1_userD/yonggyu/Face_dataset/casia'
     if conf.data_mode == 'casia_prettiermonster':
         # casia_prettiermonster47_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_PrettierMonster47'
@@ -303,6 +303,7 @@ class CASIADataset(Dataset):
 
         total_list = glob.glob(self.root_dir + '/*/*')
         self.total_imgs = len(total_list)
+
         # preprocessing class num list for LDAM loss (once calculated -> may substitute with constants)
         # self.child_num = 0
         # for image in total_list:

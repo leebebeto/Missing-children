@@ -22,6 +22,8 @@ import os
 import pdb
 import shutil
 
+
+
 def balance_dataset():
     source_folder = '/home/nas1_userE/Face_dataset/AgeDB_new_align'
     target_folder = '/home/nas1_temp/jooyeolyun/AgeDB_balanced'
@@ -191,4 +193,44 @@ if __name__ == '__main__':
     os.makedirs('TSNE', exist_ok=True)
     plt.savefig(f'TSNE/FGNETC_POSITIIVE_CORRECT_all_{width_size}.png')
 
-
+                #
+                #
+                #
+                # # # ''' module for negative pair -> create fake prototypes '''
+                # # # if e >= 1:
+                # #     # if conf.use_sorted == 'random':
+                # # if e >= 1:
+                # #     if conf.use_sorted == 'min_first':
+                # #         child_labels = torch.tensor(self.child_identity_min).cuda()
+                # #     if conf.use_sorted == 'max_first':
+                # #         child_labels = torch.tensor(self.child_identity_max).cuda()
+                # #     elif conf.use_sorted == 'random':
+                # #         child_labels_np = np.array(self.child_identity)
+                # #         np.random.shuffle(child_labels_np)
+                # #         child_labels_np = child_labels_np[:conf.new_id+1]
+                # #         child_labels = torch.tensor(child_labels_np).cuda()
+                # #
+                # #     child_embeddings = self.child_memory[child_labels].cuda()
+                # #
+                # #     feature_a, feature_b = child_embeddings[:-1], child_embeddings[1:]
+                # #
+                # #     mixup_features = (feature_a + feature_b) / 2
+                # #     mixup_labels = torch.arange(self.class_num - mixup_features.shape[0], self.class_num).cuda()
+                # #     mixup_thetas = self.head(mixup_features, mixup_labels)
+                # #
+                # #     mixup_loss = ce_loss(mixup_thetas, mixup_labels)
+                # #
+                # # mixup_total_loss = conf.lambda_mixup * mixup_loss
+                # # loss = arcface_loss + mixup_total_loss
+                # ''' adding fake prototype loss finished '''
+#                 elif conf.lambda_mode == 'decay':
+#                     if (e == 0) or (e in self.milestones):
+#                         child_lambda = 0.0
+#                     elif e < self.milestones[0]:
+#                         child_lambda = 1.0
+#                     elif e > self.milestones[0] and e < self.milestones[1]:
+#                         child_lambda = 0.1
+#                     elif e > self.milestones[1] and e < self.milestones[2]:
+#                         child_lambda = 0.01
+#                     elif e > self.milestones[2]:
+#                         child_lambda = 0.001

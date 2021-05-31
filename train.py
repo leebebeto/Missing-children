@@ -15,7 +15,7 @@ if __name__ == '__main__':
     parser.add_argument("--lr",help='learning rate',default=1e-1, type=float)
     parser.add_argument("--momentum",help='momentum',default=0.9, type=float)
     parser.add_argument("--batch_size", help="batch_size", default=64, type=int)
-    parser.add_argument("--num_workers", help="workers number", default=3, type=int)
+    parser.add_argument("--num_workers", help="workers number", default=16, type=int)
     parser.add_argument("--data_mode", help="use which database, [casia, vgg, ms1m, emore, ms1m_vgg_concat, a, vgg_agedb_insta, vgg_adgedb_balanced]",default='casia', type=str)
     parser.add_argument("--finetune_model_path", help='finetune using balanced agedb', default=None, type=str)
     parser.add_argument("--finetune_head_path", help='head path', default=None, type=str)
@@ -25,11 +25,11 @@ if __name__ == '__main__':
     parser.add_argument("--angle", help='whether to analyze angles', default=False)
     parser.add_argument("--casia_vgg_mode", help='how to select vgg', default='random')
     parser.add_argument("--minus_m", help='margin for negative pair of child', default=0.5, type=float)
-    parser.add_argument("--alpha", help='update ratio for memory bank', default=0.9, type=float)
+    parser.add_argument("--alpha", help='update ratio for memory bank', default=0.5, type=float)
     parser.add_argument("--new_id", help='number of new identities', default=100, type=int)
-    parser.add_argument("--lambda_mode", help='lambda option for memory bank', default='normal', type=str)
+    parser.add_argument("--lambda_mode", help='lambda option for memory bank', default='zero', type=str)
     parser.add_argument("--lambda_mixup", help='lambda for mixup', default=1.0, type=float)
-    parser.add_argument("--use_memory", help='whether to use memory', default=False)
+    parser.add_argument("--use_memory", help='whether to use memory', action='store_true')
     parser.add_argument("--use_sorted", help='whether to sort child index', default='random', type=str)
 
     # data path -> added temporarily
@@ -52,6 +52,10 @@ if __name__ == '__main__':
     parser.add_argument("--work_path", help='path for saving models & logs', default='work_space', type=str)
     parser.add_argument("--model_path", help='path for saving models', default='work_space/models_serious', type=str)
     parser.add_argument("--log_path", help='path for saving logs', default='work_space/log_serious', type=str)
+    parser.add_argument("--wandb", help='whether to use wandb', action='store_true')
+    parser.add_argument("--loss_freq", help="frequency for loss boarding", default=100, type=int)
+    parser.add_argument("--evaluate_freq", help="max_m for LDAM", default=2000, type=int)
+    parser.add_argument("--save_freq", help="scale factor for LDAM", default=2000, type=int)
 
     args = parser.parse_args()
     args.home = os.path.expanduser('~')
@@ -90,7 +94,7 @@ if __name__ == '__main__':
         sys.exit(0)
 
     # actual training
-    if args.use_memory == 'True': # our memory bank method
+    if args.use_memory: # our memory bank method
         print('using memory bank...')
         learner.train_memory(args, args.epochs)
     else:

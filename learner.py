@@ -3,8 +3,8 @@ import torch
 import torch.nn as nn
 from torch import optim
 from torchvision import transforms
-from tensorboardX import SummaryWriter
-import pandas as pd
+# from tensorboardX import SummaryWriter
+# import pandas as pd
 from sync_batchnorm import convert_model
 
 from tqdm import tqdm
@@ -21,6 +21,7 @@ from utils import get_time, gen_plot, hflip_batch, separate_bn_paras
 from verification import evaluate, evaluate_dist
 from torchvision.utils import save_image
 import pdb
+import wandb
 
 class face_learner(object):
     def __init__(self, conf, inference=False):
@@ -31,20 +32,25 @@ class face_learner(object):
         # For Tsne -> you can ignore these codes
         # self.head = Arcface(embedding_size=conf.embedding_size, classnum=11076).to(conf.device)
 
+        self.conf = conf
+        if conf.wandb:
+            wandb.init(project=f"Face-Recognition(BMVC2021)")
+            wandb.run.name = conf.exp
+
         if not inference:
             # self.milestones = [6, 11, 16]
-            self.milestones = [8, 16, 24] # Ours 30 naive
+            # self.milestones = [8, 16, 24] # Ours 30 naive
             # self.milestones = [9, 15, 21]
             # self.milestones = [11, 16, 21]
             # self.milestones = [6, 11] # Sphereface paper 28epoch
-            # self.milestones = [16, 24, 28] # Cosface paper 30epoch
+            self.milestones = [16, 24, 28] # Cosface paper 30epoch
             print(f'curr milestones: {self.milestones}')
 
             self.loader, self.class_num, self.ds, self.child_identity, self.child_identity_min, self.child_identity_max = get_train_loader(conf)
             self.log_path = os.path.join(conf.log_path, conf.data_mode, conf.exp)
 
             os.makedirs(self.log_path, exist_ok=True)
-            self.writer = SummaryWriter(self.log_path)
+            # self.writer = SummaryWriter(self.log_path)
             self.step = 0
 
             if 'MIXUP' in conf.exp:
@@ -102,17 +108,30 @@ class face_learner(object):
                                 ], lr = conf.lr, momentum = conf.momentum)
 
             print('optimizers generated')
-            self.board_loss_every = len(self.loader)//100
-            self.evaluate_every = len(self.loader)//5
-            self.save_every = len(self.loader)//5
+            # self.board_loss_every = len(self.loader)//100
+            # self.evaluate_every = len(self.loader)//5
+            # self.save_every = len(self.loader)//5
 
-            dataset_root= os.path.join(conf.home, 'dataset/face_emore')
+            self.board_loss_every = conf.loss_freq
+            self.evaluate_every = conf.evaluate_freq
+            self.save_every = conf.save_freq
+
+
+            print(conf)
+            print('training starts.... BMVC 2021....')
+
+            # dataset_root= os.path.join(conf.home, 'dataset/face_emore')
+            dataset_root= os.path.join('/home/nas1_userE/jungsoolee/Face_dataset/face_emore2')
             # self.lfw, self.lfw_issame = get_val_data(dataset_root)
             # dataset_root = "./dataset/"
             self.lfw = np.load(os.path.join(dataset_root, "lfw_align_112_list.npy")).astype(np.float32)
             self.lfw_issame = np.load(os.path.join(dataset_root, "lfw_align_112_label.npy"))
-            self.cfp_fp, self.cfp_fp_issame = get_val_data(dataset_root, 'cfp_fp')
-            self.agedb, self.agedb_issame = get_val_data(dataset_root, 'agedb_30')
+
+
+            # self.cfp_fp, self.cfp_fp_issame = get_val_data(dataset_root, 'cfp_fp')
+            # self.agedb, self.agedb_issame = get_val_data(dataset_root, 'agedb_30')
+
+
             self.fgnetc = np.load(os.path.join(dataset_root, "FGNET_new_align_list.npy")).astype(np.float32)
             self.fgnetc_issame = np.load(os.path.join(dataset_root, "FGNET_new_align_label.npy"))
         else:
@@ -201,9 +220,9 @@ class face_learner(object):
           
             #Compute the smoothed loss
             avg_loss = beta * avg_loss + (1 - beta) * loss.item()
-            self.writer.add_scalar('avg_loss', avg_loss, batch_num)
+            # self.writer.add_scalar('avg_loss', avg_loss, batch_num)
             smoothed_loss = avg_loss / (1 - beta**batch_num)
-            self.writer.add_scalar('smoothed_loss', smoothed_loss,batch_num)
+            # self.writer.add_scalar('smoothed_loss', smoothed_loss,batch_num)
 
             #Stop if the loss is exploding
             if batch_num > 1 and smoothed_loss > bloding_scale * best_loss:
@@ -218,7 +237,7 @@ class face_learner(object):
             #Store the values
             losses.append(smoothed_loss)
             log_lrs.append(math.log10(lr))
-            self.writer.add_scalar('log_lr', math.log10(lr), batch_num)
+            # self.writer.add_scalar('log_lr', math.log10(lr), batch_num)
             #Do the SGD step
             #Update the lr for the next step
 
@@ -275,76 +294,100 @@ class face_learner(object):
                 self.optimizer2.step()
 
                 if self.step % self.board_loss_every == 0 and self.step != 0: # XXX
-                    print('tensorboard plotting....')
+                    print('wandb plotting....')
                     loss_board = running_loss / self.board_loss_every
-                    self.writer.add_scalar('train_loss', loss_board, self.step)
+                    # self.writer.add_scalar('train_loss', loss_board, self.step)
+                    if self.conf.wandb:
+                        wandb.log({
+                            "train_loss": loss_board,
+                        }, step=self.step)
+
                     running_loss = 0.
 
                 # added wrong on evaluations
                 if self.step % self.evaluate_every == 0 and self.step != 0:
                     print('evaluating....')
-                    # LFW evaluation
-                    accuracy, best_threshold, roc_curve_tensor, dist = self.evaluate(conf, self.lfw, self.lfw_issame)
+                    # # LFW evaluation
+                    # accuracy, best_threshold, roc_curve_tensor, dist = self.evaluate(conf, self.lfw, self.lfw_issame)
+                    # # NEGATIVE WRONG
+                    # wrong_list = np.where((self.lfw_issame == False) & (dist < best_threshold))[0]
+                    # negative_wrong = len(wrong_list)
+                    # # POSITIVE WRONG
+                    # wrong_list = np.where((self.lfw_issame == True) & (dist > best_threshold))[0]
+                    # positive_wrong = len(wrong_list)
+                    # self.board_val('lfw', accuracy, best_threshold, roc_curve_tensor, negative_wrong, positive_wrong)
+                    lfw_accuracy, lfw_thres, roc_curve_tensor2, lfw_dist = self.evaluate(conf, self.lfw, self.lfw_issame)
                     # NEGATIVE WRONG
-                    wrong_list = np.where((self.lfw_issame == False) & (dist < best_threshold))[0]
-                    negative_wrong = len(wrong_list)
+                    wrong_list = np.where((self.lfw_issame == False) & (lfw_dist < lfw_thres))[0]
+                    lfw_negative = len(wrong_list)
                     # POSITIVE WRONG
-                    wrong_list = np.where((self.lfw_issame == True) & (dist > best_threshold))[0]
-                    positive_wrong = len(wrong_list)
-                    self.board_val('lfw', accuracy, best_threshold, roc_curve_tensor, negative_wrong, positive_wrong)
+                    wrong_list = np.where((self.lfw_issame == True) & (lfw_dist > lfw_thres))[0]
+                    lfw_positive = len(wrong_list)
 
-                    # CFP FP evaluation
-                    accuracy, best_threshold, roc_curve_tensor, dist = self.evaluate(conf, self.cfp_fp, self.cfp_fp_issame)
-                    # NEGATIVE WRONG
-                    wrong_list = np.where((self.cfp_fp_issame == False) & (dist < best_threshold))[0]
-                    negative_wrong = len(wrong_list)
-                    # POSITIVE WRONG
-                    wrong_list = np.where((self.cfp_fp_issame == True) & (dist > best_threshold))[0]
-                    positive_wrong = len(wrong_list)
-                    self.board_val('cfp_fp', accuracy, best_threshold, roc_curve_tensor, negative_wrong, positive_wrong)
-
-                    # agedb evaluation
-                    accuracy, best_threshold, roc_curve_tensor, dist = self.evaluate(conf, self.agedb, self.agedb_issame)
-                    # NEGATIVE WRONG
-                    wrong_list = np.where((self.agedb_issame == False) & (dist < best_threshold))[0]
-                    negative_wrong = len(wrong_list)
-                    # POSITIVE WRONG
-                    wrong_list = np.where((self.agedb_issame == True) & (dist > best_threshold))[0]
-                    positive_wrong = len(wrong_list)
-                    self.board_val('agedb', accuracy, best_threshold, roc_curve_tensor, negative_wrong, positive_wrong)
+                    # # CFP FP evaluation
+                    # accuracy, best_threshold, roc_curve_tensor, dist = self.evaluate(conf, self.cfp_fp, self.cfp_fp_issame)
+                    # # NEGATIVE WRONG
+                    # wrong_list = np.where((self.cfp_fp_issame == False) & (dist < best_threshold))[0]
+                    # negative_wrong = len(wrong_list)
+                    # # POSITIVE WRONG
+                    # wrong_list = np.where((self.cfp_fp_issame == True) & (dist > best_threshold))[0]
+                    # positive_wrong = len(wrong_list)
+                    # self.board_val('cfp_fp', accuracy, best_threshold, roc_curve_tensor, negative_wrong, positive_wrong)
+                    #
+                    # # agedb evaluation
+                    # accuracy, best_threshold, roc_curve_tensor, dist = self.evaluate(conf, self.agedb, self.agedb_issame)
+                    # # NEGATIVE WRONG
+                    # wrong_list = np.where((self.agedb_issame == False) & (dist < best_threshold))[0]
+                    # negative_wrong = len(wrong_list)
+                    # # POSITIVE WRONG
+                    # wrong_list = np.where((self.agedb_issame == True) & (dist > best_threshold))[0]
+                    # positive_wrong = len(wrong_list)
+                    # self.board_val('agedb', accuracy, best_threshold, roc_curve_tensor, negative_wrong, positive_wrong)
 
                     # FGNETC evaluation
-                    accuracy2, best_threshold2, roc_curve_tensor2, dist2 = self.evaluate(conf, self.fgnetc, self.fgnetc_issame)
+                    fgnetc_accuracy, fgnetc_thres, roc_curve_tensor2, fgnetc_dist = self.evaluate(conf, self.fgnetc, self.fgnetc_issame)
                     # NEGATIVE WRONG
-                    wrong_list = np.where((self.fgnetc_issame == False) & (dist2 < best_threshold2))[0]
-                    negative_wrong2 = len(wrong_list)
+                    wrong_list = np.where((self.fgnetc_issame == False) & (fgnetc_dist < fgnetc_thres))[0]
+                    fgnetc_negative = len(wrong_list)
                     # POSITIVE WRONG
-                    wrong_list = np.where((self.fgnetc_issame == True) & (dist2 > best_threshold2))[0]
-                    positive_wrong2 = len(wrong_list)
-                    self.board_val('fgent_c', accuracy2, best_threshold2, roc_curve_tensor2, negative_wrong2, positive_wrong2)
+                    wrong_list = np.where((self.fgnetc_issame == True) & (fgnetc_dist > fgnetc_thres))[0]
+                    fgnetc_positive = len(wrong_list)
+                    # self.board_val('fgent_c', accuracy2, best_threshold2, roc_curve_tensor2, fgnet_negative\, positive_wrong2)
 
+                    if self.conf.wandb:
+                        wandb.log({
+                            "lfw_acc": lfw_accuracy,
+                            "lfw_best_threshold": lfw_thres,
+                            "lfw_negative_wrong": lfw_negative,
+                            "lfw_positive_wrong": lfw_positive,
+
+                            "fgnet_c_acc": fgnetc_accuracy,
+                            "fgnet_c_best_threshold": fgnetc_thres,
+                            "fgnet_c_negative_wrong": fgnetc_negative,
+                            "fgnet_c_positive_wrong": fgnetc_positive,
+                        }, step=self.step)
 
                     self.model.train()
+                    if self.step % self.save_every == 0 and self.step != 0:
+                        print('saving model....')
+                        # save with most recently calculated accuracy?
+                        # if conf.finetune_model_path is not None:
+                        #     self.save_state(conf, accuracy2,
+                        #                     extra=str(conf.data_mode) + '_' + str(conf.net_depth) + '_' + str(
+                        #                         conf.batch_size) + 'finetune')
+                        # else:
+                        #     self.save_state(conf, accuracy2,extra=str(conf.data_mode) + '_' + str(conf.exp) + '_' + str(conf.batch_size))
 
-                if self.step % self.save_every == 0 and self.step != 0:
-                    print('saving model....')
-                    # save with most recently calculated accuracy?
-                    if conf.finetune_model_path is not None:
-                        self.save_state(conf, accuracy2, extra=str(conf.data_mode) + '_' + str(conf.net_depth) + '_' + str(conf.batch_size) + 'finetune')
-                    else:
-                        self.save_state(conf, accuracy2, extra=str(conf.data_mode) + '_' + str(conf.exp) + '_' + str(conf.batch_size))
-
-                    if accuracy2 > best_accuracy:
-                        best_accuracy = accuracy2
-                        print('saving best model....')
-                        self.save_best_state(conf, best_accuracy, extra=str(conf.data_mode) + '_' + str(conf.exp) + '_' + str(conf.batch_size))
-
+                        if fgnetc_accuracy > best_accuracy:
+                            best_accuracy = fgnetc_accuracy
+                            print('saving best model....')
+                            self.save_best_state(conf, best_accuracy, extra=str(conf.data_mode) + '_' + str(conf.exp))
                 self.step += 1
+
         if conf.finetune_model_path is not None:
             self.save_state(conf, accuracy, to_save_folder=True, extra=str(conf.data_mode)  + '_' + str(conf.net_depth) + '_'+ str(conf.batch_size) +'_finetune')
         else:
             self.save_state(conf, accuracy, to_save_folder=True, extra=str(conf.data_mode)  + '_' + str(conf.net_depth) + '_'+ str(conf.batch_size) +'_final')
-
     # training with memory bank
     def train_memory(self, conf, epochs):
         '''
@@ -352,15 +395,11 @@ class face_learner(object):
         XXX: Need to make a new funtion train_age_invariant(conf, epochs)
         '''
         self.model.train()
-
         running_loss = 0.
         running_arcface_loss, running_child_loss, running_child_total_loss = 0.0, 0.0, 0.0
         running_mixup_loss, running_mixup_total_loss = 0.0, 0.0
         best_accuracy = 0.0
         ce_loss = nn.CrossEntropyLoss()
-        # will not be used due to memory leak
-        # self.child_memory = {}
-
         # initialize memory bank
         # reversed shape to use like dictionary
         self.child_memory = nn.Parameter(torch.Tensor(self.class_num, conf.embedding_size)).to(conf.device)
@@ -376,7 +415,6 @@ class face_learner(object):
                 # for imgs, labels in tqdm(iter(self.loader)):
                 child_idx = torch.where(ages == 0)[0]
                 # self.child_identity += child_idx.numpy().tolist()
-
                 self.optimizer1.zero_grad()
                 self.optimizer2.zero_grad()
 
@@ -388,39 +426,31 @@ class face_learner(object):
                 thetas = self.head(embeddings, labels, ages)
                 arcface_loss = ce_loss(thetas, labels)
 
-
                 if conf.lambda_mode == 'normal':
                     child_lambda = 0.0 if (e == 0) or (e in self.milestones) else 1.0
                 elif conf.lambda_mode == 'zero':
-                    child_lambda = 0.0 if (e == 0) or (e >= self.milestones[0]) else 1.0
-                elif conf.lambda_mode == 'decay':
-                    if (e == 0) or (e in self.milestones):
-                        child_lambda = 0.0
-                    elif e < self.milestones[0]:
-                        child_lambda = 1.0
-                    elif e > self.milestones[0] and e < self.milestones[1]:
-                        child_lambda = 0.1
-                    elif e > self.milestones[1] and e < self.milestones[2]:
-                        child_lambda = 0.01
-                    elif e > self.milestones[2]:
-                        child_lambda = 0.001
+                    if 'START' in conf.exp:
+                        child_lambda = 0.0 if (e >= self.milestones[0]) else 1.0
+                    else:
+                        child_lambda = 0.0 if (e == 0) or (e >= self.milestones[0]) else 1.0
+                        # child_lambda = 0.0 if (e == 0) or (e >= self.milestones[0]) else 0.01
 
                 # child_lambda=1.0
-
                 with torch.no_grad():
                     if len(child_idx) > 0:
-                        self.child_memory[child_idx] = embeddings[child_idx].detach().clone()
+                        self.child_memory[labels[child_idx]] = embeddings[child_idx].detach().clone()
                         if (e == 0) or (e in self.milestones):
-                            self.child_memory[child_idx] = embeddings[child_idx].detach().clone()
+                            self.child_memory[labels[child_idx]] = embeddings[child_idx].detach().clone()
+                        # if e in self.milestones:
+                        #     self.child_memory[child_idx] = embeddings[child_idx].detach().clone()
                         else:
-                            self.child_memory[child_idx] = (1-self.alpha) * embeddings[child_idx].detach().clone() + self.alpha * self.child_memory[child_idx].detach().clone()
-
+                            self.child_memory[labels[child_idx]] = (1-self.alpha) * embeddings[child_idx].detach().clone() + self.alpha * self.child_memory[child_idx].detach().clone()
                 # self.child_identity = list(set(self.child_identity))
-                # if len(self.child_identity) ==0:
-                #     continue
+                if len(self.child_identity) ==0:
+                    continue
 
-                ''' module for positive pair -> child memory bank '''
-                # if e >= 1 or e < self.milestones[0]:
+                # ''' module for positive pair -> child memory bank '''
+                # # if e >= 1 or e < self.milestones[0]:
                 child_labels = torch.tensor(self.child_identity).cuda()
                 child_embeddings = self.child_memory[torch.tensor(self.child_identity)].cuda()
                 child_thetas = self.head(child_embeddings, child_labels)
@@ -428,36 +458,7 @@ class face_learner(object):
                 child_total_loss = child_lambda * child_loss
                 loss = arcface_loss + child_total_loss
 
-                ''' adding child loss finished '''
-
-                # # ''' module for negative pair -> create fake prototypes '''
-                # # if e >= 1:
-                #     # if conf.use_sorted == 'random':
-                # if e >= 1:
-                #     if conf.use_sorted == 'min_first':
-                #         child_labels = torch.tensor(self.child_identity_min).cuda()
-                #     if conf.use_sorted == 'max_first':
-                #         child_labels = torch.tensor(self.child_identity_max).cuda()
-                #     elif conf.use_sorted == 'random':
-                #         child_labels_np = np.array(self.child_identity)
-                #         np.random.shuffle(child_labels_np)
-                #         child_labels_np = child_labels_np[:conf.new_id+1]
-                #         child_labels = torch.tensor(child_labels_np).cuda()
-                #
-                #     child_embeddings = self.child_memory[child_labels].cuda()
-                #
-                #     feature_a, feature_b = child_embeddings[:-1], child_embeddings[1:]
-                #
-                #     mixup_features = (feature_a + feature_b) / 2
-                #     mixup_labels = torch.arange(self.class_num - mixup_features.shape[0], self.class_num).cuda()
-                #     mixup_thetas = self.head(mixup_features, mixup_labels)
-                #
-                #     mixup_loss = ce_loss(mixup_thetas, mixup_labels)
-                #
-                # mixup_total_loss = conf.lambda_mixup * mixup_loss
-                # loss = arcface_loss + mixup_total_loss
-                ''' adding fake prototype loss finished '''
-
+                loss = arcface_loss
                 loss.backward()
                 running_loss += loss.item()
 
@@ -478,24 +479,44 @@ class face_learner(object):
                 del child_idx, ages
 
                 if self.step % self.board_loss_every == 0 and self.step != 0:  # XXX
-                    print('tensorboard plotting....')
+                    # print('tensorboard plotting....')
+                    print('wandb plotting....')
                     loss_board = running_loss / self.board_loss_every
 
                     arcface_loss_board = running_arcface_loss / self.board_loss_every
-                    self.writer.add_scalar('train_loss', loss_board, self.step)
-                    self.writer.add_scalar('arcface_loss', arcface_loss_board, self.step)
+                    # self.writer.add_scalar('train_loss', loss_board, self.step)
+                    # self.writer.add_scalar('arcface_loss', arcface_loss_board, self.step)
+
+                    if self.conf.wandb:
+                        wandb.log({
+                            "train_loss": loss_board,
+                            "arcface_total_loss": arcface_loss_board,
+                        }, step=self.step)
+
                     if 'POSITIVE' in conf.exp:
                         child_loss_board = running_child_loss / self.board_loss_every
                         child_total_loss_board = running_child_total_loss / self.board_loss_every
 
-                        self.writer.add_scalar('child_loss', child_loss_board, self.step)
-                        self.writer.add_scalar('child_total_loss', child_total_loss_board, self.step)
+                        if self.conf.wandb:
+                            wandb.log({
+                                "child_loss": child_loss_board,
+                                "child_total_loss": child_total_loss_board,
+                            }, step=self.step)
+
+                        # self.writer.add_scalar('child_loss', child_loss_board, self.step)
+                        # self.writer.add_scalar('child_total_loss', child_total_loss_board, self.step)
                     elif 'MIXUP' in conf.exp:
                         mixup_loss_board = running_mixup_loss / self.board_loss_every
                         mixup_total_loss_board = running_mixup_total_loss / self.board_loss_every
 
-                        self.writer.add_scalar('mixup_loss', mixup_loss_board, self.step)
-                        self.writer.add_scalar('mixup_total_loss', mixup_total_loss_board, self.step)
+                        if self.conf.wandb:
+                            wandb.log({
+                                "mixup_loss": mixup_loss_board,
+                                "mixup_total_loss": mixup_total_loss_board,
+                            }, step=self.step)
+
+                        # self.writer.add_scalar('mixup_loss', mixup_loss_board, self.step)
+                        # self.writer.add_scalar('mixup_total_loss', mixup_total_loss_board, self.step)
 
                     running_loss = 0.
                     running_arcface_loss = 0.0
@@ -506,48 +527,62 @@ class face_learner(object):
 
                 if self.step % self.evaluate_every == 0 and self.step != 0:
                     print('evaluating....')
-                    # LFW evaluation
-                    accuracy, best_threshold, roc_curve_tensor, dist = self.evaluate(conf, self.lfw, self.lfw_issame)
-                    # NEGATIVE WRONG
-                    wrong_list = np.where((self.lfw_issame == False) & (dist < best_threshold))[0]
-                    negative_wrong = len(wrong_list)
-                    # POSITIVE WRONG
-                    wrong_list = np.where((self.lfw_issame == True) & (dist > best_threshold))[0]
-                    positive_wrong = len(wrong_list)
-                    self.board_val('lfw', accuracy, best_threshold, roc_curve_tensor, negative_wrong, positive_wrong)
+                    # # LFW evaluation
+                    # accuracy, best_threshold, roc_curve_tensor, dist = self.evaluate(conf, self.lfw, self.lfw_issame)
+                    # # NEGATIVE WRONG
+                    # wrong_list = np.where((self.lfw_issame == False) & (dist < best_threshold))[0]
+                    # negative_wrong = len(wrong_list)
+                    # # POSITIVE WRONG
+                    # wrong_list = np.where((self.lfw_issame == True) & (dist > best_threshold))[0]
+                    # positive_wrong = len(wrong_list)
+                    # self.board_val('lfw', accuracy, best_threshold, roc_curve_tensor, negative_wrong, positive_wrong)
+
+                    # # FGNETC evaluation
+                    # accuracy2, best_threshold2, roc_curve_tensor2, dist2 = self.evaluate(conf, self.fgnetc,
+                    #                                                                      self.fgnetc_issame)
+                    # # NEGATIVE WRONG
+                    # wrong_list = np.where((self.fgnetc_issame == False) & (dist2 < best_threshold2))[0]
+                    # negative_wrong2 = len(wrong_list)
+                    # # POSITIVE WRONG
+                    # wrong_list = np.where((self.fgnetc_issame == True) & (dist2 > best_threshold2))[0]
+                    # positive_wrong2 = len(wrong_list)
+                    # self.board_val('fgent_c', accuracy2, best_threshold2, roc_curve_tensor2, negative_wrong2,
+                    #                positive_wrong2)
 
                     # FGNETC evaluation
-                    accuracy2, best_threshold2, roc_curve_tensor2, dist2 = self.evaluate(conf, self.fgnetc,
-                                                                                         self.fgnetc_issame)
+                    fgnetc_accuracy, fgnetc_thres, roc_curve_tensor2, fgnetc_dist = self.evaluate(conf, self.fgnetc,
+                                                                                                  self.fgnetc_issame)
                     # NEGATIVE WRONG
-                    wrong_list = np.where((self.fgnetc_issame == False) & (dist2 < best_threshold2))[0]
-                    negative_wrong2 = len(wrong_list)
+                    wrong_list = np.where((self.fgnetc_issame == False) & (fgnetc_dist < fgnetc_thres))[0]
+                    fgnetc_negative = len(wrong_list)
                     # POSITIVE WRONG
-                    wrong_list = np.where((self.fgnetc_issame == True) & (dist2 > best_threshold2))[0]
-                    positive_wrong2 = len(wrong_list)
-                    self.board_val('fgent_c', accuracy2, best_threshold2, roc_curve_tensor2, negative_wrong2,
-                                   positive_wrong2)
+                    wrong_list = np.where((self.fgnetc_issame == True) & (fgnetc_dist > fgnetc_thres))[0]
+                    fgnetc_positive = len(wrong_list)
+
+                    if self.conf.wandb:
+                        wandb.log({
+                            "fgnet_c_acc": fgnetc_accuracy,
+                            "fgnet_c_best_threshold": fgnetc_thres,
+                            "fgnet_c_negative_wrong": fgnetc_negative,
+                            "fgnet_c_positive_wrong": fgnetc_positive,
+                        }, step=self.step)
 
                     self.model.train()
 
-                if self.step % self.save_every == 0 and self.step != 0:
-                    print('saving model....')
-                    # save with most recently calculated accuracy?
-                    if conf.finetune_model_path is not None:
-                        self.save_state(conf, accuracy2,
-                                        extra=str(conf.data_mode) + '_' + str(conf.net_depth) + '_' + str(
-                                            conf.batch_size) + 'finetune')
-                    else:
-                        self.save_state(conf, accuracy2,
-                                        extra=str(conf.data_mode) + '_' + str(conf.exp) + '_' + str(conf.batch_size))
+                    if self.step % self.save_every == 0 and self.step != 0:
+                        print('saving model....')
+                        # save with most recently calculated accuracy?
+                        # if conf.finetune_model_path is not None:
+                        #     self.save_state(conf, accuracy2,
+                        #                     extra=str(conf.data_mode) + '_' + str(conf.net_depth) + '_' + str(
+                        #                         conf.batch_size) + 'finetune')
+                        # else:
+                        #     self.save_state(conf, accuracy2,extra=str(conf.data_mode) + '_' + str(conf.exp) + '_' + str(conf.batch_size))
 
-                    if accuracy2 > best_accuracy:
-                        best_accuracy = accuracy2
-                        print('saving best model....')
-                        self.save_best_state(conf, best_accuracy,
-                                             extra=str(conf.data_mode) + '_' + str(conf.exp) + '_' + str(
-                                                 conf.batch_size))
-
+                        if fgnetc_accuracy > best_accuracy:
+                            best_accuracy = fgnetc_accuracy
+                            print('saving best model....')
+                            self.save_best_state(conf, best_accuracy, extra=str(conf.data_mode) + '_' + str(conf.exp))
                 self.step += 1
         if conf.finetune_model_path is not None:
             self.save_state(conf, accuracy, to_save_folder=True,
@@ -557,7 +592,6 @@ class face_learner(object):
             self.save_state(conf, accuracy, to_save_folder=True,
                             extra=str(conf.data_mode) + '_' + str(conf.net_depth) + '_' + str(
                                 conf.batch_size) + '_final')
-
     def analyze_angle(self, conf):
         '''
         Only works on age labeled vgg dataset, agedb dataset
@@ -660,7 +694,7 @@ class face_learner(object):
         #     save_path = conf.save_path
         # else:
         #     save_path = conf.model_path
-        save_path = f'{conf.model_path}/{conf.exp}'
+        save_path = os.path.join(self.log_path, 'best')
         os.makedirs(save_path, exist_ok=True)
         torch.save(self.model.state_dict(), os.path.join(save_path, ('fgnetc_best_model_{}_accuracy:{:.3f}_step:{}_{}.pth'.format(get_time(), accuracy, self.step, extra))))
         if not model_only:
