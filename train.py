@@ -31,6 +31,7 @@ if __name__ == '__main__':
     parser.add_argument("--lambda_mixup", help='lambda for mixup', default=1.0, type=float)
     parser.add_argument("--use_memory", help='whether to use memory', action='store_true')
     parser.add_argument("--use_sorted", help='whether to sort child index', default='random', type=str)
+    parser.add_argument("--lambda_child", help='lambda for child loss', default=1.0, type=float)
 
     # data path -> added temporarily
     parser.add_argument("--vgg_folder", help='vgg folder directory', default='/home/nas1_userD/yonggyu/Face_dataset/vgg')

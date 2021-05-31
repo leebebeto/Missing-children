@@ -34,7 +34,8 @@ class face_learner(object):
 
         self.conf = conf
         if conf.wandb:
-            wandb.init(project=f"Face-Recognition(BMVC2021)")
+            # wandb.init(project=f"Face-Recognition(BMVC2021)")
+            wandb.init(entity="davian-bmvc-face")
             wandb.run.name = conf.exp
 
         if not inference:
@@ -427,7 +428,7 @@ class face_learner(object):
                 arcface_loss = ce_loss(thetas, labels)
 
                 if conf.lambda_mode == 'normal':
-                    child_lambda = 0.0 if (e == 0) or (e in self.milestones) else 1.0
+                    child_lambda = 0.0 if (e == 0) or (e in self.milestones) else self.conf * 1.0
                 elif conf.lambda_mode == 'zero':
                     if 'START' in conf.exp:
                         child_lambda = 0.0 if (e >= self.milestones[0]) else 1.0
