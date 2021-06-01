@@ -386,9 +386,9 @@ class face_learner(object):
                 self.step += 1
 
         if conf.finetune_model_path is not None:
-            self.save_state(conf, accuracy, to_save_folder=True, extra=str(conf.data_mode)  + '_' + str(conf.net_depth) + '_'+ str(conf.batch_size) +'_finetune')
+            self.save_state(conf, fgnetc_accuracy, to_save_folder=True, extra=str(conf.data_mode)  + '_' + str(conf.net_depth) + '_'+ str(conf.batch_size) +'_finetune')
         else:
-            self.save_state(conf, accuracy, to_save_folder=True, extra=str(conf.data_mode)  + '_' + str(conf.net_depth) + '_'+ str(conf.batch_size) +'_final')
+            self.save_state(conf, fgnetc_accuracy, to_save_folder=True, extra=str(conf.data_mode)  + '_' + str(conf.net_depth) + '_'+ str(conf.batch_size) +'_final')
     # training with memory bank
     def train_memory(self, conf, epochs):
         '''
