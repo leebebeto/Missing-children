@@ -11,7 +11,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='for face verification')
 
     # training
-    parser.add_argument("--epochs", help="training epochs", default=20, type=int)
+    parser.add_argument("--epochs", help="training epochs", default=30, type=int)
     parser.add_argument("--lr",help='learning rate',default=1e-1, type=float)
     parser.add_argument("--momentum",help='momentum',default=0.9, type=float)
     parser.add_argument("--batch_size", help="batch_size", default=64, type=int)

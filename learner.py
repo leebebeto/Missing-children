@@ -45,6 +45,10 @@ class face_learner(object):
             # self.milestones = [11, 16, 21]
             # self.milestones = [6, 11] # Sphereface paper 28epoch
             self.milestones = [16, 24, 28] # Cosface paper 30epoch
+
+            if self.conf.loss == 'Curricular':
+                self.milestones = [28, 38, 46]  # Cosface paper 30epoch
+                self.epoch= 50
             print(f'curr milestones: {self.milestones}')
 
             self.loader, self.class_num, self.ds, self.child_identity, self.child_identity_min, self.child_identity_max = get_train_loader(conf)
@@ -68,6 +72,8 @@ class face_learner(object):
                 self.head = SphereMarginProduct(embedding_size=conf.embedding_size, classnum=self.class_num).to(conf.device)
             elif conf.loss == 'LDAM':
                 self.head = LDAMLoss(embedding_size=conf.embedding_size, classnum=self.class_num, max_m=conf.max_m, s=conf.scale, cls_num_list=self.ds.class_num_list).to(conf.device)
+            elif conf.loss == 'Curricular':
+                self.head = CurricularFace(in_features=conf.embedding_size, out_features=self.class_num).to(conf.device)
             else:
                 import sys
                 print('wrong loss function.. exiting...')
@@ -150,7 +156,6 @@ class face_learner(object):
         self.writer.add_image('{}_roc_curve'.format(db_name), roc_curve_tensor, self.step)
 
         print(f'{db_name} accuracy: {accuracy}')
-
     def evaluate(self, conf, carray, issame, nrof_folds = 10, tta = True):
         self.model.eval()
         idx = 0
@@ -300,7 +305,7 @@ class face_learner(object):
                     # self.writer.add_scalar('train_loss', loss_board, self.step)
                     if self.conf.wandb:
                         wandb.log({
-                            "train_loss": loss_board,
+                            "arcface_total_loss": loss_board,
                         }, step=self.step)
 
                     running_loss = 0.
@@ -428,12 +433,12 @@ class face_learner(object):
                 arcface_loss = ce_loss(thetas, labels)
 
                 if conf.lambda_mode == 'normal':
-                    child_lambda = 0.0 if (e == 0) or (e in self.milestones) else self.conf * 1.0
+                    child_lambda = 0.0 if (e == 0) or (e in self.milestones) else 1.0
                 elif conf.lambda_mode == 'zero':
                     if 'START' in conf.exp:
                         child_lambda = 0.0 if (e >= self.milestones[0]) else 1.0
                     else:
-                        child_lambda = 0.0 if (e == 0) or (e >= self.milestones[0]) else 1.0
+                        child_lambda = 0.0 if (e == 0) or (e >= self.milestones[0]) else self.conf.lambda_child * 1.0
                         # child_lambda = 0.0 if (e == 0) or (e >= self.milestones[0]) else 0.01
 
                 # child_lambda=1.0
@@ -449,7 +454,6 @@ class face_learner(object):
                 # self.child_identity = list(set(self.child_identity))
                 if len(self.child_identity) ==0:
                     continue
-
                 # ''' module for positive pair -> child memory bank '''
                 # # if e >= 1 or e < self.milestones[0]:
                 child_labels = torch.tensor(self.child_identity).cuda()
@@ -458,8 +462,7 @@ class face_learner(object):
                 child_loss = ce_loss(child_thetas, child_labels)
                 child_total_loss = child_lambda * child_loss
                 loss = arcface_loss + child_total_loss
-
-                loss = arcface_loss
+                # loss = arcface_loss
                 loss.backward()
                 running_loss += loss.item()
 
