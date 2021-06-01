@@ -31,10 +31,10 @@ def get_train_dataset(imgs_folder):
 
 def get_train_loader(conf):
     # casia_folder =  './dataset/CASIA_112'
-    casia_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_NATIONAL'
-    # casia_folder = os.path.join(conf.home,'dataset/CASIA_REAL_NATIONAL')
+    # casia_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_NATIONAL'
+    casia_folder = os.path.join(conf.home,'dataset/CASIA_REAL_NATIONAL')
     # casia_folder =  '/home/nas1_userD/yonggyu/Face_dataset/casia'
-    if conf.data_mode == 'casia_prettiermonster':
+    if 'casia_prettiermonster' in conf.data_mode:
         # casia_prettiermonster47_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_PrettierMonster47'
         # casia_prettiermonster92_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_PrettierMonster92'
         # casia_prettiermonster150_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_PrettierMonster150'
@@ -236,9 +236,9 @@ class CasiaMixupDataset(Dataset):
         for (dirpath, _, filenames) in os.walk(babymonster_imgs_folder):
             # NOTE : random suffle and reduce images to n
             id_list = [os.path.join(dirpath, file) for file in filenames]
-            if id_list is not []:
-                random.shuffle(id_list)
-                id_list = id_list[:20]
+            # if id_list is not []:
+            #     random.shuffle(id_list)
+            #     id_list = id_list[:20]
             total_list += id_list
 
         self.total_imgs = len(total_list)

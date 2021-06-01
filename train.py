@@ -16,7 +16,7 @@ if __name__ == '__main__':
     parser.add_argument("--momentum",help='momentum',default=0.9, type=float)
     parser.add_argument("--batch_size", help="batch_size", default=64, type=int)
     parser.add_argument("--num_workers", help="workers number", default=16, type=int)
-    parser.add_argument("--data_mode", help="use which database, [casia, vgg, ms1m, emore, ms1m_vgg_concat, a, vgg_agedb_insta, vgg_adgedb_balanced]",default='casia', type=str)
+    parser.add_argument("--data_mode", help="use which database, [casia, vgg, ms1m, emore, ms1m_vgg_concat, a, vgg_agedb_insta, prettiermonster47, prettiermonster92]",default='casia', type=str)
     parser.add_argument("--finetune_model_path", help='finetune using balanced agedb', default=None, type=str)
     parser.add_argument("--finetune_head_path", help='head path', default=None, type=str)
     parser.add_argument("--use_dp", help='use data parallel', action= 'store_true')
