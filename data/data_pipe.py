@@ -40,7 +40,7 @@ def get_train_loader(conf):
         casia_prettiermonster150_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_PrettierMonster150'
         # casia_prettiermonster47_folder = os.path.join(conf.home,'dataset/CASIA_REAL_PrettierMonster47')
         # casia_prettiermonster92_folder = os.path.join(conf.home,'dataset/CASIA_REAL_PrettierMonster92')
-        # casia_prettiermonster150_folder =os.path.join(conf.home,'dataset/CASIA_REAL_PrettierMonster150')
+        # casia_prettiermonster121_folder =os.path.join(conf.home,'dataset/CASIA_REAL_PrettierMonster121')
 
     print(casia_folder)
     train_transform = transforms.Compose([
@@ -82,7 +82,7 @@ def get_train_loader(conf):
         print('vgg_agedb_insta loader generated')
 
     elif 'casia_prettiermonster' in conf.data_mode:
-        assert conf.data_mode in ['casia_prettiermonster47','casia_prettiermonster92','casia_prettiermonster150']
+        assert conf.data_mode in ['casia_prettiermonster47','casia_prettiermonster92','casia_prettiermonster121']
         casia_prettiermonster_folder = eval(conf.data_mode+'_folder')
         ds = CasiaMixupDataset(casia_folder, casia_prettiermonster_folder, train_transforms=train_transform, conf=conf)
         class_num = ds.class_num
@@ -261,7 +261,7 @@ class CasiaMixupDataset(Dataset):
             # age = int(file_name.split('_')[0]) # this is actually meaningless
             age = 1
         elif dataset_name == self.babymonster_imgs_folder_name:
-            label = self.babymonster_class_list.index(folder_name)
+            label = self.babymonster_class_list.index(folder_name) + self.casia_class_num
             age = 0
         else:
             print('Something went wrong. What have you done!')

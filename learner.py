@@ -300,12 +300,12 @@ class face_learner(object):
                 self.optimizer2.step()
 
                 if self.step % self.board_loss_every == 0 and self.step != 0: # XXX
-                    print('wandb plotting....')
+                    # print('wandb plotting....')
                     loss_board = running_loss / self.board_loss_every
                     # self.writer.add_scalar('train_loss', loss_board, self.step)
                     if self.conf.wandb:
                         wandb.log({
-                            "arcface_total_loss": loss_board,
+                            "train_loss": loss_board,
                         }, step=self.step)
 
                     running_loss = 0.
@@ -390,10 +390,12 @@ class face_learner(object):
                             self.save_best_state(conf, best_accuracy, extra=str(conf.data_mode) + '_' + str(conf.exp))
                 self.step += 1
 
-        if conf.finetune_model_path is not None:
-            self.save_state(conf, fgnetc_accuracy, to_save_folder=True, extra=str(conf.data_mode)  + '_' + str(conf.net_depth) + '_'+ str(conf.batch_size) +'_finetune')
-        else:
-            self.save_state(conf, fgnetc_accuracy, to_save_folder=True, extra=str(conf.data_mode)  + '_' + str(conf.net_depth) + '_'+ str(conf.batch_size) +'_final')
+        # if conf.finetune_model_path is not None:
+        #     self.save_state(conf, fgnetc_accuracy, to_save_folder=True, extra=str(conf.data_mode)  + '_' + str(conf.net_depth) + '_'+ str(conf.batch_size) +'_finetune')
+        # else:
+        #     self.save_state(conf, fgnetc_accuracy, to_save_folder=True, extra=str(conf.data_mode)  + '_' + str(conf.net_depth) + '_'+ str(conf.batch_size) +'_final')
+        if conf.wandb:
+            wandb.finish()
     # training with memory bank
     def train_memory(self, conf, epochs):
         '''
@@ -698,7 +700,7 @@ class face_learner(object):
         #     save_path = conf.save_path
         # else:
         #     save_path = conf.model_path
-        save_path = os.path.join(self.log_path, 'best')
+        save_path = os.path.join(conf.model_path, conf.exp)
         os.makedirs(save_path, exist_ok=True)
         torch.save(self.model.state_dict(), os.path.join(save_path, ('fgnetc_best_model_{}_accuracy:{:.3f}_step:{}_{}.pth'.format(get_time(), accuracy, self.step, extra))))
         if not model_only:
