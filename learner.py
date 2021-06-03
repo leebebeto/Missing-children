@@ -44,11 +44,11 @@ class face_learner(object):
             # self.milestones = [9, 15, 21]
             # self.milestones = [11, 16, 21]
             # self.milestones = [6, 11] # Sphereface paper 28epoch
-            self.milestones = [16, 24, 28] # Cosface paper 30epoch
+            # self.milestones = [16, 24, 28] # Cosface paper 30epoch
+            self.milestones = [28, 38, 46] # Superlong 50epoch
 
             if self.conf.loss == 'Curricular':
-                self.milestones = [28, 38, 46]  # Cosface paper 30epoch
-                self.epoch= 50
+                self.milestones = [28, 38, 46]  # Curricular face paper 50epoch
             print(f'curr milestones: {self.milestones}')
 
             self.loader, self.class_num, self.ds, self.child_identity, self.child_identity_min, self.child_identity_max = get_train_loader(conf)
