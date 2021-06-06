@@ -38,9 +38,12 @@ def get_train_loader(conf):
         casia_prettiermonster47_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_PrettierMonster47'
         casia_prettiermonster92_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_PrettierMonster92'
         casia_prettiermonster150_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_PrettierMonster150'
+        casia_prettiermonster294_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_PrettierMonster294'
+        casia_prettiermonster489_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_PrettierMonster489'
         # casia_prettiermonster47_folder = os.path.join(conf.home,'dataset/CASIA_REAL_PrettierMonster47')
         # casia_prettiermonster92_folder = os.path.join(conf.home,'dataset/CASIA_REAL_PrettierMonster92')
-        # casia_prettiermonster150_folder =os.path.join(conf.home,'dataset/CASIA_REAL_PrettierMonster150')
+        # casia_prettiermonster121_folder =os.path.join(conf.home,'dataset/CASIA_REAL_PrettierMonster121')
+        
 
     print(casia_folder)
     train_transform = transforms.Compose([
@@ -82,7 +85,8 @@ def get_train_loader(conf):
         print('vgg_agedb_insta loader generated')
 
     elif 'casia_prettiermonster' in conf.data_mode:
-        assert conf.data_mode in ['casia_prettiermonster47','casia_prettiermonster92','casia_prettiermonster150']
+        assert conf.data_mode in ['casia_prettiermonster47','casia_prettiermonster92','casia_prettiermonster121',
+                                'casia_prettiermonster294','casia_prettiermonster489']
         casia_prettiermonster_folder = eval(conf.data_mode+'_folder')
         ds = CasiaMixupDataset(casia_folder, casia_prettiermonster_folder, train_transforms=train_transform, conf=conf)
         class_num = ds.class_num

@@ -337,32 +337,6 @@ class ArcfaceMinus(nn.Module):
 
         return cos_theta
 
-
-########################################  Cosface head (Gura) ####################################
-# class Am_softmax(nn.Module):
-#     # implementation of additive margin softmax loss in https://arxiv.org/abs/1801.05599    
-#     def __init__(self,embedding_size=512,classnum=51332, scale=64):
-#         super(Am_softmax, self).__init__()
-#         self.classnum = classnum
-#         self.kernel = nn.Parameter(torch.Tensor(embedding_size,classnum))
-#         # initial kernel
-#         self.kernel.data.uniform_(-1, 1).renorm_(2,1,1e-5).mul_(1e5)
-#         self.m = 0.35 # additive margin recommended by the paper
-#         self.s = scale # see normface https://arxiv.org/abs/1704.06369
-#         print(f"Cosface margin : {self.m}, scale: {self.s}")
-
-#     def forward(self,embbedings, label, age=None):
-#         kernel_norm = l2_norm(self.kernel,axis=0)
-#         cos_theta = torch.mm(embbedings,kernel_norm)
-#         cos_theta = cos_theta.clamp(-1,1) # for numerical stability
-#         phi = cos_theta - self.m
-#         label = label.view(-1) #size=(B,1)
-#         index = torch.arange(0, label.shape[0], dtype=torch.long)
-#         output = cos_theta * 1.0
-#         output[index,index] = phi[index, label] #only change the correct predicted output
-#         output *= self.s # scale up in order to make softmax work, first introduced in normface
-#         return output
-
 ########################################  Cosface head (Real) ####################################
 
 class CosineMarginProduct(nn.Module):
@@ -481,7 +455,7 @@ class SphereMarginProduct(nn.Module):
 
         return output
 
-
+######################################## Curricular head #####################################################
 
 class CurricularFace(nn.Module):
     def __init__(self, in_features, out_features, m = 0.5, s = 64.):
@@ -521,3 +495,61 @@ class CurricularFace(nn.Module):
         output = cos_theta * self.s
         return output
 
+################################## Grad CAM ################################################
+
+class BackboneMaruta(nn.Module):
+    def __init__(self, num_layers, drop_ratio, mode='ir'):
+        super(BackboneMaruta, self).__init__()
+        assert num_layers in [50, 100, 152], 'num_layers should be 50,100, or 152'
+        assert mode in ['ir', 'ir_se'], 'mode should be ir or ir_se'
+        blocks = get_blocks(num_layers)
+        if mode == 'ir':
+            unit_module = bottleneck_IR
+        elif mode == 'ir_se':
+            unit_module = bottleneck_IR_SE
+        self.input_layer = nn.Sequential(nn.Conv2d(3, 64, (3, 3), 1, 1 ,bias=False), 
+                                      nn.BatchNorm2d(64), 
+                                      nn.PReLU(64))
+        self.output_layer = nn.Sequential(nn.BatchNorm2d(512), 
+                                       nn.Dropout(drop_ratio),
+                                       Flatten(),
+                                       nn.Linear(512 * 7 * 7, 512),
+                                       nn.BatchNorm1d(512))
+        modules = []
+        for block in blocks:
+            for bottleneck in block:
+                modules.append(
+                    unit_module(bottleneck.in_channel,
+                                bottleneck.depth,
+                                bottleneck.stride))
+        self.body = nn.Sequential(*modules)
+
+        self.gradient = None
+        self.gradcam = 11
+        # XXX : Change here to change the grad cam layer
+        # Good layers 9, 10, 11
+
+    # hook for the gradients
+    def activations_hook(self, grad):
+        self.gradient = grad
+    
+    def get_gradient(self):
+        return self.gradient
+    
+    # x is image
+    def get_activations(self, x):
+        # [3, 4, 14, 3] bottleneck layers
+        lower_body = self.body[:self.gradcam]
+        return lower_body(self.input_layer(x))
+    
+    def forward(self,x):
+        x = self.input_layer(x)
+        # x = self.body(x)
+        lower_body = self.body[:self.gradcam]
+        upper_body = self.body[self.gradcam:]
+        x = lower_body(x)
+        # import pdb; pdb.set_trace()
+        h = x.register_hook(self.activations_hook)
+        x = upper_body(x)
+        x = self.output_layer(x)
+        return l2_norm(x)
