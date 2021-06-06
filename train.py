@@ -11,7 +11,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='for face verification')
 
     # training
-    parser.add_argument("--epochs", help="training epochs", default=30, type=int)
+    parser.add_argument("--epochs", help="training epochs", default=50, type=int)
     parser.add_argument("--lr",help='learning rate',default=1e-1, type=float)
     parser.add_argument("--momentum",help='momentum',default=0.9, type=float)
     parser.add_argument("--batch_size", help="batch_size", default=64, type=int)
@@ -32,6 +32,9 @@ if __name__ == '__main__':
     parser.add_argument("--use_memory", help='whether to use memory', action='store_true')
     parser.add_argument("--use_sorted", help='whether to sort child index', default='random', type=str)
     parser.add_argument("--lambda_child", help='lambda for child loss', default=1.0, type=float)
+    parser.add_argument("--memory_include", help='whether to include pretty in oversampling', action='store_true')
+    parser.add_argument("--child_filter", help='whether to filter child, threshold:0', default=0, type=int)
+    parser.add_argument("--use_adult_memory", help='whether to use adult memory', action='store_true')
 
     # data path -> added temporarily
     parser.add_argument("--vgg_folder", help='vgg folder directory', default='/home/nas1_userD/yonggyu/Face_dataset/vgg')
@@ -98,5 +101,8 @@ if __name__ == '__main__':
     if args.use_memory: # our memory bank method
         print('using memory bank...')
         learner.train_memory(args, args.epochs)
+    elif args.use_adult_memory: # our memory bank method
+        print('using adult memory bank...')
+        learner.train_adult_memory(args, args.epochs)
     else:
         learner.train(args, args.epochs) # other normal training

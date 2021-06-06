@@ -31,8 +31,8 @@ def get_train_dataset(imgs_folder):
 
 def get_train_loader(conf):
     # casia_folder =  './dataset/CASIA_112'
-    # casia_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_NATIONAL'
-    casia_folder = os.path.join(conf.home,'dataset/CASIA_REAL_NATIONAL')
+    casia_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_NATIONAL'
+    # casia_folder = os.path.join(conf.home,'dataset/CASIA_REAL_NATIONAL')
     # casia_folder =  '/home/nas1_userD/yonggyu/Face_dataset/casia'
     if 'casia_prettiermonster' in conf.data_mode:
         casia_prettiermonster47_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_PrettierMonster47'
@@ -108,7 +108,6 @@ def get_val_pair(path, name):
     '''
     carray = bcolz.carray(rootdir = os.path.join(path, name), mode='r')
     issame = np.load(os.path.join(path, '{}_list.npy'.format(name)))    
-
     return carray, issame
 
 def get_val_data(data_path, name='cfp_fp'):
@@ -220,13 +219,22 @@ class CasiaMixupDataset(Dataset):
             self.child_image2freq[k.split('/')[0]] += 1
 
         # sorted in ascending order
-        self.child_identity_freq = {int(k): v for k, v in sorted(self.child_image2freq.items(), key=lambda item: item[1])}
+        # self.child_identity_freq = {int(k): v for k, v in sorted(self.child_image2freq.items(), key=lambda item: item[1])}
+        self.child_identity_freq = {int(k): v for k, v in sorted(self.child_image2freq.items(), key=lambda item: item[1]) if v >= conf.child_filter}
+
         self.child_identity = list(self.child_identity_freq.keys())
         self.child_identity_min = list(self.child_identity_freq.keys())[:conf.new_id + 1]
         self.child_identity_max = list(self.child_identity_freq.keys())[-(conf.new_id + 1):]
 
         self.babymonster_class_list = os.listdir(babymonster_imgs_folder)
         self.babymonster_class_num = len(os.listdir(babymonster_imgs_folder))
+
+        print(f'child number: {len(self.child_identity)}')
+        if conf.memory_include:
+            for i in range(self.babymonster_class_num):
+                self.child_identity.append(self.casia_class_num + i)
+            print(f'baby monster len: {self.babymonster_class_num}')
+            print(f'child number after: {len(self.child_identity)}')
 
         self.class_num = self.casia_class_num + self.babymonster_class_num
 
@@ -254,14 +262,21 @@ class CasiaMixupDataset(Dataset):
         dataset_name = img_path_list[-3]
         file_name = img_path_list[-1]  # {age}_filenum.jpg
         folder_name = img_path_list[-2]  # label
+        id_img = '/'.join((img_path.split('/')[-2], img_path.split('/')[-1][:-4]))
 
         img = Image.open(img_path)
         if dataset_name == self.casia_imgs_folder_name:
             label = self.casia_class_list.index(folder_name)
             # age = int(file_name.split('_')[0]) # this is actually meaningless
-            age = 1
+            # age = 1
+            try:
+                age = self.id2age[id_img]
+            except:
+                age = 30
+            age = 0 if age <= 13 else 1
+
         elif dataset_name == self.babymonster_imgs_folder_name:
-            label = self.babymonster_class_list.index(folder_name)
+            label = self.casia_class_num + self.babymonster_class_list.index(folder_name)
             age = 0
         else:
             print('Something went wrong. What have you done!')
@@ -296,8 +311,13 @@ class CASIADataset(Dataset):
             self.child_image2freq[k.split('/')[0]] += 1
 
         # sorted in ascending order
-        self.child_identity_freq = {int(k): v for k, v in sorted(self.child_image2freq.items(), key=lambda item: item[1])}
+        # self.child_identity_freq = {int(k): v for k, v in sorted(self.child_image2freq.items(), key=lambda item: item[1])}
+        self.child_identity_freq = {int(k): v for k, v in sorted(self.child_image2freq.items(), key=lambda item: item[1]) if v >= conf.child_filter}
+        # if conf.child_filter:
+        #     self.child_identity_freq = {int(k): v for k, v in sorted(self.child_image2freq.items(), key=lambda item: item[1]) if v >= 5}
         self.child_identity = list(self.child_identity_freq.keys())
+        print(f'child number: {len(self.child_identity)}')
+
         self.child_identity_min = list(self.child_identity_freq.keys())[:conf.new_id + 1]
         self.child_identity_max = list(self.child_identity_freq.keys())[-(conf.new_id + 1):]
 
@@ -338,7 +358,6 @@ class CASIADataset(Dataset):
             img = self.transform(img)
 
         age= 0 if age<= 13 else 1
-
         return img, label, age
 
 
