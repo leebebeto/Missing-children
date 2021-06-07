@@ -30,8 +30,8 @@ def get_train_dataset(imgs_folder):
     return ds, class_num
 
 def get_train_loader(conf):
-    # casia_folder =  './dataset/CASIA_112'
-    casia_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_NATIONAL'
+    casia_folder =  './dataset/CASIA_112'
+    # casia_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_NATIONAL'
     # casia_folder = os.path.join(conf.home,'dataset/CASIA_REAL_NATIONAL')
     # casia_folder =  '/home/nas1_userD/yonggyu/Face_dataset/casia'
     if 'casia_prettiermonster' in conf.data_mode:
@@ -215,7 +215,8 @@ class CasiaMixupDataset(Dataset):
         self.casia_class_list = os.listdir(casia_imgs_folder)
         self.casia_class_num = len(os.listdir(casia_imgs_folder))
 
-        self.age_file = open('/home/nas1_userE/jungsoolee/Face_dataset/casia-webface.txt').readlines()
+        self.age_file = open('./dataset/casia-webface.txt').readlines()
+        # self.age_file = open('/home/nas1_userE/jungsoolee/Face_dataset/casia-webface.txt').readlines()
         self.id2age = { os.path.join(str(int(line.split(' ')[1].split('/')[1])), str(int(line.split(' ')[1].split('/')[2][:-4]))) : float(line.split(' ')[2]) for line in self.age_file}
         self.child_image2age = { os.path.join(str(int(line.split(' ')[1].split('/')[1])), str(int(line.split(' ')[1].split('/')[2][:-4]))) : float(line.split(' ')[2]) for line in self.age_file if float(line.split(' ')[2]) <= 13}
         self.child_image2freq = {id.split('/')[0]: 0 for id in self.child_image2age.keys()}
@@ -307,7 +308,8 @@ class CASIADataset(Dataset):
         self.root_dir = imgs_folder
         self.transform = train_transforms
         self.class_num = len(os.listdir(imgs_folder))
-        self.age_file = open('/home/nas1_userE/jungsoolee/Face_dataset/casia-webface.txt').readlines()
+        self.age_file = open('./dataset/casia-webface.txt').readlines()
+        # self.age_file = open('/home/nas1_userE/jungsoolee/Face_dataset/casia-webface.txt').readlines()
         self.id2age = { os.path.join(str(int(line.split(' ')[1].split('/')[1])), str(int(line.split(' ')[1].split('/')[2][:-4]))) : float(line.split(' ')[2]) for line in self.age_file}
         self.child_image2age = { os.path.join(str(int(line.split(' ')[1].split('/')[1])), str(int(line.split(' ')[1].split('/')[2][:-4]))) : float(line.split(' ')[2]) for line in self.age_file if float(line.split(' ')[2]) <= 13}
         self.child_image2freq = {id.split('/')[0]: 0 for id in self.child_image2age.keys()}

@@ -159,8 +159,9 @@ class face_learner(object):
             print(conf)
             print('training starts.... BMVC 2021....')
 
+            dataset_root= os.path.join('./dataset/face_emore2')
             # dataset_root= os.path.join(conf.home, 'dataset/face_emore')
-            dataset_root= os.path.join('/home/nas1_userE/jungsoolee/Face_dataset/face_emore2')
+            # dataset_root= os.path.join('/home/nas1_userE/jungsoolee/Face_dataset/face_emore2')
             # self.lfw, self.lfw_issame = get_val_data(dataset_root)
             # dataset_root = "./dataset/"
             self.lfw = np.load(os.path.join(dataset_root, "lfw_align_112_list.npy")).astype(np.float32)
