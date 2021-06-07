@@ -63,6 +63,10 @@ class face_learner(object):
                 self.milestones = [4, 8, 10]  # Curricular face paper 50epoch
                 self.epoch= 12
 
+            if conf.loss == 'Sphere':
+                self.milestones = [16, 24]  # Curricular face paper 50epoch
+                self.epoch= 28
+
 
             print(f'curr milestones: {self.milestones}')
             print(f'total epochs: {self.epoch}')
@@ -106,8 +110,8 @@ class face_learner(object):
             #     self.head = ArcfaceMinus(embedding_size=conf.embedding_size, classnum=self.class_num, minus_m=conf.minus_m).to(conf.device)
             elif conf.loss == 'Cosface':
                 self.head = CosineMarginProduct(embedding_size=conf.embedding_size, classnum=self.class_num, scale=conf.scale).to(conf.device)
-            elif conf.loss == 'Sphereface':
-                self.head = SphereMarginProduct(embedding_size=conf.embedding_size, classnum=self.class_num).to(conf.device)
+            elif conf.loss == 'Sphere':
+                self.head = AngularPenaltySMLoss(in_features=conf.embedding_size, out_features=self.class_num).to(conf.device)
             # elif conf.loss == 'LDAM':
             #     self.head = LDAMLoss(embedding_size=conf.embedding_size, classnum=self.class_num, max_m=conf.max_m, s=conf.scale, cls_num_list=self.ds.class_num_list).to(conf.device)
             elif conf.loss == 'Curricular':
@@ -118,6 +122,7 @@ class face_learner(object):
                 self.head = FC(in_feature=conf.embedding_size, out_feature=self.class_num, fc_type='MV-Arc').to(conf.device)
             elif conf.loss == 'Broad':
                 self.head = BroadFaceArcFace(in_features=conf.embedding_size, out_features=self.class_num).to(conf.device)
+
             else:
                 import sys
                 print('wrong loss function.. exiting...')
@@ -336,7 +341,7 @@ class face_learner(object):
                 # thetas = self.head(embeddings, labels)
                 thetas = self.head(embeddings, labels, ages)
 
-                if self.conf.loss == 'Broad':
+                if self.conf.loss == 'Broad' or self.conf.loss == 'Sphere':
                     loss= thetas
                 else:
                     loss = ce_loss(thetas, labels)
@@ -734,13 +739,17 @@ class face_learner(object):
                 # ''' module for positive pair -> child memory bank '''
                 child_embeddings = self.child_memory[self.child_labels]
                 adult_embeddings = self.adult_memory[self.child_labels]
-                child_thetas = self.head(child_embeddings, self.child_labels)
-                adult_thetas = self.head(adult_embeddings, self.child_labels)
 
-                child_thetas = torch.index_select(child_thetas, 1, self.child_labels).sum(dim=1)
-                adult_thetas = torch.index_select(adult_thetas, 1, self.child_labels).sum(dim=1)
-                child_loss = l1_loss(child_thetas, adult_thetas)
-                # child_loss = ce_loss(child_thetas, self.child_labels)
+                if self.conf.feature_level:
+                    child_loss = l1_loss(l2_norm(child_embeddings), l2_norm(adult_embeddings))
+                else:
+                    child_thetas = self.head(child_embeddings, self.child_labels)
+                    adult_thetas = self.head(adult_embeddings, self.child_labels)
+                    child_thetas = torch.index_select(child_thetas, 1, self.child_labels).sum(dim=1)
+                    adult_thetas = torch.index_select(adult_thetas, 1, self.child_labels).sum(dim=1)
+                    if self.conf.positive_zero:
+                        child_loss = l1_loss(child_thetas, torch.zeros(child_thetas.size()).to(conf.device))
+
                 child_total_loss = child_lambda * child_loss
                 loss = arcface_loss + child_total_loss
                 loss.backward()

@@ -267,7 +267,9 @@ class CasiaMixupDataset(Dataset):
         dataset_name = img_path_list[-3]
         file_name = img_path_list[-1]  # {age}_filenum.jpg
         folder_name = img_path_list[-2]  # label
-        id_img = '/'.join((img_path.split('/')[-2], img_path.split('/')[-1][:-4]))
+        id_img = '/'.join((img_path.split('/')[-2], img_path.split('/')[-1].split('_')[0]))
+        if 'jpg' in id_img:
+            id_img = id_img[:-4]
 
         img = Image.open(img_path)
         if dataset_name == self.casia_imgs_folder_name:
@@ -350,7 +352,9 @@ class CASIADataset(Dataset):
         img_path = self.total_list[index]
         img_path_list = img_path.split('/')
         file_name = img_path_list[-1]  # {age}_filenum.jpg
-        id_img = '/'.join((img_path.split('/')[-2], img_path.split('/')[-1][:-4]))
+        id_img = '/'.join((img_path.split('/')[-2], img_path.split('/')[-1].split('_')[0]))
+        if 'jpg' in id_img:
+            id_img = id_img[:-4]
         try:
             age = self.id2age[id_img]
         except:

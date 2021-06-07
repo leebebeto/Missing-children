@@ -36,6 +36,8 @@ if __name__ == '__main__':
     parser.add_argument("--child_filter", help='whether to filter child, threshold:0', default=0, type=int)
     parser.add_argument("--use_adult_memory", help='whether to use adult memory', action='store_true')
     parser.add_argument("--short_milestone", help='whether to use ', action='store_true')
+    parser.add_argument("--feature_level", help='whether to use adult memory as feature level', action='store_true')
+    parser.add_argument("--positive_zero", help='whether to use adult memory as zero', action='store_true')
 
     # data path -> added temporarily
     parser.add_argument("--vgg_folder", help='vgg folder directory', default='/home/nas1_userD/yonggyu/Face_dataset/vgg')
