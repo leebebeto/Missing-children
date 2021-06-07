@@ -35,6 +35,7 @@ if __name__ == '__main__':
     parser.add_argument("--memory_include", help='whether to include pretty in oversampling', action='store_true')
     parser.add_argument("--child_filter", help='whether to filter child, threshold:0', default=0, type=int)
     parser.add_argument("--use_adult_memory", help='whether to use adult memory', action='store_true')
+    parser.add_argument("--vanilla_mixup", help='ablation for mixup', action='store_true')
 
     # data path -> added temporarily
     parser.add_argument("--vgg_folder", help='vgg folder directory', default='/home/nas1_userD/yonggyu/Face_dataset/vgg')
@@ -104,5 +105,8 @@ if __name__ == '__main__':
     elif args.use_adult_memory: # our memory bank method
         print('using adult memory bank...')
         learner.train_adult_memory(args, args.epochs)
+    elif args.vanilla_mixup:
+        print('vanilla mixup...')
+        learner.train_mixup(args, args.epochs)
     else:
         learner.train(args, args.epochs) # other normal training
