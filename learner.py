@@ -56,6 +56,12 @@ class face_learner(object):
 
             if self.conf.loss == 'Curricular':
                 self.milestones = [28, 38, 46]  # Curricular face paper 50epoch
+
+            if self.conf.short_milestone:
+                self.milestones = [4, 8, 10]  # Curricular face paper 50epoch
+                self.epoch= 12
+
+
             print(f'curr milestones: {self.milestones}')
             print(f'total epochs: {self.epoch}')
 
@@ -94,16 +100,22 @@ class face_learner(object):
             if conf.loss == 'Arcface':
                 self.head = Arcface(embedding_size=conf.embedding_size, classnum=self.class_num).to(conf.device)
             # Arcface with minus margin for children
-            elif conf.loss == 'ArcfaceMinus':
-                self.head = ArcfaceMinus(embedding_size=conf.embedding_size, classnum=self.class_num, minus_m=conf.minus_m).to(conf.device)
+            # elif conf.loss == 'ArcfaceMinus':
+            #     self.head = ArcfaceMinus(embedding_size=conf.embedding_size, classnum=self.class_num, minus_m=conf.minus_m).to(conf.device)
             elif conf.loss == 'Cosface':
                 self.head = CosineMarginProduct(embedding_size=conf.embedding_size, classnum=self.class_num, scale=conf.scale).to(conf.device)
             elif conf.loss == 'Sphereface':
                 self.head = SphereMarginProduct(embedding_size=conf.embedding_size, classnum=self.class_num).to(conf.device)
-            elif conf.loss == 'LDAM':
-                self.head = LDAMLoss(embedding_size=conf.embedding_size, classnum=self.class_num, max_m=conf.max_m, s=conf.scale, cls_num_list=self.ds.class_num_list).to(conf.device)
+            # elif conf.loss == 'LDAM':
+            #     self.head = LDAMLoss(embedding_size=conf.embedding_size, classnum=self.class_num, max_m=conf.max_m, s=conf.scale, cls_num_list=self.ds.class_num_list).to(conf.device)
             elif conf.loss == 'Curricular':
                 self.head = CurricularFace(in_features=conf.embedding_size, out_features=self.class_num).to(conf.device)
+            elif conf.loss == 'MV-AM':
+                self.head = FC(in_feature=conf.embedding_size, out_feature=self.class_num, fc_type='MV-AM').to(conf.device)
+            elif conf.loss == 'MV-Arc':
+                self.head = FC(in_feature=conf.embedding_size, out_feature=self.class_num, fc_type='MV-Arc').to(conf.device)
+            elif conf.loss == 'Broad':
+                self.head = BroadFaceArcFace(in_features=conf.embedding_size, out_features=self.class_num).to(conf.device)
             else:
                 import sys
                 print('wrong loss function.. exiting...')
@@ -157,21 +169,19 @@ class face_learner(object):
             print(conf)
             print('training starts.... BMVC 2021....')
 
-            dataset_root= os.path.join('./dataset/face_emore2')
-            # dataset_root= os.path.join(conf.home, 'dataset/face_emore')
             # dataset_root= os.path.join('/home/nas1_userE/jungsoolee/Face_dataset/face_emore2')
+            dataset_root= os.path.join('./dataset/face_emore2')
+            # dataset_root= os.path.join(conf.home, 'dataset/face_emore2')
             # self.lfw, self.lfw_issame = get_val_data(dataset_root)
             # dataset_root = "./dataset/"
             self.lfw = np.load(os.path.join(dataset_root, "lfw_align_112_list.npy")).astype(np.float32)
             self.lfw_issame = np.load(os.path.join(dataset_root, "lfw_align_112_label.npy"))
 
-
+            self.fgnetc = np.load(os.path.join(dataset_root, "FGNET_new_align_list.npy")).astype(np.float32)
+            self.fgnetc_issame = np.load(os.path.join(dataset_root, "FGNET_new_align_label.npy"))
             # self.cfp_fp, self.cfp_fp_issame = get_val_data(dataset_root, 'cfp_fp')
             # self.agedb, self.agedb_issame = get_val_data(dataset_root, 'agedb_30')
 
-
-            self.fgnetc = np.load(os.path.join(dataset_root, "FGNET_new_align_list.npy")).astype(np.float32)
-            self.fgnetc_issame = np.load(os.path.join(dataset_root, "FGNET_new_align_label.npy"))
         else:
             # Will not use anymore
             # self.model = nn.DataParallel(self.model)
@@ -249,7 +259,10 @@ class face_learner(object):
                 # thetas = self.head(embeddings, labels)
                 thetas = self.head(embeddings, labels, ages)
 
-                loss = ce_loss(thetas, labels)
+                if self.conf.loss == 'Broad':
+                    loss= thetas
+                else:
+                    loss = ce_loss(thetas, labels)
                 loss.backward()
                 running_loss += loss.item()
 

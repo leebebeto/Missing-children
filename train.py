@@ -35,7 +35,11 @@ if __name__ == '__main__':
     parser.add_argument("--memory_include", help='whether to include pretty in oversampling', action='store_true')
     parser.add_argument("--child_filter", help='whether to filter child, threshold:0', default=0, type=int)
     parser.add_argument("--use_adult_memory", help='whether to use adult memory', action='store_true')
+<<<<<<< HEAD
     parser.add_argument("--vanilla_mixup", help='ablation for mixup', action='store_true')
+=======
+    parser.add_argument("--short_milestone", help='whether to use ', action='store_true')
+>>>>>>> 46a6bf23b1b931c4ce3d572fe4e31c79658b6be6
 
     # data path -> added temporarily
     parser.add_argument("--vgg_folder", help='vgg folder directory', default='/home/nas1_userD/yonggyu/Face_dataset/vgg')

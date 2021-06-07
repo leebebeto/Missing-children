@@ -553,3 +553,162 @@ class BackboneMaruta(nn.Module):
         x = upper_body(x)
         x = self.output_layer(x)
         return l2_norm(x)
+
+################################## MVAM / MVArc ################################################
+class FC(nn.Module):
+    def __init__(self, in_feature=128, out_feature=10572, s=32.0, m=0.50, t=0.2, easy_margin=False, fc_type='MV-AM'):
+        super(FC, self).__init__()
+        self.in_feature = in_feature
+        self.out_feature = out_feature
+        self.s = s
+        self.m = m
+        self.t = t
+        self.kernel = nn.Parameter(torch.Tensor(out_feature, in_feature))
+        nn.init.xavier_uniform_(self.kernel)
+
+        self.easy_margin = easy_margin
+        self.cos_m = math.cos(m)
+        self.sin_m = math.sin(m)
+        self.fc_type = fc_type
+        # make the function cos(theta+m) monotonic decreasing while theta in [0°,180°]
+        self.th = math.cos(math.pi - m)
+        self.mm = math.sin(math.pi - m) * m
+
+    def forward(self, x, label, ages=None):
+        # cos(theta)
+        cos_theta = F.linear(F.normalize(x), F.normalize(self.kernel))
+        kernel_norm = F.normalize(self.kernel, dim=0)
+        batch_size = label.size(0)
+        gt = cos_theta[torch.arange(0, batch_size), label].view(-1, 1)  # ground truth score
+
+        if self.fc_type == 'Arc':  # arcface:
+            sin_theta = torch.sqrt(1.0 - torch.pow(gt, 2))
+            cos_theta_m = gt * self.cos_m - sin_theta * self.sin_m  # cos(gt + margin)
+            if self.easy_margin:
+                final_gt = torch.where(gt > 0, cos_theta_m, gt)
+            else:
+                final_gt = cos_theta_m
+        elif self.fc_type == 'MV-AM':
+            mask = cos_theta > gt - self.m
+
+            hard_vector = cos_theta[mask]
+
+            cos_theta[mask] = (self.t + 1.0) * hard_vector + self.t  # adaptive
+            # cos_theta[mask] = hard_vector + self.t  #fixed
+            if self.easy_margin:
+                final_gt = torch.where(gt > 0, gt - self.m, gt)
+            else:
+                final_gt = gt - self.m
+        elif self.fc_type == 'MV-Arc':
+            sin_theta = torch.sqrt(1.0 - torch.pow(gt, 2))
+            cos_theta_m = gt * self.cos_m - sin_theta * self.sin_m  # cos(gt + margin)
+
+            mask = cos_theta > cos_theta_m
+            hard_vector = cos_theta[mask]
+            cos_theta[mask] = (self.t + 1.0) * hard_vector + self.t  # adaptive
+            # cos_theta[mask] = hard_vector + self.t #fixed
+            if self.easy_margin:
+                final_gt = torch.where(gt > 0, cos_theta_m, gt)
+            else:
+                final_gt = cos_theta_m
+                # final_gt = torch.where(gt > cos_theta_m, cos_theta_m, gt)
+
+        cos_theta.scatter_(1, label.data.view(-1, 1), final_gt)
+        cos_theta *= self.s
+        return cos_theta
+
+################################## Broadface ################################################
+class BroadFaceArcFace(nn.Module):
+    def __init__(
+        self,
+        in_features,
+        out_features,
+        scale_factor=64.0,
+        margin=0.50,
+        queue_size=32000,
+        compensate=True,
+    ):
+        super(BroadFaceArcFace, self).__init__()
+        self.in_features = in_features
+        self.out_features = out_features
+        self.criterion = nn.CrossEntropyLoss(reduction="none")
+
+        self.margin = margin
+        self.scale_factor = scale_factor
+
+        self.kernel = nn.Parameter(torch.FloatTensor(out_features, in_features))
+        nn.init.xavier_uniform_(self.kernel)
+
+        self.cos_m = math.cos(margin)
+        self.sin_m = math.sin(margin)
+        self.th = math.cos(math.pi - margin)
+        self.mm = math.sin(math.pi - margin) * margin
+
+        feature_mb = torch.zeros(0, in_features)
+        label_mb = torch.zeros(0, dtype=torch.int64)
+        proxy_mb = torch.zeros(0, in_features)
+        self.register_buffer("feature_mb", feature_mb)
+        self.register_buffer("label_mb", label_mb)
+        self.register_buffer("proxy_mb", proxy_mb)
+
+        self.queue_size = queue_size
+        self.compensate = compensate
+
+    def update(self, input, label):
+        self.feature_mb = torch.cat([self.feature_mb, input.data], dim=0)
+        self.label_mb = torch.cat([self.label_mb, label.data], dim=0)
+        self.proxy_mb = torch.cat(
+            [self.proxy_mb, self.kernel.data[label].clone()], dim=0
+        )
+
+        over_size = self.feature_mb.shape[0] - self.queue_size
+        if over_size > 0:
+            self.feature_mb = self.feature_mb[over_size:]
+            self.label_mb = self.label_mb[over_size:]
+            self.proxy_mb = self.proxy_mb[over_size:]
+
+        assert (
+            self.feature_mb.shape[0] == self.label_mb.shape[0] == self.proxy_mb.shape[0]
+        )
+
+    def compute_arcface(self, x, y, w):
+        cosine = F.linear(F.normalize(x), F.normalize(w))
+        sine = torch.sqrt(1.0 - torch.pow(cosine, 2))
+
+        phi = cosine * self.cos_m - sine * self.sin_m
+        phi = torch.where(cosine > self.th, phi, cosine - self.mm)
+
+        one_hot = torch.zeros(cosine.size(), device=x.device)
+        one_hot.scatter_(1, y.view(-1, 1).long(), 1)
+
+        logit = (one_hot * phi) + ((1.0 - one_hot) * cosine)
+        logit *= self.scale_factor
+
+        ce_loss = self.criterion(logit, y)
+        return ce_loss.mean()
+
+    def forward(self, input, label, ages=None):
+        # input is not l2 normalized
+        weight_now = self.kernel.data[self.label_mb]
+        delta_weight = weight_now - self.proxy_mb
+
+        if self.compensate:
+            update_feature_mb = (
+                self.feature_mb
+                + (
+                    self.feature_mb.norm(p=2, dim=1, keepdim=True)
+                    / self.proxy_mb.norm(p=2, dim=1, keepdim=True)
+                )
+                * delta_weight
+            )
+        else:
+            update_feature_mb = self.feature_mb
+
+        large_input = torch.cat([update_feature_mb, input.data], dim=0)
+        large_label = torch.cat([self.label_mb, label], dim=0)
+
+        batch_loss = self.compute_arcface(input, label, self.kernel.data)
+        broad_loss = self.compute_arcface(large_input, large_label, self.kernel)
+        self.update(input, label)
+
+        return batch_loss + broad_loss
