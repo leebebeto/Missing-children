@@ -603,6 +603,7 @@ class face_learner(object):
         self.adult_labels = torch.zeros(self.class_num).cuda()
         self.adult_labels[self.child_labels] = 1
         fgnetc_best_acc = 0.0
+        running_child_degree, running_adult_degree = torch.zeros(self.child_labels.size()).to(self.conf.device), torch.zeros(self.child_labels.size()).to(self.conf.device)
         print(f'total epoch: {self.epoch}')
         for e in range(self.epoch):
             print('epoch {} started'.format(e))
@@ -663,8 +664,7 @@ class face_learner(object):
                 adult_embeddings = self.adult_memory[self.child_labels]
 
                 if self.conf.original_positive:
-                    child_thetas = self.head(child_embeddings, self.child_labels)
-                    adult_thetas = self.head(adult_embeddings, self.child_labels)
+                    child_loss = self.head.forward_original_positive(child_embeddings, adult_embeddings, self.child_labels)
 
                 else:
                     if self.conf.feature_level:
@@ -680,15 +680,21 @@ class face_learner(object):
                             else:
                                 child_thetas = self.head(child_embeddings, self.child_labels)
                                 adult_thetas = self.head(adult_embeddings, self.child_labels)
-                                child_thetas = torch.index_select(child_thetas, 1, self.child_labels).sum(dim=1)
-                                adult_thetas = torch.index_select(adult_thetas, 1, self.child_labels).sum(dim=1)
-
                                 child_loss = l1_loss(child_thetas, adult_thetas)
 
                 child_total_loss = child_lambda * child_loss
                 loss = arcface_loss + child_total_loss
                 loss.backward()
                 running_loss += loss.item()
+
+                if not self.conf.use_arccos:
+                    child_thetas = self.head.forward_arccos(child_embeddings, self.child_labels)
+                    adult_thetas = self.head.forward_arccos(adult_embeddings, self.child_labels)
+
+                running_child_degree = running_child_degree + torch.rad2deg(child_thetas)
+                running_adult_degree = running_adult_degree + torch.rad2deg(adult_thetas)
+                running_child_degree = running_child_degree.mean()
+                running_adult_degree = running_adult_degree.mean()
 
                 running_arcface_loss += arcface_loss.item()
                 # if 'POSITIVE' in conf.exp:
@@ -711,7 +717,8 @@ class face_learner(object):
                     # print('tensorboard plotting....')
                     # print('wandb plotting....')
                     loss_board = running_loss / self.board_loss_every
-
+                    child_degree_board = running_child_degree / self.board_loss_every
+                    adult_degree_board = running_adult_degree / self.board_loss_every
                     arcface_loss_board = running_arcface_loss / self.board_loss_every
                     # self.writer.add_scalar('train_loss', loss_board, self.step)
                     # self.writer.add_scalar('arcface_loss', arcface_loss_board, self.step)
@@ -720,7 +727,10 @@ class face_learner(object):
                         wandb.log({
                             "train_loss": loss_board,
                             "arcface_total_loss": arcface_loss_board,
+                            "child_degree_board": child_degree_board,
+                            "adult_degree_board": adult_degree_board,
                         }, step=self.step)
+
                     child_loss_board = running_child_loss / self.board_loss_every
                     child_total_loss_board = running_child_total_loss / self.board_loss_every
 
@@ -751,6 +761,7 @@ class face_learner(object):
                     running_child_total_loss = 0.0
                     running_mixup_loss = 0.0
                     running_mixup_total_loss = 0.0
+                    running_child_degree, running_adult_degree = torch.zeros(self.child_labels.size()).to(self.conf.device), torch.zeros(self.child_labels.size()).to(self.conf.device)
 
                 if self.step % self.evaluate_every == 0 and self.step != 0:
                     print('evaluating....')
@@ -1069,6 +1080,8 @@ class face_learner(object):
         save_path = os.path.join(conf.model_path, conf.exp)
         os.makedirs(save_path, exist_ok=True)
         torch.save(self.model.state_dict(), os.path.join(save_path, ('fgnetc_best_model_{}_accuracy:{:.3f}_step:{}_{}.pth'.format(get_time(), accuracy, self.step, extra))))
+        torch.save(self.child_memory, os.path.join(save_path, ('fgnetc_best_child_{}_accuracy:{:.3f}_step:{}_{}.pth'.format(get_time(), accuracy, self.step, extra))))
+        torch.save(self.adult_memory, os.path.join(save_path, ('fgnetc_best_adult_{}_accuracy:{:.3f}_step:{}_{}.pth'.format(get_time(), accuracy, self.step, extra))))
         if not model_only:
             torch.save(
                 self.head.state_dict(), os.path.join(save_path, ('fgnetc_best_head_{}_accuracy:{:.3f}_step:{}_{}.pth'.format(get_time(), accuracy, self.step, extra))))

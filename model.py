@@ -270,33 +270,30 @@ class Arcface(nn.Module):
         output = torch.arccos(cos_theta[idx_, label])
         return output
 
-    def forward_original_positive(self, child_embbedings, adult_embbedings,label, age=None):
+    def forward_original_positive(self, child_embbedings, adult_embbedings, label, age=None):
         # weights norm
-        nB = len(embbedings)
+        nB = len(child_embbedings)
         kernel_norm = l2_norm(self.kernel, axis=0)
         # cos(theta+m)
-        cos_theta = torch.mm(embbedings, kernel_norm)
+        child_theta = torch.mm(child_embbedings, kernel_norm)
+        adult_theta = torch.mm(adult_embbedings, kernel_norm)
         #         output = torch.mm(embbedings,kernel_norm)
-        cos_theta = cos_theta.clamp(-1, 1)  # for numerical stability
-        cos_theta_2 = torch.pow(cos_theta, 2)
-        sin_theta_2 = 1 - cos_theta_2
-        sin_theta = torch.sqrt(sin_theta_2)
-        cos_theta_m = (cos_theta * self.cos_m - sin_theta * self.sin_m)
+        child_theta = child_theta.clamp(-1, 1)  # for numerical stability
+        child_theta_2 = torch.pow(child_theta, 2)
 
+        adult_theta = adult_theta.clamp(-1, 1)  # for numerical stability
+        adult_theta_2 = torch.pow(adult_theta, 2)
 
+        child_sin_theta_2 = 1 - child_theta_2
+        child_sin_theta = torch.sqrt(child_sin_theta_2)
 
-        # this condition controls the theta+m should in range [0, pi]
-        #      0<=theta+m<=pi
-        #     -m<=theta<=pi-m
-        cond_v = cos_theta - self.threshold
-        cond_mask = cond_v <= 0
-        keep_val = (cos_theta - self.mm)  # when theta not in [0,pi], use cosface instead
-        cos_theta_m[cond_mask] = keep_val[cond_mask]
-        output = cos_theta * 1.0  # a little bit hacky way to prevent in_place operation on cos_theta
-        idx_ = torch.arange(0, nB, dtype=torch.long)
-        output[idx_, label] = cos_theta_m[idx_, label]
-        output *= self.s  # scale up in order to make softmax work, first introduced in normface
-        return output
+        adult_sin_theta_2 = 1 - adult_theta_2
+        adult_sin_theta = torch.sqrt(adult_sin_theta_2)
+
+        cos_total = child_theta * adult_theta + child_sin_theta * adult_sin_theta
+        child_loss = 1 - cos_total
+        child_loss = child_loss.mean()
+        return child_loss
 
 
     # Jooyeol's code
