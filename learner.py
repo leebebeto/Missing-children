@@ -257,6 +257,8 @@ class face_learner(object):
             # for imgs, labels in tqdm(iter(self.loader)):
                 self.optimizer1.zero_grad()
                 self.optimizer2.zero_grad()
+                if imgs.shape[0] == 1:
+                    continue
 
                 imgs = imgs.to(conf.device)
                 labels = labels.to(conf.device)
@@ -288,6 +290,7 @@ class face_learner(object):
 
                 # added wrong on evaluations
                 if self.step % self.evaluate_every == 0 and self.step != 0:
+                    self.model.eval()
                     print('evaluating....')
                     # # LFW evaluation
                     # accuracy, best_threshold, roc_curve_tensor, dist = self.evaluate(conf, self.lfw, self.lfw_issame)
@@ -857,6 +860,8 @@ class face_learner(object):
                 self.optimizer1.zero_grad()
                 self.optimizer2.zero_grad()
                 label1, label2 = labels
+                if imgs.shape[0] == 1:
+                    continue
 
                 imgs = imgs.to(conf.device)
                 label1 = label1.to(conf.device)
@@ -888,6 +893,7 @@ class face_learner(object):
 
                 # added wrong on evaluations
                 if self.step % self.evaluate_every == 0 and self.step != 0:
+                    self.model.eval()
                     print('evaluating....')
                     # # LFW evaluation
                     # accuracy, best_threshold, roc_curve_tensor, dist = self.evaluate(conf, self.lfw, self.lfw_issame)
