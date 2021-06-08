@@ -683,16 +683,20 @@ class face_learner(object):
                             else:
                                 child_thetas = self.head(child_embeddings, self.child_labels)
                                 adult_thetas = self.head(adult_embeddings, self.child_labels)
+                                child_thetas = torch.index_select(child_thetas, 1, self.child_labels).sum(dim=1)
+                                adult_thetas = torch.index_select(adult_thetas, 1, self.child_labels).sum(dim=1)
                                 child_loss = l1_loss(child_thetas, adult_thetas)
+
+                import pdb; pdb.set_trace()
 
                 child_total_loss = child_lambda * child_loss
                 loss = arcface_loss + child_total_loss
                 loss.backward()
                 running_loss += loss.item()
 
-                if not self.conf.use_arccos:
-                    child_thetas = self.head.forward_arccos(child_embeddings, self.child_labels)
-                    adult_thetas = self.head.forward_arccos(adult_embeddings, self.child_labels)
+                # if not self.conf.use_arccos:
+                #     child_thetas = self.head.forward_arccos(child_embeddings, self.child_labels)
+                #     adult_thetas = self.head.forward_arccos(adult_embeddings, self.child_labels)
 
                 running_child_degree = running_child_degree + torch.rad2deg(child_thetas)
                 running_adult_degree = running_adult_degree + torch.rad2deg(adult_thetas)
