@@ -672,6 +672,8 @@ class face_learner(object):
                     adult_thetas = torch.index_select(adult_thetas, 1, self.child_labels).sum(dim=1)
                     if self.conf.positive_zero:
                         child_loss = l1_loss(child_thetas, torch.zeros(child_thetas.size()).to(conf.device))
+                    else:
+                        child_loss = l1_loss(child_thetas, adult_thetas)
 
                 child_total_loss = child_lambda * child_loss
                 loss = arcface_loss + child_total_loss
