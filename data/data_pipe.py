@@ -30,9 +30,9 @@ def get_train_dataset(imgs_folder):
     return ds, class_num
 
 def get_train_loader(conf):
-    # casia_folder =  './dataset/CASIA_112'
+    casia_folder =  './dataset/CASIA_112'
     # casia_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_NATIONAL'
-    casia_folder = os.path.join(conf.home,'dataset/CASIA_REAL_NATIONAL')
+    # casia_folder = os.path.join(conf.home,'dataset/CASIA_REAL_NATIONAL')
     # casia_folder =  '/home/nas1_userD/yonggyu/Face_dataset/casia'
     if 'monster' in conf.data_mode:
         casia_prettiermonster47_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_PrettierMonster47'
@@ -289,7 +289,9 @@ class CasiaMixupDataset(Dataset):
         dataset_name = img_path_list[-3]
         file_name = img_path_list[-1]  # {age}_filenum.jpg
         folder_name = img_path_list[-2]  # label
-        id_img = '/'.join((img_path.split('/')[-2], img_path.split('/')[-1][:-4]))
+        id_img = '/'.join((img_path.split('/')[-2], img_path.split('/')[-1].split('_')[0]))
+        if 'jpg' in id_img:
+            id_img = id_img[:-4]
 
         img = Image.open(img_path)
         if dataset_name == self.casia_imgs_folder_name:
@@ -374,7 +376,9 @@ class CASIADataset(Dataset):
         img_path = self.total_list[index]
         img_path_list = img_path.split('/')
         file_name = img_path_list[-1]  # {age}_filenum.jpg
-        id_img = '/'.join((img_path.split('/')[-2], img_path.split('/')[-1][:-4]))
+        id_img = '/'.join((img_path.split('/')[-2], img_path.split('/')[-1].split('_')[0]))
+        if 'jpg' in id_img:
+            id_img = id_img[:-4]
         try:
             age = self.id2age[id_img]
         except:

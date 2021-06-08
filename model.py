@@ -260,6 +260,45 @@ class Arcface(nn.Module):
         output *= self.s # scale up in order to make softmax work, first introduced in normface
         return output
 
+    def forward_arccos(self, embbedings, label, age=None):
+        # weights norm
+        nB = len(embbedings)
+        kernel_norm = l2_norm(self.kernel, axis=0)
+        cos_theta = torch.mm(embbedings, kernel_norm)
+        cos_theta = cos_theta.clamp(-1, 1)  # for numerical stability
+        idx_ = torch.arange(0, nB, dtype=torch.long)
+        output = torch.arccos(cos_theta[idx_, label])
+        return output
+
+    def forward_original_positive(self, child_embbedings, adult_embbedings,label, age=None):
+        # weights norm
+        nB = len(embbedings)
+        kernel_norm = l2_norm(self.kernel, axis=0)
+        # cos(theta+m)
+        cos_theta = torch.mm(embbedings, kernel_norm)
+        #         output = torch.mm(embbedings,kernel_norm)
+        cos_theta = cos_theta.clamp(-1, 1)  # for numerical stability
+        cos_theta_2 = torch.pow(cos_theta, 2)
+        sin_theta_2 = 1 - cos_theta_2
+        sin_theta = torch.sqrt(sin_theta_2)
+        cos_theta_m = (cos_theta * self.cos_m - sin_theta * self.sin_m)
+
+
+
+        # this condition controls the theta+m should in range [0, pi]
+        #      0<=theta+m<=pi
+        #     -m<=theta<=pi-m
+        cond_v = cos_theta - self.threshold
+        cond_mask = cond_v <= 0
+        keep_val = (cos_theta - self.mm)  # when theta not in [0,pi], use cosface instead
+        cos_theta_m[cond_mask] = keep_val[cond_mask]
+        output = cos_theta * 1.0  # a little bit hacky way to prevent in_place operation on cos_theta
+        idx_ = torch.arange(0, nB, dtype=torch.long)
+        output[idx_, label] = cos_theta_m[idx_, label]
+        output *= self.s  # scale up in order to make softmax work, first introduced in normface
+        return output
+
+
     # Jooyeol's code
     def get_angle(self, embeddings):
         # Get angles between embeddings and labels
@@ -712,3 +751,64 @@ class BroadFaceArcFace(nn.Module):
         self.update(input, label)
 
         return batch_loss + broad_loss
+
+
+################################## Sphereface ################################################
+
+class AngularPenaltySMLoss(nn.Module):
+
+    def __init__(self, in_features, out_features, loss_type='sphereface', eps=1e-7, s=None, m=None):
+        '''
+        Angular Penalty Softmax Loss
+        Three 'loss_types' available: ['arcface', 'sphereface', 'cosface']
+        These losses are described in the following papers:
+
+        ArcFace: https://arxiv.org/abs/1801.07698
+        SphereFace: https://arxiv.org/abs/1704.08063
+        CosFace/Ad Margin: https://arxiv.org/abs/1801.05599
+        '''
+        super(AngularPenaltySMLoss, self).__init__()
+        loss_type = loss_type.lower()
+        assert loss_type in ['arcface', 'sphereface', 'cosface']
+        if loss_type == 'arcface':
+            self.s = 64.0 if not s else s
+            self.m = 0.5 if not m else m
+        if loss_type == 'sphereface':
+            self.s = 64.0 if not s else s
+            self.m = 1.35 if not m else m
+        if loss_type == 'cosface':
+            self.s = 30.0 if not s else s
+            self.m = 0.4 if not m else m
+        self.loss_type = loss_type
+        self.in_features = in_features
+        self.out_features = out_features
+        # self.kernel = nn.Linear(in_features, out_features, bias=False)
+        self.kernel = nn.Parameter(torch.FloatTensor(out_features, in_features))
+        self.eps = eps
+
+    def forward(self, x, labels, ages=None):
+        '''
+        input shape (N, in_features)
+        '''
+        assert len(x) == len(labels)
+        assert torch.min(labels) >= 0
+        assert torch.max(labels) < self.out_features
+
+        # kernel = F.normalize(self.kernel, p=2, dim=1)
+        # x = F.normalize(x, p=2, dim=1)
+        # wf = kernel(x)
+        wf = F.linear(F.normalize(x), F.normalize(self.kernel))
+
+        if self.loss_type == 'cosface':
+            numerator = self.s * (torch.diagonal(wf.transpose(0, 1)[labels]) - self.m)
+        if self.loss_type == 'arcface':
+            numerator = self.s * torch.cos(torch.acos(
+                torch.clamp(torch.diagonal(wf.transpose(0, 1)[labels]), -1. + self.eps, 1 - self.eps)) + self.m)
+        if self.loss_type == 'sphereface':
+            numerator = self.s * torch.cos(self.m * torch.acos(
+                torch.clamp(torch.diagonal(wf.transpose(0, 1)[labels]), -1. + self.eps, 1 - self.eps)))
+
+        excl = torch.cat([torch.cat((wf[i, :y], wf[i, y + 1:])).unsqueeze(0) for i, y in enumerate(labels)], dim=0)
+        denominator = torch.exp(numerator) + torch.sum(torch.exp(self.s * excl), dim=1)
+        L = numerator - torch.log(denominator)
+        return -torch.mean(L)
