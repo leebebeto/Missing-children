@@ -30,9 +30,9 @@ def get_train_dataset(imgs_folder):
     return ds, class_num
 
 def get_train_loader(conf):
-    # casia_folder =  './dataset/CASIA_112'
+    casia_folder =  './dataset/CASIA_112'
     # casia_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_NATIONAL'
-    casia_folder = os.path.join(conf.home,'dataset/CASIA_REAL_NATIONAL')
+    # casia_folder = os.path.join(conf.home,'dataset/CASIA_REAL_NATIONAL')
     # casia_folder =  '/home/nas1_userD/yonggyu/Face_dataset/casia'
     if 'monster' in conf.data_mode:
         casia_prettiermonster47_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_PrettierMonster47'
