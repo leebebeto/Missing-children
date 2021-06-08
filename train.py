@@ -37,13 +37,10 @@ if __name__ == '__main__':
     parser.add_argument("--use_adult_memory", help='whether to use adult memory', action='store_true')
     parser.add_argument("--vanilla_mixup", help='ablation for mixup', action='store_true')
     parser.add_argument("--short_milestone", help='whether to use ', action='store_true')
-<<<<<<< HEAD
-=======
     parser.add_argument("--feature_level", help='whether to use adult memory as feature level', action='store_true')
     parser.add_argument("--positive_zero", help='whether to use adult memory as zero', action='store_true')
     parser.add_argument("--use_arccos", help='whether to use arccos', action='store_true')
     parser.add_argument("--original_positive", help='whether to use original positive loss', action='store_true')
->>>>>>> 6494256e4d7372d5e4d310857b83ab7e1330a88a
 
     # data path -> added temporarily
     parser.add_argument("--vgg_folder", help='vgg folder directory', default='/home/nas1_userD/yonggyu/Face_dataset/vgg')
