@@ -144,7 +144,7 @@ class CasiaMonsterDataset(Dataset):
         self.age_file = open('./dataset/casia-webface.txt').readlines()
         # self.age_file = open('/home/nas1_userE/jungsoolee/Face_dataset/casia-webface.txt').readlines()
         self.id2age = { os.path.join(str(int(line.split(' ')[1].split('/')[1])), str(int(line.split(' ')[1].split('/')[2][:-4]))) : float(line.split(' ')[2]) for line in self.age_file}
-        self.child_image2age = { os.path.join(str(int(line.split(' ')[1].split('/')[1])), str(int(line.split(' ')[1].split('/')[2][:-4]))) : float(line.split(' ')[2]) for line in self.age_file if float(line.split(' ')[2]) <= 13}
+        self.child_image2age = { os.path.join(str(int(line.split(' ')[1].split('/')[1])), str(int(line.split(' ')[1].split('/')[2][:-4]))) : float(line.split(' ')[2]) for line in self.age_file if float(line.split(' ')[2]) < 13}
         self.child_image2freq = {id.split('/')[0]: 0 for id in self.child_image2age.keys()}
         for k, v in self.child_image2age.items():
             self.child_image2freq[k.split('/')[0]] += 1
@@ -204,7 +204,7 @@ class CasiaMonsterDataset(Dataset):
                 age = self.id2age[id_img]
             except:
                 age = 30
-            age = 0 if age <= 13 else 1
+            age = 0 if age < 13 else 1
 
         elif dataset_name == self.babymonster_imgs_folder_name:
             label = self.casia_class_num + self.babymonster_class_list.index(folder_name)
@@ -245,7 +245,7 @@ class CasiaMixupDataset(Dataset):
         self.age_file = open('./dataset/casia-webface.txt').readlines()
         # self.age_file = open('/home/nas1_userE/jungsoolee/Face_dataset/casia-webface.txt').readlines()
         self.id2age = { os.path.join(str(int(line.split(' ')[1].split('/')[1])), str(int(line.split(' ')[1].split('/')[2][:-4]))) : float(line.split(' ')[2]) for line in self.age_file}
-        self.child_image2age = { os.path.join(str(int(line.split(' ')[1].split('/')[1])), str(int(line.split(' ')[1].split('/')[2][:-4]))) : float(line.split(' ')[2]) for line in self.age_file if float(line.split(' ')[2]) <= 13}
+        self.child_image2age = { os.path.join(str(int(line.split(' ')[1].split('/')[1])), str(int(line.split(' ')[1].split('/')[2][:-4]))) : float(line.split(' ')[2]) for line in self.age_file if float(line.split(' ')[2]) < 13}
         self.child_image2freq = {id.split('/')[0]: 0 for id in self.child_image2age.keys()}
         for k, v in self.child_image2age.items():
             self.child_image2freq[k.split('/')[0]] += 1
@@ -301,7 +301,7 @@ class CasiaMixupDataset(Dataset):
                 age = self.id2age[id_img]
             except:
                 age = 30
-            age = 0 if age <= 13 else 1
+            age = 0 if age < 13 else 1
 
         elif dataset_name == self.babymonster_imgs_folder_name:
             l1 = folder_name.split('-')[0]
@@ -337,7 +337,7 @@ class CASIADataset(Dataset):
         self.age_file = open('./dataset/casia-webface.txt').readlines()
         # self.age_file = open('/home/nas1_userE/jungsoolee/Face_dataset/casia-webface.txt').readlines()
         self.id2age = { os.path.join(str(int(line.split(' ')[1].split('/')[1])), str(int(line.split(' ')[1].split('/')[2][:-4]))) : float(line.split(' ')[2]) for line in self.age_file}
-        self.child_image2age = { os.path.join(str(int(line.split(' ')[1].split('/')[1])), str(int(line.split(' ')[1].split('/')[2][:-4]))) : float(line.split(' ')[2]) for line in self.age_file if float(line.split(' ')[2]) <= 13}
+        self.child_image2age = { os.path.join(str(int(line.split(' ')[1].split('/')[1])), str(int(line.split(' ')[1].split('/')[2][:-4]))) : float(line.split(' ')[2]) for line in self.age_file if float(line.split(' ')[2]) < 13}
         self.child_image2freq = {id.split('/')[0]: 0 for id in self.child_image2age.keys()}
         for k, v in self.child_image2age.items():
             self.child_image2freq[k.split('/')[0]] += 1
@@ -391,7 +391,7 @@ class CASIADataset(Dataset):
         if self.transform is not None:
             img = self.transform(img)
 
-        age= 0 if age<= 13 else 1
+        age= 0 if age< 13 else 1
         return img, label, age
 
 

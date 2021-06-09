@@ -675,13 +675,16 @@ class face_learner(object):
                     negative_thetas = child_thetas.clone()
                     negative_thetas[torch.arange(negative_thetas.shape[0]), self.child_labels] = 0
                     negative_thetas = torch.index_select(negative_thetas, 1, self.child_labels).sum(dim=1)
-                    negative_thetas = negative_thetas / (negative_thetas.shape[0] - 1)
+                    # negative_thetas = negative_thetas / (negative_thetas.shape[0] - 1)
                     positive_thetas = child_thetas[torch.arange(negative_thetas.shape[0]), self.child_labels]
 
                     positive_loss = l1_loss(positive_thetas, torch.ones(positive_thetas.size()).to(conf.device))
                     negative_loss = l1_loss(negative_thetas, torch.zeros(negative_thetas.size()).to(conf.device))
                     child_loss = self.conf.positive_lambda * positive_loss + self.conf.negative_lambda * negative_loss
-
+                elif self.conf.positive_ce:
+                    child_thetas = self.head(child_embeddings, self.child_labels)
+                    child_thetas = child_thetas[:, self.child_labels]
+                    child_loss = ce_loss(child_thetas, torch.arange(child_thetas.shape[0]).to(self.conf.device))
                 elif self.conf.use_arccos:
                     child_thetas = self.head.forward_arccos(child_embeddings, self.child_labels)
                     adult_thetas = self.head.forward_arccos(adult_embeddings, self.child_labels)
