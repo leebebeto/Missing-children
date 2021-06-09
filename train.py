@@ -42,6 +42,8 @@ if __name__ == '__main__':
     parser.add_argument("--positive_one", help='whether to use adult memory as one', action='store_true')
     parser.add_argument("--use_arccos", help='whether to use arccos', action='store_true')
     parser.add_argument("--original_positive", help='whether to use original positive loss', action='store_true')
+    parser.add_argument("--positive_lambda", help='positive lambda for positive loss', default=1.0, type=float)
+    parser.add_argument("--negative_lambda", help='negative lambda for negative loss', default=1.0, type=float)
 
     # data path -> added temporarily
     parser.add_argument("--vgg_folder", help='vgg folder directory', default='/home/nas1_userD/yonggyu/Face_dataset/vgg')

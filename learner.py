@@ -668,29 +668,30 @@ class face_learner(object):
 
                 if self.conf.original_positive:
                     child_loss = self.head.forward_original_positive(child_embeddings, adult_embeddings, self.child_labels)
+                elif self.conf.feature_level:
+                    child_loss = l1_loss(l2_norm(child_embeddings), l2_norm(adult_embeddings))
+                elif self.conf.positive_zero:
+                    child_thetas = self.head(child_embeddings, self.child_labels)
+                    negative_thetas = child_thetas.clone()
+                    negative_thetas[torch.arange(negative_thetas.shape[0]), self.child_labels] = 0
+                    negative_thetas = torch.index_select(negative_thetas, 1, self.child_labels).sum(dim=1)
+                    negative_thetas = negative_thetas / (negative_thetas.shape[0] - 1)
+                    positive_thetas = child_thetas[torch.arange(negative_thetas.shape[0]), self.child_labels]
 
+                    positive_loss = l1_loss(positive_thetas, torch.ones(positive_thetas.size()).to(conf.device))
+                    negative_loss = l1_loss(negative_thetas, torch.zeros(negative_thetas.size()).to(conf.device))
+                    child_loss = self.conf.positive_lambda * positive_loss + self.conf.negative_lambda * negative_loss
+
+                elif self.conf.use_arccos:
+                    child_thetas = self.head.forward_arccos(child_embeddings, self.child_labels)
+                    adult_thetas = self.head.forward_arccos(adult_embeddings, self.child_labels)
+                    child_loss = l1_loss(child_thetas, adult_thetas)
                 else:
-                    if self.conf.feature_level:
-                        child_loss = l1_loss(l2_norm(child_embeddings), l2_norm(adult_embeddings))
-                    else:
-                        if self.conf.positive_zero:
-                            child_thetas = self.head(child_embeddings, self.child_labels)
-                            child_thetas = torch.index_select(child_thetas, 1, self.child_labels).sum(dim=1)
-                            if self.conf.positive_one:
-                                child_loss = l1_loss(child_thetas, torch.ones(child_thetas.size()).to(conf.device))
-                            else:
-                                child_loss = l1_loss(child_thetas, torch.zeros(child_thetas.size()).to(conf.device))
-                        else:
-                            if self.conf.use_arccos:
-                                child_thetas = self.head.forward_arccos(child_embeddings, self.child_labels)
-                                adult_thetas = self.head.forward_arccos(adult_embeddings, self.child_labels)
-                                child_loss = l1_loss(child_thetas, adult_thetas)
-                            else:
-                                child_thetas = self.head(child_embeddings, self.child_labels)
-                                adult_thetas = self.head(adult_embeddings, self.child_labels)
-                                child_thetas = torch.index_select(child_thetas, 1, self.child_labels).sum(dim=1)
-                                adult_thetas = torch.index_select(adult_thetas, 1, self.child_labels).sum(dim=1)
-                                child_loss = l1_loss(child_thetas, adult_thetas)
+                    child_thetas = self.head(child_embeddings, self.child_labels)
+                    adult_thetas = self.head(adult_embeddings, self.child_labels)
+                    child_thetas = torch.index_select(child_thetas, 1, self.child_labels).sum(dim=1)
+                    adult_thetas = torch.index_select(adult_thetas, 1, self.child_labels).sum(dim=1)
+                    child_loss = l1_loss(child_thetas, adult_thetas)
 
                 child_total_loss = child_lambda * child_loss
                 loss = arcface_loss + child_total_loss
