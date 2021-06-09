@@ -45,7 +45,7 @@ if __name__ == '__main__':
     parser.add_argument("--positive_lambda", help='positive lambda for positive loss', default=1.0, type=float)
     parser.add_argument("--negative_lambda", help='negative lambda for negative loss', default=1.0, type=float)
     parser.add_argument("--positive_ce", help='whether to use positive ce loss', action='store_true')
-    parser.add_argument("--random_seed", help='random seed', default=4885, type=int)
+    parser.add_argument("--seed", help='seed', default=4885, type=int)
 
     # data path -> added temporarily
     parser.add_argument("--vgg_folder", help='vgg folder directory', default='/home/nas1_userD/yonggyu/Face_dataset/vgg')
@@ -76,7 +76,7 @@ if __name__ == '__main__':
     args.home = os.path.expanduser('~')
 
     # fix random seeds
-    random_seed = args.random_seed
+    random_seed = args.seed
     torch.manual_seed(random_seed)
     torch.cuda.manual_seed(random_seed)
     torch.cuda.manual_seed_all(random_seed) # if use multi-GPU
