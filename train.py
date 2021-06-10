@@ -112,6 +112,10 @@ if __name__ == '__main__':
     if args.use_memory: # our memory bank method
         print('using memory bank...')
         learner.train_memory(args, args.epochs)
+    elif args.loss == 'DAL':
+        learner.train_dal(args, args.epochs)
+    elif args.loss == 'OECNN':
+        learner.train_oecnn(args, args.epochs)
     elif args.use_adult_memory: # our memory bank method
         print('using adult memory bank...')
         learner.train_adult_memory(args, args.epochs)

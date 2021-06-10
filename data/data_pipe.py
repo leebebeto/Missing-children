@@ -331,6 +331,7 @@ class CASIADataset(Dataset):
     '''
 
     def __init__(self, imgs_folder, train_transforms, conf):
+        self.conf = conf
         self.root_dir = imgs_folder
         self.transform = train_transforms
         self.class_num = len(os.listdir(imgs_folder))
@@ -391,7 +392,28 @@ class CASIADataset(Dataset):
         if self.transform is not None:
             img = self.transform(img)
 
-        age= 0 if age< 13 else 1
+        if self.conf.loss == 'DAL':
+            if age < 13:
+                age = 0
+            elif age >= 13 and age < 19:
+                age = 1
+            elif age >= 19 and age < 26:
+                age = 2
+            elif age >= 26 and age < 36:
+                age = 3
+            elif age >= 36 and age < 46:
+                age = 4
+            elif age >= 46 and age < 56:
+                age = 5
+            elif age >= 56 and age < 66:
+                age = 6
+            elif age >= 66:
+                age = 7
+        elif self.conf.loss == 'OECNN':
+            age = int(age)
+        else:
+            age= 0 if age< 13 else 1
+
         return img, label, age
 
 
