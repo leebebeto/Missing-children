@@ -339,7 +339,7 @@ class DAL_model(nn.Module):
     def forward(self, xs, ys=None, agegrps=None, emb=False):
         # 512-D embedding
         embs = self.backbone(xs)
-        embs_age = self.RFM(embs)
+        embs_age = self.RFM(l2_norm(embs))
         embs_id = (embs - embs_age)
         if emb:
             # return embs
@@ -352,6 +352,7 @@ class DAL_model(nn.Module):
         age_logits = self.age_classifier(embs_age)
         age_acc = accuracy(torch.max(age_logits, dim=1)[1], agegrps)
         ageLoss = self.age_cr(age_logits, agegrps)
+        cano_cor = self.DAL(embs_age, embs_id)
         return idLoss, id_acc, ageLoss, age_acc, cano_cor
 
 
@@ -377,12 +378,15 @@ class OECNN_model(nn.Module):
         age_logits = self.age_classifier(l2_norm(embs))
         id_logits = self.margin_fc(embs, ys)
         if emb:
-            return l2_norm(id_logits)
+            return l2_norm(embs)
         id_acc = accuracy(torch.max(id_logits, dim=1)[1], ys)
         idLoss = self.id_cr(id_logits, ys)
 
         # age classifier
         age_acc = accuracy(torch.max(age_logits, dim=1)[1], agegrps)
-        ageLoss = self.age_cr(age_logits, agegrps)
+
+        age_label = torch.zeros((xs.shape[0], 100)).cuda()
+        age_label[torch.arange(xs.shape[0]), agegrps] = 1
+        ageLoss = self.age_cr(age_logits, age_label)
 
         return idLoss, id_acc, ageLoss, age_acc

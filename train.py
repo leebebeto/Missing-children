@@ -101,7 +101,6 @@ if __name__ == '__main__':
 
         model_path = os.path.join(save_path, 'model_2021-04-10-07-09_accuracy:0.770_step:153300_casia_LDAM_05_64_64.pth')
         head_path = os.path.join(save_path, 'head_2021-04-10-07-09_accuracy:0.770_step:153300_casia_LDAM_05_64_64.pth')
-
         learner.load_state(args, model_path = model_path, head_path = head_path)
         print(f'pretrained {model_path} loaded finished...')
         learner.analyze_angle(args)

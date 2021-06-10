@@ -62,13 +62,21 @@ class face_learner(object):
             # self.milestones = [16, 24, 28] # Cosface paper 30epoch
             self.milestones = [28, 38, 46] # Superlong 50epoch
 
+            if self.conf.loss == 'Arcface':
+                self.milestones = [21, 30]  # Cosface paper 30epoch
+                self.epoch= 33
+
+            if self.conf.loss == 'Cosface':
+                self.milestones = [16, 25, 29]  # Cosface paper 30epoch
+                self.epoch= 31
+
             if self.conf.loss == 'Curricular' or 'MILE28' in self.conf.exp:
                 self.milestones = [28, 38, 46]  # Cosface paper 30epoch
                 self.epoch= 60
 
-            if self.conf.loss == 'DAL':
-                self.milestones = [22, 33, 38]  # Cosface paper 30epoch
-                self.epoch= 40
+            # if self.conf.loss == 'DAL':
+            #     self.milestones = [22, 33, 38]  # Cosface paper 30epoch
+            #     self.epoch= 40
 
             if self.conf.loss == 'Curricular':
                 self.milestones = [28, 38, 46]  # Curricular face paper 50epoch
@@ -135,7 +143,13 @@ class face_learner(object):
             elif conf.loss == 'MV-Arc':
                 self.head = FC(in_feature=conf.embedding_size, out_feature=self.class_num, fc_type='MV-Arc').to(conf.device)
             elif conf.loss == 'Broad':
-                self.head = BroadFaceArcFace(in_features=conf.embedding_size, out_features=self.class_num).to(conf.device)
+                self.head = BroadFaceArcFace(in_features=conf.embedding_size, out_features=10572).to(conf.device)
+                root_path = '../../../nas1_temp/jooyeolyun/mia_params/baseline'
+                model_path = os.path.join(root_path, 'fgnetc_best_model_2021-05-31-20-56_accuracy:0.851_step:190000_casia_arcface_baseline30.pth')
+                head_path = os.path.join(root_path, 'fgnetc_best_head_2021-05-31-20-56_accuracy:0.851_step:190000_casia_arcface_baseline30.pth')
+                self.model.load_state_dict(torch.load(model_path))
+                self.head.load_state_dict(torch.load(head_path))
+                import pdb; pdb.set_trace()
             # else:
             #     import sys
             #     print('wrong loss function.. exiting...')
@@ -598,7 +612,7 @@ class face_learner(object):
                 ages = ages.to(conf.device)
 
                 idLoss, id_acc, ageLoss, age_acc = self.model(imgs, labels, ages)
-                total_loss = idLoss + ageLoss
+                total_loss = idLoss + 0.01 * ageLoss
                 total_loss.backward()
                 self.optimizer.step()
 
