@@ -11,7 +11,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='for face verification')
 
     # training
-    parser.add_argument("--epochs", help="training epochs", default=50, type=int)
+    parser.add_argument("--epochs", help="training epochs", default=60, type=int)
     parser.add_argument("--lr",help='learning rate',default=1e-1, type=float)
     parser.add_argument("--momentum",help='momentum',default=0.9, type=float)
     parser.add_argument("--batch_size", help="batch_size", default=64, type=int)
@@ -46,6 +46,7 @@ if __name__ == '__main__':
     parser.add_argument("--negative_lambda", help='negative lambda for negative loss', default=1.0, type=float)
     parser.add_argument("--positive_ce", help='whether to use positive ce loss', action='store_true')
     parser.add_argument("--seed", help='seed', default=4885, type=int)
+    parser.add_argument("--use_strange", help='whether to use positive strange loss', action='store_true')
 
     # data path -> added temporarily
     parser.add_argument("--vgg_folder", help='vgg folder directory', default='/home/nas1_userD/yonggyu/Face_dataset/vgg')

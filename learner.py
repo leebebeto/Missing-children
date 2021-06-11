@@ -26,7 +26,7 @@ from Backbone import DAL_model, OECNN_model
 from itertools import chain
 
 class face_learner(object):
-    def __init__(self, conf=None, inference=False):
+    def __init__(self, conf=None, inference=False, load_head=False):
 
 
         self.conf = conf
@@ -47,6 +47,9 @@ class face_learner(object):
         # For Tsne -> you can ignore these codes
         # self.head = Arcface(embedding_size=conf.embedding_size, classnum=11076).to(conf.device)
 
+        if load_head:
+            self.head = Arcface(embedding_size=conf.embedding_size, classnum=10572).to(conf.device)
+
         if conf.wandb:
             # wandb.init(project=f"Face-Recognition(BMVC2021)")
             wandb.init(entity="davian-bmvc-face")
@@ -62,7 +65,7 @@ class face_learner(object):
             # self.milestones = [16, 24, 28] # Cosface paper 30epoch
             self.milestones = [28, 38, 46] # Superlong 50epoch
 
-            if self.conf.loss == 'Arcface':
+            if 'baseline_arcface' in self.conf.exp:
                 self.milestones = [21, 30]  # Cosface paper 30epoch
                 self.epoch= 33
 
@@ -897,7 +900,6 @@ class face_learner(object):
             self.save_state(conf, accuracy, to_save_folder=True,
                             extra=str(conf.data_mode) + '_' + str(conf.net_depth) + '_' + str(
                                 conf.batch_size) + '_final')
-
     # training with memory bank
     def train_adult_memory(self, conf, epochs):
         '''
@@ -1004,6 +1006,15 @@ class face_learner(object):
                     child_thetas = self.head.forward_arccos(child_embeddings, self.child_labels)
                     adult_thetas = self.head.forward_arccos(adult_embeddings, self.child_labels)
                     child_loss = l1_loss(child_thetas, adult_thetas)
+                elif self.conf.use_strange:
+                    child_thetas = self.head(child_embeddings, self.child_labels)
+                    adult_thetas = self.head(adult_embeddings, self.child_labels)
+
+                    import pdb; pdb.set_trace()
+                    child_thetas = torch.index_select(child_thetas, 1, self.child_labels).sum(dim=1)
+                    adult_thetas = torch.index_select(adult_thetas, 1, self.child_labels).sum(dim=1)
+                    if self.conf.positive_zero:
+                        child_loss = l1_loss(child_thetas, torch.zeros(child_thetas.size()).to(conf.device))
                 else:
                     child_thetas = self.head(child_embeddings, self.child_labels)
                     adult_thetas = self.head(adult_embeddings, self.child_labels)
