@@ -1,10 +1,11 @@
 .idea
 .DS_Store
 
-data
+dataset
 work_space
 __pycache__
 .vscode
 analysis
 pytorch_face_landmark
 .gitignore
+wandb
