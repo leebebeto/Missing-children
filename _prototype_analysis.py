@@ -1,5 +1,7 @@
 # from config import get_config
 import argparse
+
+from numpy.lib.index_tricks import fill_diagonal
 from learner import face_learner
 from data.data_pipe import get_val_pair
 from torchvision import transforms
@@ -33,6 +35,7 @@ save_path = '/home/nas1_temp/jooyeolyun/mia_params/baseline/'
 model_path = os.path.join(save_path, 'fgnetc_best_model_2021-05-27-19-11_accuracy:0.842_step:119574_casia_arcface_baseline_64.pth')
 head_path = os.path.join(save_path, 'fgnetc_best_head_2021-05-27-19-11_accuracy:0.842_step:119574_casia_arcface_baseline_64.pth')
 learner.load_state(args, model_path = model_path, head_path=head_path)
+learner.model.eval()
 
 age_file = open('./dataset/casia-webface.txt').readlines()
 id2age = {os.path.join(str(int(line.split(' ')[1].split('/')[1])), str(int(line.split(' ')[1].split('/')[2][:-4]))): float(line.split(' ')[2]) for line in age_file}
@@ -94,8 +97,64 @@ train_transform = transforms.Compose([
 #
 #     print(f'child mean: {torch.rad2deg(torch.arccos(child_negative))} || adult mean: {torch.rad2deg(torch.arccos(adult_negative))}')
 
-# 2) child vs adult prototype within a class
-for cls in child_identity:
+# # 2) child vs adult prototype within a class
+# for cls in child_identity:
+#     child_image_temp = glob.glob(f'/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_NATIONAL/{cls}/*')
+#     child_image, adult_image = [], []
+#     for image in child_image_temp:
+#         id_img = '/'.join((image.split('/')[-2], image.split('/')[-1].split('_')[0]))[:-4]
+#         try:
+#             age = id2age[id_img]
+#             if int(age) < 13:
+#                 child_image.append(image)
+#             else:
+#                 adult_image.append(image)
+#         except:
+#             adult_image.append(image)
+
+#     batch = []
+#     for image in child_image:
+#         img = Image.open(image)
+#         img = train_transform(img)
+#         batch.append(img)
+#         label = int(image.split('/')[-2])
+#     batch = torch.stack(batch).cuda()
+
+#     import pdb; pdb.set_trace()
+#     with torch.no_grad():
+#         embedding = learner.model(batch)
+#         kernel = learner.head.kernel
+#         kernel_norm = l2_norm(kernel,axis=0)
+#         cos_theta = torch.mm(embedding, kernel_norm)
+#         cos_theta = cos_theta.clamp(-1,1)
+#     # child_theta = cos_theta[:, cls].mean()
+#     child_theta = torch.abs(torch.rad2deg(torch.arccos(cos_theta[:, cls])))
+#     # child_theta= child_theta.mean()
+
+#     batch = []
+#     for image in adult_image:
+#         img = Image.open(image)
+#         img = train_transform(img)
+#         batch.append(img)
+#         label = int(image.split('/')[-2])
+#     batch = torch.stack(batch).cuda()
+
+#     with torch.no_grad():
+#         embedding = learner.model(batch)
+#         kernel = learner.head.kernel
+#         kernel_norm = l2_norm(kernel,axis=0)
+#         cos_theta = torch.mm(embedding, kernel_norm)
+#         cos_theta = cos_theta.clamp(-1,1)
+#     # adult_theta = cos_theta[:, cls].mean()
+#     adult_theta = torch.abs(torch.rad2deg(torch.arccos(cos_theta[:, cls])))
+#     # adult_theta= adult_theta.mean()
+#     print(f'cls: {cls} || child mean: {child_theta} || adult mean: {adult_theta}')
+#     # print(f'cls: {cls} || child mean: {torch.rad2deg(torch.arccos(child_theta))} || adult mean: {torch.rad2deg(torch.arccos(adult_theta))}')
+
+# 3) inter-child similarity, inter-adult similarity
+child_means = []
+adult_means = []
+for idx, cls in enumerate(child_identity):
     child_image_temp = glob.glob(f'/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_NATIONAL/{cls}/*')
     child_image, adult_image = [], []
     for image in child_image_temp:
@@ -108,6 +167,12 @@ for cls in child_identity:
                 adult_image.append(image)
         except:
             adult_image.append(image)
+    print('id {}: child-{}, adult-{}'.format(idx, len(child_image), len(adult_image)))
+    if len(adult_image) < 10:
+        print('excluding id {}'.format(idx))
+        continue
+    # child_image = child_image[:10]
+    # adult_image = adult_image[:10]
 
     batch = []
     for image in child_image:
@@ -119,11 +184,15 @@ for cls in child_identity:
 
     with torch.no_grad():
         embedding = learner.model(batch)
-        kernel = learner.head.kernel
-        kernel_norm = l2_norm(kernel,axis=0)
-        cos_theta = torch.mm(embedding, kernel_norm)
-    # child_theta = cos_theta[:, cls].mean()
-    child_theta = torch.rad2deg(torch.arccos(cos_theta[:, cls]))
+        # kernel = learner.head.kernel
+        # kernel_norm = l2_norm(kernel,axis=0)
+        # cos_theta = torch.mm(embedding, kernel_norm)
+        # cos_theta = cos_theta.clamp(-1,1)
+    euc_mean = torch.mean(embedding, dim=0)
+    child_means.append(torch.div(euc_mean, torch.norm(euc_mean, keepdim=True)))
+
+
+    # child_theta = torch.abs(torch.rad2deg(torch.arccos(cos_theta[:, cls])))
     # child_theta= child_theta.mean()
 
     batch = []
@@ -136,12 +205,30 @@ for cls in child_identity:
 
     with torch.no_grad():
         embedding = learner.model(batch)
-        kernel = learner.head.kernel
-        kernel_norm = l2_norm(kernel,axis=0)
-        cos_theta = torch.mm(embedding, kernel_norm)
-    # adult_theta = cos_theta[:, cls].mean()
-    adult_theta = torch.rad2deg(torch.arccos(cos_theta[:, cls]))
-    # adult_theta= adult_theta.mean()
-    print(f'cls: {cls} || child mean: {child_theta} || adult mean: {adult_theta}')
-    import pdb; pdb.set_trace()
+        # kernel = learner.head.kernel
+        # kernel_norm = l2_norm(kernel,axis=0)
+        # cos_theta = torch.mm(embedding, kernel_norm)
+        # cos_theta = cos_theta.clamp(-1,1)
+    # adult_theta = torch.abs(torch.rad2deg(torch.arccos(cos_theta[:, cls])))
+    euc_mean = torch.mean(embedding, dim=0)
+    adult_means.append(torch.div(euc_mean, torch.norm(euc_mean, keepdim=True)))
+
+    # if idx ==100:
+    #     break
+    
+import pdb; pdb.set_trace()
+print('total of {} ids selected'.format(len(child_means)))
+child_means = torch.stack(child_means)
+adult_means = torch.stack(adult_means)
+
+inter_child_sim = torch.mm(child_means, child_means.T).fill_diagonal_(0)
+inter_adult_sim = torch.mm(adult_means, adult_means.T).fill_diagonal_(0)
+
+inter_child_sum = torch.mean(inter_child_sim)
+inter_adult_sum = torch.mean(inter_adult_sim)
+
+print(inter_child_sum.item())
+print(inter_adult_sum.item())
+
+    # print(f'cls: {cls} || child mean: {child_theta} || adult mean: {adult_theta}')
     # print(f'cls: {cls} || child mean: {torch.rad2deg(torch.arccos(child_theta))} || adult mean: {torch.rad2deg(torch.arccos(adult_theta))}')
