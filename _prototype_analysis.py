@@ -188,8 +188,8 @@ for idx, cls in enumerate(child_identity):
         # kernel_norm = l2_norm(kernel,axis=0)
         # cos_theta = torch.mm(embedding, kernel_norm)
         # cos_theta = cos_theta.clamp(-1,1)
-    euc_mean = torch.mean(embedding, dim=0)
-    child_means.append(torch.div(euc_mean, torch.norm(euc_mean, keepdim=True)))
+        euc_mean = torch.mean(embedding, dim=0)
+        child_means.append(torch.div(euc_mean, torch.norm(euc_mean, keepdim=True)))
 
 
     # child_theta = torch.abs(torch.rad2deg(torch.arccos(cos_theta[:, cls])))
@@ -210,25 +210,41 @@ for idx, cls in enumerate(child_identity):
         # cos_theta = torch.mm(embedding, kernel_norm)
         # cos_theta = cos_theta.clamp(-1,1)
     # adult_theta = torch.abs(torch.rad2deg(torch.arccos(cos_theta[:, cls])))
-    euc_mean = torch.mean(embedding, dim=0)
-    adult_means.append(torch.div(euc_mean, torch.norm(euc_mean, keepdim=True)))
+        euc_mean = torch.mean(embedding, dim=0)
+        adult_means.append(torch.div(euc_mean, torch.norm(euc_mean, keepdim=True)))
 
-    # if idx ==100:
-    #     break
+    if idx ==50:
+        break
     
 import pdb; pdb.set_trace()
-print('total of {} ids selected'.format(len(child_means)))
-child_means = torch.stack(child_means)
-adult_means = torch.stack(adult_means)
+with torch.no_grad():
+    print('total of {} ids selected'.format(len(child_means)))
+    matrix_size = len(child_means)**2
+    child_means = torch.stack(child_means)
+    adult_means = torch.stack(adult_means)
 
-inter_child_sim = torch.mm(child_means, child_means.T).fill_diagonal_(0)
-inter_adult_sim = torch.mm(adult_means, adult_means.T).fill_diagonal_(0)
+    inter_child_sim = torch.mm(child_means, child_means.T).fill_diagonal_(0)
+    inter_adult_sim = torch.mm(adult_means, adult_means.T).fill_diagonal_(0)
 
-inter_child_sum = torch.mean(inter_child_sim)
-inter_adult_sum = torch.mean(inter_adult_sim)
+    # torch.set_printoptions(precision= 2, threshold=100000,linewidth=1000)
+    # print(inter_child_sim)
+    # print('---------------------------------------------------------------------')
+    # print(inter_adult_sim)
 
-print(inter_child_sum.item())
-print(inter_adult_sum.item())
+    inter_child_sum = torch.sum(inter_child_sim)/(matrix_size-len(child_means))
+    inter_adult_sum = torch.sum(inter_adult_sim)/(matrix_size-len(child_means))
+    print('inter child, inter adult')
+    print(inter_child_sum.item())
+    print(inter_adult_sum.item())
+
+    child_mask = inter_child_sim>0
+    adult_mask = inter_adult_sim>0
+    print('inter child, inter adult, positive only')
+    print(torch.sum(child_mask*inter_child_sim)/torch.sum(child_mask))
+    print(torch.sum(adult_mask*inter_adult_sim)/torch.sum(adult_mask))
+    print('num positive')
+    print(torch.sum(child_mask)/2)
+    print(torch.sum(adult_mask)/2)
 
     # print(f'cls: {cls} || child mean: {child_theta} || adult mean: {adult_theta}')
     # print(f'cls: {cls} || child mean: {torch.rad2deg(torch.arccos(child_theta))} || adult mean: {torch.rad2deg(torch.arccos(adult_theta))}')
