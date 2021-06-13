@@ -260,6 +260,37 @@ class Arcface(nn.Module):
         output *= self.s # scale up in order to make softmax work, first introduced in normface
         return output
 
+    def forward_margin(self, embbedings, label, margin=0.5):
+        m = margin # the margin value, default is 0.5
+        cos_m = math.cos(m)
+        sin_m = math.sin(m)
+        mm = sin_m * m  # issue 1
+        threshold = math.cos(math.pi - m)
+
+        # weights norm
+        nB = len(embbedings)
+        kernel_norm = l2_norm(self.kernel, axis=0)
+        # cos(theta+m)
+        cos_theta = torch.mm(embbedings, kernel_norm)
+        #         output = torch.mm(embbedings,kernel_norm)
+        cos_theta = cos_theta.clamp(-1, 1)  # for numerical stability
+        cos_theta_2 = torch.pow(cos_theta, 2)
+        sin_theta_2 = 1 - cos_theta_2
+        sin_theta = torch.sqrt(sin_theta_2)
+        cos_theta_m = (cos_theta * cos_m - sin_theta * sin_m)
+        # this condition controls the theta+m should in range [0, pi]
+        #      0<=theta+m<=pi
+        #     -m<=theta<=pi-m
+        cond_v = cos_theta - threshold
+        cond_mask = cond_v <= 0
+        keep_val = (cos_theta - mm)  # when theta not in [0,pi], use cosface instead
+        cos_theta_m[cond_mask] = keep_val[cond_mask]
+        output = cos_theta * 1.0  # a little bit hacky way to prevent in_place operation on cos_theta
+        idx_ = torch.arange(0, nB, dtype=torch.long)
+        output[idx_, label] = cos_theta_m[idx_, label]
+        output *= self.s  # scale up in order to make softmax work, first introduced in normface
+        return output
+
     def forward_arccos(self, embbedings, label, age=None):
         # weights norm
         nB = len(embbedings)
@@ -707,8 +738,10 @@ class BroadFaceArcFace(nn.Module):
             self.feature_mb.shape[0] == self.label_mb.shape[0] == self.proxy_mb.shape[0]
         )
 
-    def compute_arcface(self, x, y, w):
-        cosine = F.linear(F.normalize(x), F.normalize(w))
+    # def compute_arcface(self, x, y, w):
+    def forward(self, x, y, ages=None):
+
+        cosine = F.linear(F.normalize(x), F.normalize(self.kernel))
         sine = torch.sqrt(1.0 - torch.pow(cosine, 2))
 
         phi = cosine * self.cos_m - sine * self.sin_m
@@ -723,31 +756,31 @@ class BroadFaceArcFace(nn.Module):
         ce_loss = self.criterion(logit, y)
         return ce_loss.mean()
 
-    def forward(self, input, label, ages=None):
-        # input is not l2 normalized
-        weight_now = self.kernel.data[self.label_mb]
-        delta_weight = weight_now - self.proxy_mb
-
-        if self.compensate:
-            update_feature_mb = (
-                self.feature_mb
-                + (
-                    self.feature_mb.norm(p=2, dim=1, keepdim=True)
-                    / self.proxy_mb.norm(p=2, dim=1, keepdim=True)
-                )
-                * delta_weight
-            )
-        else:
-            update_feature_mb = self.feature_mb
-
-        large_input = torch.cat([update_feature_mb, input.data], dim=0)
-        large_label = torch.cat([self.label_mb, label], dim=0)
-
-        batch_loss = self.compute_arcface(input, label, self.kernel.data)
-        broad_loss = self.compute_arcface(large_input, large_label, self.kernel)
-        self.update(input, label)
-
-        return batch_loss + broad_loss
+    # def forward(self, input, label, ages=None):
+    #     # input is not l2 normalized
+    #     weight_now = self.kernel.data[self.label_mb]
+    #     delta_weight = weight_now - self.proxy_mb
+    #
+    #     if self.compensate:
+    #         update_feature_mb = (
+    #             self.feature_mb
+    #             + (
+    #                 self.feature_mb.norm(p=2, dim=1, keepdim=True)
+    #                 / self.proxy_mb.norm(p=2, dim=1, keepdim=True)
+    #             )
+    #             * delta_weight
+    #         )
+    #     else:
+    #         update_feature_mb = self.feature_mb
+    #
+    #     large_input = torch.cat([update_feature_mb, input.data], dim=0)
+    #     large_label = torch.cat([self.label_mb, label], dim=0)
+    #
+    #     batch_loss = self.compute_arcface(input, label, self.kernel.data)
+    #     broad_loss = self.compute_arcface(large_input, large_label, self.kernel)
+    #     self.update(input, label)
+    #
+    #     return batch_loss + broad_loss
 
 
 ################################## Sphereface ################################################

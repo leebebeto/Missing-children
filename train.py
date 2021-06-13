@@ -46,7 +46,11 @@ if __name__ == '__main__':
     parser.add_argument("--negative_lambda", help='negative lambda for negative loss', default=1.0, type=float)
     parser.add_argument("--positive_ce", help='whether to use positive ce loss', action='store_true')
     parser.add_argument("--seed", help='seed', default=4885, type=int)
+    parser.add_argument("--child_margin", help='child margin', default=0.5, type=float)
     parser.add_argument("--use_strange", help='whether to use positive strange loss', action='store_true')
+    parser.add_argument("--use_pretrain", help='whether to use pretrained model', action='store_true')
+    parser.add_argument("--use_adult_memory_pretrain", help='whether to use pretrained model 2', action='store_true')
+    parser.add_argument("--main_lambda", help='main lambda for main loss', default=1.0, type=float)
 
     # data path -> added temporarily
     parser.add_argument("--vgg_folder", help='vgg folder directory', default='/home/nas1_userD/yonggyu/Face_dataset/vgg')
@@ -119,6 +123,9 @@ if __name__ == '__main__':
     elif args.use_adult_memory: # our memory bank method
         print('using adult memory bank...')
         learner.train_adult_memory(args, args.epochs)
+    elif args.use_adult_memory_pretrain: # our memory bank method
+        print('using adult memory bank pretrain...')
+        learner.train_adult_memory_pretrain(args, args.epochs)
     elif args.vanilla_mixup:
         print('vanilla mixup...')
         learner.train_mixup(args, args.epochs)

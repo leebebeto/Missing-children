@@ -19,6 +19,7 @@ parser.add_argument("--embedding_size", help='embedding_size', default=512, type
 parser.add_argument("--wandb", help="whether to use wandb", action='store_true')
 parser.add_argument("--epochs", help="num epochs", default=50, type=int)
 parser.add_argument("--batch_size", help="batch_size", default=64, type=int)
+parser.add_argument("--loss", help="loss", default='Arcface', type=str)
 args = parser.parse_args()
 
 # conf = get_config(training=False)
@@ -102,7 +103,13 @@ def verification(net, data_dict, transform):
                 gallery_image =  img_2 if gallery_image == None else torch.cat((gallery_image, img_2), dim=0)
 
             imgs = torch.cat((query_image, gallery_image), dim=0)
-            features = net(imgs)
+            features = None
+            for i in range(0, imgs.shape[0], 64):
+                if imgs.shape[0] - i > 64:
+                    embedding = net(imgs[i: i +64])
+                else:
+                    embedding = net(imgs[i:])
+                features = embedding if features == None else torch.cat((features, embedding))
             for i in range(int(imgs.shape[0]/2)):
                 similarities.append(cos_dist(features[i], features[i+int(imgs.shape[0]/2)]).cpu())
             similarities = torch.stack(similarities)
@@ -117,6 +124,25 @@ def verification(net, data_dict, transform):
 import glob
 print(f'working on : fgnetc....')
 with open('/home/nas1_userE/jungsoolee/Face_dataset/txt_files/fgnetc_identification.pickle', 'rb') as f:
+    data_dict = pickle.load(f)
+
+verification(model, data_dict, transform=t)
+
+print(f'working on : agedbc....')
+with open('/home/nas1_userE/jungsoolee/Face_dataset/txt_files/agedbc_identification.pickle', 'rb') as f:
+    data_dict = pickle.load(f)
+
+verification(model, data_dict, transform=t)
+
+
+print(f'working on : fgnetc20....')
+with open('/home/nas1_userE/jungsoolee/Face_dataset/txt_files/fgnetc20_identification.pickle', 'rb') as f:
+    data_dict = pickle.load(f)
+
+verification(model, data_dict, transform=t)
+
+print(f'working on : agedbc20....')
+with open('/home/nas1_userE/jungsoolee/Face_dataset/txt_files/agedbc20_identification.pickle', 'rb') as f:
     data_dict = pickle.load(f)
 
 verification(model, data_dict, transform=t)

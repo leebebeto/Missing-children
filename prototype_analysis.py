@@ -93,9 +93,68 @@ train_transform = transforms.Compose([
 #     adult_negative = adult_negative.sum()/len(torch.where(adult_flag==True)[0])
 #
 #     print(f'child mean: {torch.rad2deg(torch.arccos(child_negative))} || adult mean: {torch.rad2deg(torch.arccos(adult_negative))}')
+#
+# # 2) child vs adult prototype within a class
+# # for cls in child_identity:
+# for cls in [i for i in range(3000)]:
+#     if cls not in child_identity: continue
+#     child_image_temp = glob.glob(f'/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_NATIONAL/{cls}/*')
+#     child_image, adult_image = [], []
+#     for image in child_image_temp:
+#         id_img = '/'.join((image.split('/')[-2], image.split('/')[-1].split('_')[0]))[:-4]
+#         try:
+#             age = id2age[id_img]
+#             if int(age) < 13:
+#                 child_image.append(image)
+#             else:
+#                 adult_image.append(image)
+#         except:
+#             adult_image.append(image)
+#     #
+#     # batch = []
+#     # for image in child_image:
+#     #     img = Image.open(image)
+#     #     img = train_transform(img)
+#     #     batch.append(img)
+#     #     label = int(image.split('/')[-2])
+#     # batch = torch.stack(batch).cuda()
+#     #
+#     # with torch.no_grad():
+#     #     embedding = learner.model(batch)
+#     #     kernel = learner.head.kernel
+#     #     kernel_norm = l2_norm(kernel,axis=0)
+#     #     cos_theta = torch.mm(embedding, kernel_norm)
+#     # # child_theta = cos_theta[:, cls].mean()
+#     # child_theta = torch.rad2deg(torch.arccos(cos_theta[:, cls]))
+#     # # child_theta= child_theta.mean()
+#
+#     batch = []
+#     for image in adult_image:
+#         img = Image.open(image)
+#         img = train_transform(img)
+#         batch.append(img)
+#         label = int(image.split('/')[-2])
+#     batch = torch.stack(batch).cuda()
+#
+#     with torch.no_grad():
+#         embedding = learner.model(batch)
+#         kernel = learner.head.kernel
+#         kernel_norm = l2_norm(kernel,axis=0)
+#         cos_theta = torch.mm(embedding, kernel_norm)
+#     # adult_theta = cos_theta[:, cls].mean()
+#     adult_theta = torch.abs(torch.rad2deg(torch.arccos(cos_theta[:, cls])))
+#     adult_theta= adult_theta.mean()
+#     # print(f'cls: {cls} || child mean: {child_theta} || adult mean: {adult_theta}')
+#     print(f'cls: {cls} || adult mean: {adult_theta}')
+#     # import pdb; pdb.set_trace()
+#     # print(f'cls: {cls} || child mean: {torch.rad2deg(torch.arccos(child_theta))} || adult mean: {torch.rad2deg(torch.arccos(adult_theta))}')
+#
 
-# 2) child vs adult prototype within a class
+
+# 3) covariance matrix
+batch = []
 for cls in child_identity:
+    if cls not in child_identity: continue
     child_image_temp = glob.glob(f'/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_NATIONAL/{cls}/*')
     child_image, adult_image = [], []
     for image in child_image_temp:
@@ -109,39 +168,17 @@ for cls in child_identity:
         except:
             adult_image.append(image)
 
-    batch = []
-    for image in child_image:
-        img = Image.open(image)
-        img = train_transform(img)
-        batch.append(img)
-        label = int(image.split('/')[-2])
-    batch = torch.stack(batch).cuda()
+    c_image = child_image[0]
+    batch.append(c_image)
 
-    with torch.no_grad():
-        embedding = learner.model(batch)
-        kernel = learner.head.kernel
-        kernel_norm = l2_norm(kernel,axis=0)
-        cos_theta = torch.mm(embedding, kernel_norm)
-    # child_theta = cos_theta[:, cls].mean()
-    child_theta = torch.rad2deg(torch.arccos(cos_theta[:, cls]))
-    # child_theta= child_theta.mean()
+tensor= []
+for image in batch:
+    img = Image.open(c_image)
+    img = train_transform(img)
+    tensor.append(img)
 
-    batch = []
-    for image in adult_image:
-        img = Image.open(image)
-        img = train_transform(img)
-        batch.append(img)
-        label = int(image.split('/')[-2])
-    batch = torch.stack(batch).cuda()
+batch = torch.stack(tensor).cuda()
 
-    with torch.no_grad():
-        embedding = learner.model(batch)
-        kernel = learner.head.kernel
-        kernel_norm = l2_norm(kernel,axis=0)
-        cos_theta = torch.mm(embedding, kernel_norm)
-    # adult_theta = cos_theta[:, cls].mean()
-    adult_theta = torch.rad2deg(torch.arccos(cos_theta[:, cls]))
-    # adult_theta= adult_theta.mean()
-    print(f'cls: {cls} || child mean: {child_theta} || adult mean: {adult_theta}')
-    import pdb; pdb.set_trace()
-    # print(f'cls: {cls} || child mean: {torch.rad2deg(torch.arccos(child_theta))} || adult mean: {torch.rad2deg(torch.arccos(adult_theta))}')
+with torch.no_grad():
+    embedding = learner.model(batch)
+cov = np.cov(embedding)
