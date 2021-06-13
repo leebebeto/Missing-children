@@ -166,8 +166,8 @@ class face_learner(object):
 
                 model_path = os.path.join(root_path, 'fgnetc_best_model_2021-06-11-12-06_accuracy:0.864_step:240000_casia_baseline_arcface_4885.pth')
                 head_path = os.path.join(root_path, 'fgnetc_best_head_2021-06-11-12-06_accuracy:0.864_step:240000_casia_baseline_arcface_4885.pth')
-                self.milestones = [6, 3, 1]  # Superlong 50epoch
-                self.epoch = 10
+                self.milestones = [6, 9, 11]  # Superlong 50epoch
+                self.epoch = 15
 
 
                 self.model.load_state_dict(torch.load(model_path))
@@ -1056,9 +1056,11 @@ class face_learner(object):
                     # print('tensorboard plotting....')
                     # print('wandb plotting....')
                     loss_board = running_loss / self.board_loss_every
+                    arcface_loss_board = running_arcface_loss / self.board_loss_every
+
                     child_degree_board = running_child_degree / self.board_loss_every
                     adult_degree_board = running_adult_degree / self.board_loss_every
-                    arcface_loss_board = running_arcface_loss / self.board_loss_every
+
                     # self.writer.add_scalar('train_loss', loss_board, self.step)
                     # self.writer.add_scalar('arcface_loss', arcface_loss_board, self.step)
 
