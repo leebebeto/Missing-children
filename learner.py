@@ -24,6 +24,7 @@ import pdb
 import wandb
 from Backbone import DAL_model, OECNN_model
 from itertools import chain
+from utils_txt import cos_dist, fixed_img_list
 
 class face_learner(object):
     def __init__(self, conf=None, inference=False, load_head=False):
@@ -229,26 +230,30 @@ class face_learner(object):
             # self.save_every = len(self.loader)//5
 
             self.board_loss_every = conf.loss_freq
-            self.evaluate_every = conf.evaluate_freq
-            # self.evaluate_every = len(self.loader) // 2
+            # self.evaluate_every = conf.evaluate_freq
+            self.evaluate_every = len(self.loader)
             self.save_every = conf.save_freq
 
 
             print(conf)
             print('training starts.... BMVC 2021....')
 
-            # dataset_root= os.path.join('/home/nas1_userE/jungsoolee/Face_dataset/face_emore2')
-            dataset_root= os.path.join('./dataset/face_emore2')
-            # dataset_root= os.path.join(conf.home, 'dataset/face_emore2')
-            # self.lfw, self.lfw_issame = get_val_data(dataset_root)
-            # dataset_root = "./dataset/"
-            self.lfw = np.load(os.path.join(dataset_root, "lfw_align_112_list.npy")).astype(np.float32)
-            self.lfw_issame = np.load(os.path.join(dataset_root, "lfw_align_112_label.npy"))
+            # # dataset_root= os.path.join('/home/nas1_userE/jungsoolee/Face_dataset/face_emore2')
+            # dataset_root= os.path.join('./dataset/face_emore2')
+            # # dataset_root= os.path.join(conf.home, 'dataset/face_emore2')
+            # # self.lfw, self.lfw_issame = get_val_data(dataset_root)
+            # # dataset_root = "./dataset/"
+            # self.lfw = np.load(os.path.join(dataset_root, "lfw_align_112_list.npy")).astype(np.float32)
+            # self.lfw_issame = np.load(os.path.join(dataset_root, "lfw_align_112_label.npy"))
+            #
+            # self.fgnetc = np.load(os.path.join(dataset_root, "FGNET_new_align_list.npy")).astype(np.float32)
+            # self.fgnetc_issame = np.load(os.path.join(dataset_root, "FGNET_new_align_label.npy"))
+            # # self.cfp_fp, self.cfp_fp_issame = get_val_data(dataset_root, 'cfp_fp')
+            # # self.agedb, self.agedb_issame = get_val_data(dataset_root, 'agedb_30')
 
-            self.fgnetc = np.load(os.path.join(dataset_root, "FGNET_new_align_list.npy")).astype(np.float32)
-            self.fgnetc_issame = np.load(os.path.join(dataset_root, "FGNET_new_align_label.npy"))
-            # self.cfp_fp, self.cfp_fp_issame = get_val_data(dataset_root, 'cfp_fp')
-            # self.agedb, self.agedb_issame = get_val_data(dataset_root, 'agedb_30')
+
+            self.fgnet10_best_acc, self.fgnet20_best_acc, self.fgnet30_best_acc, self.average_best_acc = 0.0, 0.0, 0.0, 0.0
+            self.agedb10_best_acc, self.agedb20_best_acc, self.agedb30_best_acc, self.lag_best_acc= 0.0, 0.0, 0.0, 0.0
 
         else:
             # Will not use anymore
@@ -266,7 +271,7 @@ class face_learner(object):
         self.writer.add_image('{}_roc_curve'.format(db_name), roc_curve_tensor, self.step)
 
         print(f'{db_name} accuracy: {accuracy}')
-    def evaluate(self, conf, carray, issame, nrof_folds = 10, tta = True):
+    def evaluate_prev(self, conf, carray, issame, nrof_folds = 10, tta = True):
         self.model.eval()
         idx = 0
         embeddings = np.zeros([len(carray), conf.embedding_size])
@@ -294,7 +299,7 @@ class face_learner(object):
         roc_curve_tensor = transforms.ToTensor()(roc_curve)
         return accuracy.mean(), best_thresholds.mean(), roc_curve_tensor, dist
 
-    def evaluate_dal(self, conf, carray, issame, nrof_folds=10, tta=True):
+    def evaluate_dal_prev(self, conf, carray, issame, nrof_folds=10, tta=True):
         self.model.eval()
         idx = 0
         embeddings = np.zeros([len(carray), conf.embedding_size])
@@ -321,6 +326,224 @@ class face_learner(object):
         roc_curve = Image.open(buf)
         roc_curve_tensor = transforms.ToTensor()(roc_curve)
         return accuracy.mean(), best_thresholds.mean(), roc_curve_tensor, dist
+
+    def control_text_list(self, txt_root, txt_dir, data_dir=None):
+        text_path = os.path.join(txt_root, txt_dir)
+        lines = sorted(fixed_img_list(text_path))
+        if data_dir is None:
+            pairs = [' '.join(line.split(' ')[1:]) for line in lines]
+            labels = [int(line.split(' ')[0]) for line in lines]
+        elif data_dir == 'cacd_vs' or data_dir == 'morph':
+            pairs = [' '.join(line.split(' ')[:2]) for line in lines]
+            labels = [int(line.split(' ')[-1][0]) for line in lines]
+        return pairs, labels
+
+    import tqdm
+
+    def verification(self, net, label_list, pair_list, transform, data_dir=None):
+        similarities = []
+        labels = []
+        assert len(label_list) == len(pair_list)
+
+        trans_list = []
+        trans_list += [transforms.ToTensor()]
+        trans_list += [transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))]
+        t = transforms.Compose(trans_list)
+
+        if len(label_list) == 0:
+            return 0, 0, 0
+        net.eval()
+        with torch.no_grad():  # Test 때 GPU를 사용할 경우 메모리 절약을 위해 torch.no_grad() 내에서 하는 것이 좋다.
+            for idx, pair in enumerate(tqdm(pair_list)):
+                if data_dir is None:
+                    if 'png' in pair:
+                        path_1, path_2 = pair.split('.png /home')
+                        path_1 = path_1 + '.png'
+                    elif 'jpg' in pair:
+                        path_1, path_2 = pair.split('.jpg /home')
+                        path_1 = path_1 + '.jpg'
+                    elif 'JPG' in pair:
+                        path_1, path_2 = pair.split('.JPG /home')
+                        path_1 = path_1 + '.JPG'
+                    path_2 = '/home' + path_2
+                    path_2 = path_2[:-2]
+                elif data_dir == 'cacd_vs':
+                    image_root = '/home/nas1_userE/jungsoolee/Face_dataset/CACD_VS_single_112_RF'
+                    path_1, path_2 = pair.split(' ')
+                    path_1 = os.path.join(image_root, path_1)
+                    path_2 = os.path.join(image_root, path_2)
+
+                elif data_dir == 'morph':
+                    image_root = '/home/nas1_userE/jungsoolee/Face_dataset/Album2_single_112_RF'
+                    path_1, path_2 = pair.split(' ')
+                    path_1 = os.path.join(image_root, path_1)
+                    path_2 = os.path.join(image_root, path_2)
+
+                img_1 = t(Image.open(path_1)).unsqueeze(dim=0).to(self.conf.device)
+                img_2 = t(Image.open(path_2)).unsqueeze(dim=0).to(self.conf.device)
+                imgs = torch.cat((img_1, img_2), dim=0)
+
+                # Extract feature and save
+                features = net(imgs)
+                similarities.append(cos_dist(features[0], features[1]).cpu())
+                label = int(label_list[idx])
+                labels.append(label)
+
+        best_accr = 0.0
+        best_th = 0.0
+
+        # 각 similarity들이 threshold의 후보가 된다
+        list_th = similarities
+        similarities = torch.stack(similarities, dim=0)
+        labels = torch.ByteTensor(label_list)
+        pred_list = []
+        # 각 threshold 후보에 대해 best accuracy를 측정
+        for i, th in enumerate(list_th):
+            pred = (similarities >= th)
+            correct = (pred == labels)
+            accr = torch.sum(correct).item() / correct.size(0)
+
+            if accr > best_accr:
+                best_accr = accr
+                best_th = th.item()
+                best_pred = pred
+                best_similarities = similarities
+
+        return best_accr, best_th, idx
+
+    def evaluate_new_total(self):
+
+        trans_list = []
+        trans_list += [transforms.ToTensor()]
+        trans_list += [transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))]
+        t = transforms.Compose(trans_list)
+
+        txt_root = '/home/nas1_userE/jungsoolee/Face_dataset/txt_files'
+
+        txt_dir = 'fgnet10_child.txt'
+        print(f'working on : {txt_dir}')
+        pair_list, label_list = self.control_text_list(txt_root, txt_dir)
+        fgnet10_best_acc, fgnet10_best_th, fgnet10_idx = self.verification(self.model, label_list, pair_list, transform=t)
+        # fgnet10_best_acc, fgnet10_best_th, fgnet10_idx = 0.5, 0.5, 0.5
+        print(f'txt_dir: {txt_dir}, best_accr: {fgnet10_best_acc}')
+        if fgnet10_best_acc > self.fgnet10_best_acc:
+            self.fgnet10_best_acc = fgnet10_best_acc
+            print('saving best fgnet10_best_acc model....')
+            self.save_best_state_new(self.conf, 'fgnet10', self.fgnet10_best_acc, extra=str(self.conf.data_mode) + '_' + str(self.conf.exp))
+
+        txt_dir = 'fgnet20_child.txt'
+        print(f'working on : {txt_dir}')
+        pair_list, label_list = self.control_text_list(txt_root, txt_dir)
+        fgnet20_best_acc, fgnet20_best_th, fgnet20_idx = self.verification(self.model, label_list, pair_list, transform=t)
+        # fgnet20_best_acc, fgnet20_best_th, fgnet20_idx = 0.5, 0.5, 0.5
+        print(f'txt_dir: {txt_dir}, best_accr: {fgnet20_best_acc}')
+        if fgnet20_best_acc > self.fgnet20_best_acc:
+            self.fgnet20_best_acc = fgnet20_best_acc
+            print('saving best fgnet20_best_acc model....')
+            self.save_best_state_new(self.conf, 'fgnet20', self.fgnet20_best_acc, extra=str(self.conf.data_mode) + '_' + str(self.conf.exp))
+
+        txt_dir = 'fgnet30_child.txt'
+        print(f'working on : {txt_dir}')
+        pair_list, label_list = self.control_text_list(txt_root, txt_dir)
+        fgnet30_best_acc, fgnet30_best_th, fgnet30_idx = self.verification(self.model, label_list, pair_list, transform=t)
+        # fgnet30_best_acc, fgnet30_best_th, fgnet30_idx = 0.5, 0.5, 0.5
+        print(f'txt_dir: {txt_dir}, best_accr: {fgnet30_best_acc}')
+        if fgnet30_best_acc > self.fgnet30_best_acc:
+            self.fgnet30_best_acc = fgnet30_best_acc
+            print('saving best fgnet30_best_acc model....')
+            self.save_best_state_new(self.conf, 'fgnet30', self.fgnet30_best_acc, extra=str(self.conf.data_mode) + '_' + str(self.conf.exp))
+
+        txt_dir = 'agedb10_child.txt'
+        print(f'working on : {txt_dir}')
+        pair_list, label_list = self.control_text_list(txt_root, txt_dir)
+        agedb10_best_acc, agedb10_best_th, agedb10_idx = self.verification(self.model, label_list, pair_list,transform=t)
+        # agedb10_best_acc, agedb10_best_th, agedb10_idx =  0.5, 0.5, 0.5
+        print(f'txt_dir: {txt_dir}, best_accr: {fgnet10_best_acc}')
+        if agedb10_best_acc > self.agedb10_best_acc:
+            self.agedb10_best_acc = agedb10_best_acc
+            print('saving best agedb10_best_acc model....')
+            self.save_best_state_new(self.conf, 'agedb10', self.agedb10_best_acc, extra=str(self.conf.data_mode) + '_' + str(self.conf.exp))
+
+        txt_dir = 'agedb20_child.txt'
+        print(f'working on : {txt_dir}')
+        pair_list, label_list = self.control_text_list(txt_root, txt_dir)
+        agedb20_best_acc, agedb20_best_th, agedb20_idx = self.verification(self.model, label_list, pair_list, transform=t)
+        # agedb20_best_acc, agedb20_best_th, agedb20_idx = 0.5, 0.5, 0.5
+        print(f'txt_dir: {txt_dir}, best_accr: {agedb20_best_acc}')
+        if agedb20_best_acc > self.agedb20_best_acc:
+            self.agedb20_best_acc = agedb20_best_acc
+            print('saving best agedb20_best_acc model....')
+            self.save_best_state_new(self.conf, 'agedb20', self.agedb20_best_acc, extra=str(self.conf.data_mode) + '_' + str(self.conf.exp))
+
+        txt_dir = 'agedb30_child.txt'
+        print(f'working on : {txt_dir}')
+        pair_list, label_list = self.control_text_list(txt_root, txt_dir)
+        agedb30_best_acc, agedb30_best_th, agedb30_idx = self.verification(self.model, label_list, pair_list, transform=t)
+        # agedb30_best_acc, agedb30_best_th, agedb30_idx = 0.5, 0.5, 0.5
+        print(f'txt_dir: {txt_dir}, best_accr: {agedb30_best_acc}')
+        if agedb30_best_acc > self.agedb30_best_acc:
+            self.agedb30_best_acc = agedb30_best_acc
+            print('saving best agedb30_best_acc model....')
+            self.save_best_state_new(self.conf, 'agedb30', self.agedb30_best_acc, extra=str(self.conf.data_mode) + '_' + str(self.conf.exp))
+
+        txt_dir = 'lag.txt'
+        print(f'working on : {txt_dir}')
+        pair_list, label_list = self.control_text_list(txt_root, txt_dir)
+        lag_best_acc, lag_best_th, lag_idx = self.verification(self.model, label_list, pair_list, transform=t)
+        # lag_best_acc, lag_best_th, lag_idx = 0.5, 0.5, 0.5
+        print(f'txt_dir: {txt_dir}, best_accr: {lag_best_acc}')
+        if lag_best_acc > self.lag_best_acc:
+            self.lag_best_acc = lag_best_acc
+            print('saving best lag_best_acc model....')
+            self.save_best_state_new(self.conf, 'lag', self.lag_best_acc, extra=str(self.conf.data_mode) + '_' + str(self.conf.exp))
+
+        average_acc = (fgnet10_best_acc + fgnet20_best_acc + fgnet30_best_acc + agedb10_best_acc + agedb20_best_acc + agedb30_best_acc + lag_best_acc) / 7
+        if average_acc > self.average_best_acc:
+            self.average_best_acc = average_acc
+            print('saving best average model....')
+            self.save_best_state_new(self.conf, 'average', self.average_best_acc, extra=str(self.conf.data_mode) + '_' + str(self.conf.exp))
+
+        if self.conf.wandb:
+            wandb.log({
+                "fgnet10_acc": fgnet10_best_acc,
+                "fgnet20_acc": fgnet20_best_acc,
+                "fgnet30_acc": fgnet30_best_acc,
+                "agedb10_acc": agedb10_best_acc,
+                "agedb20_acc": agedb20_best_acc,
+                "agedb30_acc": agedb30_best_acc,
+            }, step=self.step)
+
+        if self.conf.wandb:
+            wandb.log({
+                "best_fgnet10_acc": self.fgnet10_best_acc,
+                "best_fgnet20_acc": self.fgnet20_best_acc,
+                "best_fgnet30_acc": self.fgnet30_best_acc,
+                "best_agedb10_acc": self.agedb10_best_acc,
+                "best_agedb20_acc": self.agedb20_best_acc,
+                "best_agedb30_acc": self.agedb30_best_acc,
+            }, step=self.step)
+
+
+    def evaluate_new(self):
+        trans_list = []
+        trans_list += [transforms.ToTensor()]
+        trans_list += [transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))]
+        t = transforms.Compose(trans_list)
+
+        txt_root = '/home/nas1_userE/jungsoolee/Face_dataset/txt_files'
+
+        txt_dir = 'fgnet30_child.txt'
+        print(f'working on : {txt_dir}')
+        pair_list, label_list = self.control_text_list(txt_root, txt_dir)
+        fgnet30_best_acc, fgnet30_best_th, fgnet30_idx = self.verification(self.model, label_list, pair_list, transform=t)
+        # fgnet30_best_acc, fgnet30_best_th, fgnet30_idx = 0.5, 0.5, 0.5
+        print(f'txt_dir: {txt_dir}, best_accr: {fgnet30_best_acc}')
+
+        if self.conf.wandb:
+            wandb.log({
+                "fgnet30_acc": fgnet30_best_acc,
+            }, step=self.step)
+
 
     def mixup_criterion(criterion, pred, y_a, y_b, lam=0.5):
         return lam * criterion(pred, y_a) + (1 - lam) * criterion(pred, y_b)
@@ -378,65 +601,18 @@ class face_learner(object):
                     running_loss = 0.
 
                 # added wrong on evaluations
-                if self.step % self.evaluate_every == 0 and self.step != 0:
+                if e >= self.milestones[1] and self.step % self.evaluate_every == 0 and self.step != 0:
                     self.model.eval()
+                    self.evaluate_new_total()
                     print('evaluating....')
-                    lfw_accuracy, lfw_thres, roc_curve_tensor2, lfw_dist = self.evaluate(conf, self.lfw, self.lfw_issame)
-                    # NEGATIVE WRONG
-                    wrong_list = np.where((self.lfw_issame == False) & (lfw_dist < lfw_thres))[0]
-                    lfw_negative = len(wrong_list)
-                    # POSITIVE WRONG
-                    wrong_list = np.where((self.lfw_issame == True) & (lfw_dist > lfw_thres))[0]
-                    lfw_positive = len(wrong_list)
-
-                    # FGNETC evaluation
-                    fgnetc_accuracy, fgnetc_thres, roc_curve_tensor2, fgnetc_dist = self.evaluate(conf, self.fgnetc, self.fgnetc_issame)
-                    # NEGATIVE WRONG
-                    wrong_list = np.where((self.fgnetc_issame == False) & (fgnetc_dist < fgnetc_thres))[0]
-                    fgnetc_negative = len(wrong_list)
-                    # POSITIVE WRONG
-                    wrong_list = np.where((self.fgnetc_issame == True) & (fgnetc_dist > fgnetc_thres))[0]
-                    fgnetc_positive = len(wrong_list)
-                    # self.board_val('fgent_c', accuracy2, best_threshold2, roc_curve_tensor2, fgnet_negative\, positive_wrong2)
-                    print(f'fgnetc_acc: {fgnetc_accuracy}')
-
-                    if self.conf.wandb:
-                        wandb.log({
-                            "lfw_acc": lfw_accuracy,
-                            "lfw_best_threshold": lfw_thres,
-                            "lfw_negative_wrong": lfw_negative,
-                            "lfw_positive_wrong": lfw_positive,
-
-                            "fgnet_c_acc": fgnetc_accuracy,
-                            "fgnet_c_best_threshold": fgnetc_thres,
-                            "fgnet_c_negative_wrong": fgnetc_negative,
-                            "fgnet_c_positive_wrong": fgnetc_positive,
-                        }, step=self.step)
-
                     self.model.train()
-                    if self.step % self.save_every == 0 and self.step != 0:
-                        print('saving model....')
-                        # save with most recently calculated accuracy?
-                        # if conf.finetune_model_path is not None:
-                        #     self.save_state(conf, accuracy2,
-                        #                     extra=str(conf.data_mode) + '_' + str(conf.net_depth) + '_' + str(
-                        #                         conf.batch_size) + 'finetune')
-                        # else:
-                        #     self.save_state(conf, accuracy2,extra=str(conf.data_mode) + '_' + str(conf.exp) + '_' + str(conf.batch_size))
-                        if self.conf.loss == 'Broad':
-                            if lfw_accuracy > best_accuracy:
-                                best_accuracy = lfw_accuracy
-                                print('saving best model....')
-                                self.save_best_state(conf, best_accuracy, extra=str(conf.data_mode) + '_' + str(conf.exp))
-                                if lfw_accuracy > 0.99:
-                                    import sys
-                                    sys.exit(0)
 
-                        else:
-                            if fgnetc_accuracy > best_accuracy:
-                                best_accuracy = fgnetc_accuracy
-                                print('saving best model....')
-                                self.save_best_state(conf, best_accuracy, extra=str(conf.data_mode) + '_' + str(conf.exp))
+                elif e < self.milestones[1] and self.step % self.evaluate_every == 0 and self.step != 0:
+                    self.model.eval()
+                    self.evaluate_new()
+                    print('evaluating....')
+                    self.model.train()
+
                 self.step += 1
 
         # if conf.finetune_model_path is not None:
@@ -524,58 +700,17 @@ class face_learner(object):
                     running_loss = 0.
 
                 # added wrong on evaluations
-                if self.step % self.evaluate_every == 0 and self.step != 0:
+                if e >= self.milestones[1] and self.step % self.evaluate_every == 0 and self.step != 0:
                     self.model.eval()
+                    self.evaluate_new_total()
                     print('evaluating....')
-                    lfw_accuracy, lfw_thres, roc_curve_tensor2, lfw_dist = self.evaluate_dal(conf, self.lfw,
-                                                                                         self.lfw_issame)
-                    # NEGATIVE WRONG
-                    wrong_list = np.where((self.lfw_issame == False) & (lfw_dist < lfw_thres))[0]
-                    lfw_negative = len(wrong_list)
-                    # POSITIVE WRONG
-                    wrong_list = np.where((self.lfw_issame == True) & (lfw_dist > lfw_thres))[0]
-                    lfw_positive = len(wrong_list)
-                    print(f'lfw_acc: {lfw_accuracy}')
-
-                    fgnetc_accuracy, fgnetc_thres, roc_curve_tensor2, fgnetc_dist = self.evaluate_dal(conf, self.fgnetc,
-                                                                                                  self.fgnetc_issame)
-                    # NEGATIVE WRONG
-                    wrong_list = np.where((self.fgnetc_issame == False) & (fgnetc_dist < fgnetc_thres))[0]
-                    fgnetc_negative = len(wrong_list)
-                    # POSITIVE WRONG
-                    wrong_list = np.where((self.fgnetc_issame == True) & (fgnetc_dist > fgnetc_thres))[0]
-                    fgnetc_positive = len(wrong_list)
-                    # self.board_val('fgent_c', accuracy2, best_threshold2, roc_curve_tensor2, fgnet_negative\, positive_wrong2)
-                    print(f'fgnetc_acc: {fgnetc_accuracy}')
-
-                    if self.conf.wandb:
-                        wandb.log({
-                            "lfw_acc": lfw_accuracy,
-                            "lfw_best_threshold": lfw_thres,
-                            "lfw_negative_wrong": lfw_negative,
-                            "lfw_positive_wrong": lfw_positive,
-
-                            "fgnet_c_acc": fgnetc_accuracy,
-                            "fgnet_c_best_threshold": fgnetc_thres,
-                            "fgnet_c_negative_wrong": fgnetc_negative,
-                            "fgnet_c_positive_wrong": fgnetc_positive,
-                        }, step=self.step)
-
                     self.model.train()
-                    if self.step % self.save_every == 0 and self.step != 0:
-                        print('saving model....')
-                        # save with most recently calculated accuracy?
-                        # if conf.finetune_model_path is not None:
-                        #     self.save_state(conf, accuracy2,
-                        #                     extra=str(conf.data_mode) + '_' + str(conf.net_depth) + '_' + str(
-                        #                         conf.batch_size) + 'finetune')
-                        # else:
-                        #     self.save_state(conf, accuracy2,extra=str(conf.data_mode) + '_' + str(conf.exp) + '_' + str(conf.batch_size))
 
-                        if fgnetc_accuracy > best_accuracy:
-                            best_accuracy = fgnetc_accuracy
-                            print('saving best model....')
-                            self.save_best_state(conf, best_accuracy, extra=str(conf.data_mode) + '_' + str(conf.exp), model_only=True)
+                elif e < self.milestones[1] and self.step % self.evaluate_every == 0 and self.step != 0:
+                    self.model.eval()
+                    self.evaluate_new()
+                    print('evaluating....')
+                    self.model.train()
                 self.step += 1
 
         # if conf.finetune_model_path is not None:
@@ -632,59 +767,17 @@ class face_learner(object):
 
                     running_loss = 0.
 
-                # added wrong on evaluations
-                if self.step % self.evaluate_every == 0 and self.step != 0:
+                if e >= self.milestones[1] and self.step % self.evaluate_every == 0 and self.step != 0:
                     self.model.eval()
+                    self.evaluate_new_total()
                     print('evaluating....')
-                    lfw_accuracy, lfw_thres, roc_curve_tensor2, lfw_dist = self.evaluate_dal(conf, self.lfw,
-                                                                                         self.lfw_issame)
-                    # NEGATIVE WRONG
-                    wrong_list = np.where((self.lfw_issame == False) & (lfw_dist < lfw_thres))[0]
-                    lfw_negative = len(wrong_list)
-                    # POSITIVE WRONG
-                    wrong_list = np.where((self.lfw_issame == True) & (lfw_dist > lfw_thres))[0]
-                    lfw_positive = len(wrong_list)
-                    print(f'lfw_acc: {lfw_accuracy}')
-
-                    fgnetc_accuracy, fgnetc_thres, roc_curve_tensor2, fgnetc_dist = self.evaluate_dal(conf, self.fgnetc,
-                                                                                                  self.fgnetc_issame)
-                    # NEGATIVE WRONG
-                    wrong_list = np.where((self.fgnetc_issame == False) & (fgnetc_dist < fgnetc_thres))[0]
-                    fgnetc_negative = len(wrong_list)
-                    # POSITIVE WRONG
-                    wrong_list = np.where((self.fgnetc_issame == True) & (fgnetc_dist > fgnetc_thres))[0]
-                    fgnetc_positive = len(wrong_list)
-                    # self.board_val('fgent_c', accuracy2, best_threshold2, roc_curve_tensor2, fgnet_negative\, positive_wrong2)
-                    print(f'fgnetc_acc: {fgnetc_accuracy}')
-
-                    if self.conf.wandb:
-                        wandb.log({
-                            "lfw_acc": lfw_accuracy,
-                            "lfw_best_threshold": lfw_thres,
-                            "lfw_negative_wrong": lfw_negative,
-                            "lfw_positive_wrong": lfw_positive,
-
-                            "fgnet_c_acc": fgnetc_accuracy,
-                            "fgnet_c_best_threshold": fgnetc_thres,
-                            "fgnet_c_negative_wrong": fgnetc_negative,
-                            "fgnet_c_positive_wrong": fgnetc_positive,
-                        }, step=self.step)
-
                     self.model.train()
-                    if self.step % self.save_every == 0 and self.step != 0:
-                        print('saving model....')
-                        # save with most recently calculated accuracy?
-                        # if conf.finetune_model_path is not None:
-                        #     self.save_state(conf, accuracy2,
-                        #                     extra=str(conf.data_mode) + '_' + str(conf.net_depth) + '_' + str(
-                        #                         conf.batch_size) + 'finetune')
-                        # else:
-                        #     self.save_state(conf, accuracy2,extra=str(conf.data_mode) + '_' + str(conf.exp) + '_' + str(conf.batch_size))
 
-                        if fgnetc_accuracy > best_accuracy:
-                            best_accuracy = fgnetc_accuracy
-                            print('saving best model....')
-                            self.save_best_state(conf, best_accuracy, extra=str(conf.data_mode) + '_' + str(conf.exp), model_only=True)
+                elif e < self.milestones[1] and self.step % self.evaluate_every == 0 and self.step != 0:
+                    self.model.eval()
+                    self.evaluate_new()
+                    print('evaluating....')
+                    self.model.train()
                 self.step += 1
 
         # if conf.finetune_model_path is not None:
@@ -1027,13 +1120,6 @@ class face_learner(object):
                 loss.backward()
                 running_loss += loss.item()
 
-                if not self.conf.use_arccos:
-                    child_thetas = self.head.forward_arccos(child_embeddings, self.child_labels)
-                    adult_thetas = self.head.forward_arccos(adult_embeddings, self.child_labels)
-                running_child_degree = running_child_degree + torch.rad2deg(child_thetas)
-                running_adult_degree = running_adult_degree + torch.rad2deg(adult_thetas)
-                running_child_degree = running_child_degree.mean()
-                running_adult_degree = running_adult_degree.mean()
 
                 running_arcface_loss += arcface_loss.item()
                 # if 'POSITIVE' in conf.exp:
@@ -1052,14 +1138,21 @@ class face_learner(object):
                 del imgs, labels, thetas, arcface_loss
                 del child_idx, ages
 
+                if self.conf.log_degree:
+                    child_thetas = self.head.forward_arccos(child_embeddings, self.child_labels)
+                    adult_thetas = self.head.forward_arccos(adult_embeddings, self.child_labels)
+                    running_child_degree = running_child_degree + torch.rad2deg(child_thetas)
+                    running_adult_degree = running_adult_degree + torch.rad2deg(adult_thetas)
+                    running_child_degree = running_child_degree.mean()
+                    running_adult_degree = running_adult_degree.mean()
+
+
                 if self.step % self.board_loss_every == 0 and self.step != 0:  # XXX
                     # print('tensorboard plotting....')
                     # print('wandb plotting....')
                     loss_board = running_loss / self.board_loss_every
                     arcface_loss_board = running_arcface_loss / self.board_loss_every
 
-                    child_degree_board = running_child_degree / self.board_loss_every
-                    adult_degree_board = running_adult_degree / self.board_loss_every
 
                     # self.writer.add_scalar('train_loss', loss_board, self.step)
                     # self.writer.add_scalar('arcface_loss', arcface_loss_board, self.step)
@@ -1068,6 +1161,13 @@ class face_learner(object):
                         wandb.log({
                             "train_loss": loss_board,
                             "arcface_total_loss": arcface_loss_board,
+                        }, step=self.step)
+
+                    if self.conf.log_degree:
+                        child_degree_board = running_child_degree / self.board_loss_every
+                        adult_degree_board = running_adult_degree / self.board_loss_every
+
+                        wandb.log({
                             "child_degree_board": child_degree_board,
                             "adult_degree_board": adult_degree_board,
                         }, step=self.step)
@@ -1104,68 +1204,17 @@ class face_learner(object):
                     running_mixup_total_loss = 0.0
                     running_child_degree, running_adult_degree = torch.zeros(self.child_labels.size()).to(self.conf.device), torch.zeros(self.child_labels.size()).to(self.conf.device)
 
-                if self.step % self.evaluate_every == 0 and self.step != 0:
+                if e >= self.milestones[1] and self.step % self.evaluate_every == 0 and self.step != 0:
+                    self.model.eval()
+                    self.evaluate_new_total()
                     print('evaluating....')
-                    # # LFW evaluation
-                    # accuracy, best_threshold, roc_curve_tensor, dist = self.evaluate(conf, self.lfw, self.lfw_issame)
-                    # # NEGATIVE WRONG
-                    # wrong_list = np.where((self.lfw_issame == False) & (dist < best_threshold))[0]
-                    # negative_wrong = len(wrong_list)
-                    # # POSITIVE WRONG
-                    # wrong_list = np.where((self.lfw_issame == True) & (dist > best_threshold))[0]
-                    # positive_wrong = len(wrong_list)
-                    # self.board_val('lfw', accuracy, best_threshold, roc_curve_tensor, negative_wrong, positive_wrong)
-                    # # FGNETC evaluation
-                    # accuracy2, best_threshold2, roc_curve_tensor2, dist2 = self.evaluate(conf, self.fgnetc,
-                    #                                                                      self.fgnetc_issame)
-                    # # NEGATIVE WRONG
-                    # wrong_list = np.where((self.fgnetc_issame == False) & (dist2 < best_threshold2))[0]
-                    # negative_wrong2 = len(wrong_list)
-                    # # POSITIVE WRONG
-                    # wrong_list = np.where((self.fgnetc_issame == True) & (dist2 > best_threshold2))[0]
-                    # positive_wrong2 = len(wrong_list)
-                    # self.board_val('fgent_c', accuracy2, best_threshold2, roc_curve_tensor2, negative_wrong2,
-                    #                positive_wrong2)
-
-                    # FGNETC evaluation
-                    fgnetc_accuracy, fgnetc_thres, roc_curve_tensor2, fgnetc_dist = self.evaluate(conf, self.fgnetc,
-                                                                                                  self.fgnetc_issame)
-                    # NEGATIVE WRONG
-                    wrong_list = np.where((self.fgnetc_issame == False) & (fgnetc_dist < fgnetc_thres))[0]
-                    fgnetc_negative = len(wrong_list)
-                    # POSITIVE WRONG
-                    wrong_list = np.where((self.fgnetc_issame == True) & (fgnetc_dist > fgnetc_thres))[0]
-                    fgnetc_positive = len(wrong_list)
-                    print(f'fgnetc_acc: {fgnetc_accuracy}')
-
-                    if fgnetc_accuracy > fgnetc_best_acc:
-                        fgnetc_best_acc = fgnetc_accuracy
-
-                    if self.conf.wandb:
-                        wandb.log({
-                            "fgnet_c_best_acc": fgnetc_best_acc,
-                            "fgnet_c_acc": fgnetc_accuracy,
-                            "fgnet_c_best_threshold": fgnetc_thres,
-                            "fgnet_c_negative_wrong": fgnetc_negative,
-                            "fgnet_c_positive_wrong": fgnetc_positive,
-                        }, step=self.step)
-
                     self.model.train()
 
-                    if self.step % self.save_every == 0 and self.step != 0:
-                        print('saving model....')
-                        # save with most recently calculated accuracy?
-                        # if conf.finetune_model_path is not None:
-                        #     self.save_state(conf, accuracy2,
-                        #                     extra=str(conf.data_mode) + '_' + str(conf.net_depth) + '_' + str(
-                        #                         conf.batch_size) + 'finetune')
-                        # else:
-                        #     self.save_state(conf, accuracy2,extra=str(conf.data_mode) + '_' + str(conf.exp) + '_' + str(conf.batch_size))
-
-                        if fgnetc_accuracy > best_accuracy:
-                            best_accuracy = fgnetc_accuracy
-                            print('saving best model....')
-                            self.save_best_state(conf, best_accuracy, extra=str(conf.data_mode) + '_' + str(conf.exp))
+                elif e < self.milestones[1] and self.step % self.evaluate_every == 0 and self.step != 0:
+                    self.model.eval()
+                    self.evaluate_new()
+                    print('evaluating....')
+                    self.model.train()
                 self.step += 1
         if conf.finetune_model_path is not None:
             self.save_state(conf, accuracy, to_save_folder=True,
@@ -1759,6 +1808,16 @@ class face_learner(object):
             # torch.save(
             #     self.optimizer2.state_dict(), os.path.join( save_path), ('lfw_best_optimizer2_{}_accuracy:{:.3f}_step:{}_{}.pth'.format(get_time(), accuracy, self.step, extra)))
 
+    def save_best_state_new(self, conf, test_dir, accuracy, to_save_folder=False, extra=None, model_only=False):
+        save_path = os.path.join(conf.model_path, conf.exp, test_dir)
+        os.makedirs(save_path, exist_ok=True)
+        torch.save(self.model.state_dict(), os.path.join(save_path, (
+            'fgnetc_best_model_{}_accuracy:{:.3f}_step:{}_{}.pth'.format(get_time(), accuracy, self.step, extra))))
+        if not model_only:
+            torch.save(
+                self.head.state_dict(), os.path.join(save_path, (
+                    'fgnetc_best_head_{}_accuracy:{:.3f}_step:{}_{}.pth'.format(get_time(), accuracy, self.step,
+                                                                                extra))))
 
     def save_state(self, conf, accuracy, to_save_folder=False, extra=None, model_only=False):
         if to_save_folder:

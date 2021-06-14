@@ -51,6 +51,7 @@ if __name__ == '__main__':
     parser.add_argument("--use_pretrain", help='whether to use pretrained model', action='store_true')
     parser.add_argument("--use_adult_memory_pretrain", help='whether to use pretrained model 2', action='store_true')
     parser.add_argument("--main_lambda", help='main lambda for main loss', default=1.0, type=float)
+    parser.add_argument("--log_degree", help='whether to log degree', action='store_true')
 
     # data path -> added temporarily
     parser.add_argument("--vgg_folder", help='vgg folder directory', default='/home/nas1_userD/yonggyu/Face_dataset/vgg')

@@ -55,3 +55,59 @@ def gen_plot(fpr, tpr):
     buf.seek(0)
     plt.close()
     return buf
+
+# lfw_accuracy, lfw_thres, roc_curve_tensor2, lfw_dist = self.evaluate(conf, self.lfw, self.lfw_issame)
+# # NEGATIVE WRONG
+# wrong_list = np.where((self.lfw_issame == False) & (lfw_dist < lfw_thres))[0]
+# lfw_negative = len(wrong_list)
+# # POSITIVE WRONG
+# wrong_list = np.where((self.lfw_issame == True) & (lfw_dist > lfw_thres))[0]
+# lfw_positive = len(wrong_list)
+#
+# # FGNETC evaluation
+# fgnetc_accuracy, fgnetc_thres, roc_curve_tensor2, fgnetc_dist = self.evaluate(conf, self.fgnetc, self.fgnetc_issame)
+# # NEGATIVE WRONG
+# wrong_list = np.where((self.fgnetc_issame == False) & (fgnetc_dist < fgnetc_thres))[0]
+# fgnetc_negative = len(wrong_list)
+# # POSITIVE WRONG
+# wrong_list = np.where((self.fgnetc_issame == True) & (fgnetc_dist > fgnetc_thres))[0]
+# fgnetc_positive = len(wrong_list)
+# # self.board_val('fgent_c', accuracy2, best_threshold2, roc_curve_tensor2, fgnet_negative\, positive_wrong2)
+# print(f'fgnetc_acc: {fgnetc_accuracy}')
+#
+# if self.conf.wandb:
+#     wandb.log({
+#         "lfw_acc": lfw_accuracy,
+#         "lfw_best_threshold": lfw_thres,
+#         "lfw_negative_wrong": lfw_negative,
+#         "lfw_positive_wrong": lfw_positive,
+#
+#         "fgnet_c_acc": fgnetc_accuracy,
+#         "fgnet_c_best_threshold": fgnetc_thres,
+#         "fgnet_c_negative_wrong": fgnetc_negative,
+#         "fgnet_c_positive_wrong": fgnetc_positive,
+#     }, step=self.step)
+
+# if self.step % self.save_every == 0 and self.step != 0:
+#     print('saving model....')
+#     # save with most recently calculated accuracy?
+#     # if conf.finetune_model_path is not None:
+#     #     self.save_state(conf, accuracy2,
+#     #                     extra=str(conf.data_mode) + '_' + str(conf.net_depth) + '_' + str(
+#     #                         conf.batch_size) + 'finetune')
+#     # else:
+#     #     self.save_state(conf, accuracy2,extra=str(conf.data_mode) + '_' + str(conf.exp) + '_' + str(conf.batch_size))
+#     if self.conf.loss == 'Broad':
+#         if lfw_accuracy > best_accuracy:
+#             best_accuracy = lfw_accuracy
+#             print('saving best model....')
+#             self.save_best_state(conf, best_accuracy, extra=str(conf.data_mode) + '_' + str(conf.exp))
+#             if lfw_accuracy > 0.99:
+#                 import sys
+#                 sys.exit(0)
+#
+#     else:
+#         if fgnetc_accuracy > best_accuracy:
+#             best_accuracy = fgnetc_accuracy
+#             print('saving best model....')
+#             self.save_best_state(conf, best_accuracy, extra=str(conf.data_mode) + '_' + str(conf.exp))
