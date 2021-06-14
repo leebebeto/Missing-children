@@ -17,10 +17,12 @@ from PIL import Image
 import pandas as pd
 
 parser = argparse.ArgumentParser(description='for face verification')
-parser.add_argument("--net_mode", help="which network, [ir, ir_se, mobilefacenet]",default='ir_se', type=str)
+parser.add_argument("--net_mode", help="which network, [ir, ir_se, mobilefacenet]", default='ir_se', type=str)
 parser.add_argument("--net_depth", help="how many layers [50,100,152]", default=50, type=int)
 parser.add_argument("--drop_ratio", help="ratio of drop out", default=0.6, type=float)
-parser.add_argument("--model_path", help="evaluate model path", default='fgnetc_best_model_2021-06-01-12-15_accuracy:0.860_step:226000_casia_CASIA_POSITIVE_ZERO_05_MILE_3.pth', type=str)
+parser.add_argument("--model_path", help="evaluate model path",
+                    default='fgnetc_best_model_2021-06-01-12-15_accuracy:0.860_step:226000_casia_CASIA_POSITIVE_ZERO_05_MILE_3.pth',
+                    type=str)
 parser.add_argument("--device", help="device", default='cuda', type=str)
 parser.add_argument("--embedding_size", help='embedding_size', default=512, type=int)
 parser.add_argument("--wandb", help="whether to use wandb", action='store_true')
@@ -34,14 +36,20 @@ learner = face_learner(args, inference=True, load_head=True)
 save_path = '/home/nas1_temp/jooyeolyun/mia_params/baseline/'
 
 # learner.load_state(conf, 'ir_se50.pth', model_only=True, from_save_folder=True)
-model_path = os.path.join(save_path, 'fgnetc_best_model_2021-05-27-19-11_accuracy:0.842_step:119574_casia_arcface_baseline_64.pth')
-head_path = os.path.join(save_path, 'fgnetc_best_head_2021-05-27-19-11_accuracy:0.842_step:119574_casia_arcface_baseline_64.pth')
-learner.load_state(args, model_path = model_path, head_path=head_path)
+model_path = os.path.join(save_path,
+                          'fgnetc_best_model_2021-05-27-19-11_accuracy:0.842_step:119574_casia_arcface_baseline_64.pth')
+head_path = os.path.join(save_path,
+                         'fgnetc_best_head_2021-05-27-19-11_accuracy:0.842_step:119574_casia_arcface_baseline_64.pth')
+learner.load_state(args, model_path=model_path, head_path=head_path)
 learner.model.eval()
 
 age_file = open('./dataset/casia-webface.txt').readlines()
-id2age = {os.path.join(str(int(line.split(' ')[1].split('/')[1])), str(int(line.split(' ')[1].split('/')[2][:-4]))): float(line.split(' ')[2]) for line in age_file}
-child_image2age = {os.path.join(str(int(line.split(' ')[1].split('/')[1])), str(int(line.split(' ')[1].split('/')[2][:-4]))): float(line.split(' ')[2]) for line in age_file if float(line.split(' ')[2]) < 13}
+id2age = {
+    os.path.join(str(int(line.split(' ')[1].split('/')[1])), str(int(line.split(' ')[1].split('/')[2][:-4]))): float(
+        line.split(' ')[2]) for line in age_file}
+child_image2age = {
+    os.path.join(str(int(line.split(' ')[1].split('/')[1])), str(int(line.split(' ')[1].split('/')[2][:-4]))): float(
+        line.split(' ')[2]) for line in age_file if float(line.split(' ')[2]) < 13}
 child_image2freq = {id.split('/')[0]: 0 for id in child_image2age.keys()}
 for k, v in child_image2age.items():
     child_image2freq[k.split('/')[0]] += 1
@@ -65,6 +73,8 @@ def l2_norm(input,axis=1):
     norm = torch.norm(input,2,axis,True)
     output = torch.div(input, norm)
     return output
+
+
 train_transform = transforms.Compose([
     transforms.RandomHorizontalFlip(),
     transforms.ToTensor(),
@@ -250,9 +260,21 @@ for idx, cls in enumerate(adult_identity):
         # kernel_norm = l2_norm(kernel,axis=0)
         # cos_theta = torch.mm(embedding, kernel_norm)
         # cos_theta = cos_theta.clamp(-1,1)
-    # adult_theta = torch.abs(torch.rad2deg(torch.arccos(cos_theta[:, cls])))
-    euc_mean = torch.mean(embedding, dim=0)
-    adult_means.append(torch.div(euc_mean, torch.norm(euc_mean, keepdim=True)))
+        # adult_theta = torch.abs(torch.rad2deg(torch.arccos(cos_theta[:, cls])))
+        euc_mean = torch.mean(embedding, dim=0)
+        adult_means.append(torch.div(euc_mean, torch.norm(euc_mean, keepdim=True)))
+
+    if idx == 50:
+        break
+
+import pdb;
+
+pdb.set_trace()
+with torch.no_grad():
+    print('total of {} ids selected'.format(len(child_means)))
+    matrix_size = len(child_means) ** 2
+    child_means = torch.stack(child_means)
+    adult_means = torch.stack(adult_means)
 
     if idx > fin-1:
         break
@@ -263,8 +285,10 @@ matrix_size = len(child_means)**2
 child_means = torch.stack(child_means)
 adult_means = torch.stack(adult_means)
 
-inter_child_sim = torch.mm(child_means, child_means.T).fill_diagonal_(0)
-inter_adult_sim = torch.mm(adult_means, adult_means.T).fill_diagonal_(0)
+    # torch.set_printoptions(precision= 2, threshold=100000,linewidth=1000)
+    # print(inter_child_sim)
+    # print('---------------------------------------------------------------------')
+    # print(inter_adult_sim)
 
 
 inter_child_sum = torch.sum(inter_child_sim)/(matrix_size-len(child_means))
