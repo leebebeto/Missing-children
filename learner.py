@@ -99,7 +99,7 @@ class face_learner(object):
 
             for e in range(self.epoch):
                 if conf.lambda_mode == 'normal':
-                    child_lambda = 0.0 if (e == 0) or (e in self.milestones) else 1.0
+                    child_lambda = 0.0 if (e == 0) or (e in self.milestones) else self.conf.lambda_child * 1.0
                 elif conf.lambda_mode == 'zero':
                     child_lambda = 0.0 if (e == 0) or (e >= self.milestones[0]) else self.conf.lambda_child * 1.0
                 elif conf.lambda_mode == 'anneal9':
@@ -384,7 +384,10 @@ class face_learner(object):
                 imgs = torch.cat((img_1, img_2), dim=0)
 
                 # Extract feature and save
-                features = net(imgs)
+                if self.conf.loss == 'DAL':
+                    features = net(imgs, emb=True)
+                else:
+                    features = net(imgs)
                 similarities.append(cos_dist(features[0], features[1]).cpu())
                 label = int(label_list[idx])
                 labels.append(label)
@@ -787,7 +790,7 @@ class face_learner(object):
         if conf.wandb:
             wandb.finish()
     # training with memory bank
-    def train_memory(self, conf, epochs):
+    def train_prototype(self, conf, epochs):
         '''
         Train function for original vgg dataset
         XXX: Need to make a new funtion train_age_invariant(conf, epochs)
@@ -805,6 +808,7 @@ class face_learner(object):
         mixup_loss = torch.tensor(0.0)
         self.child_labels = torch.tensor(self.child_identity).cuda()
         fgnetc_best_acc = 0.0
+        criterion_prototype = nn.L1Loss()
         print(f'total epoch: {self.epoch}')
         for e in range(self.epoch):
             print('epoch {} started'.format(e))
@@ -824,37 +828,17 @@ class face_learner(object):
                 thetas = self.head(embeddings, labels, ages)
                 arcface_loss = ce_loss(thetas, labels)
 
-                if conf.lambda_mode == 'normal':
-                    child_lambda = 0.0 if (e == 0) or (e in self.milestones) else 1.0
-                elif conf.lambda_mode == 'zero':
-                    child_lambda = 0.0 if (e == 0) or (e >= self.milestones[0]) else self.conf.lambda_child * 1.0
-                elif conf.lambda_mode == 'anneal9':
-                    if (e == 0) or (e in self.milestones):
-                        child_lambda = 0.0
-                    elif e >= self.milestones[0]:
-                        child_lambda = conf.lambda_child * 0.9 ** (e - self.milestones[0])
-                    else:
-                        child_lambda = 1
-                elif conf.lambda_mode == 'anneal8':
-                    if (e == 0) or (e in self.milestones):
-                        child_lambda = 0.0
-                    elif e >= self.milestones[0]:
-                        child_lambda = conf.lambda_child * 0.8 ** (e - self.milestones[0])
-                    else:
-                        child_lambda = 1
+                # new prototype method
+                child_lambda = self.conf.lambda_child * 1
 
-                # child_lambda=1.0
-                with torch.no_grad():
-                    if len(child_idx) > 0:
-                        if (e == 0) or (e in self.milestones):
-                            self.child_memory[labels[child_idx]] = embeddings[child_idx].detach().clone()
-                        else:
-                            self.child_memory[labels[child_idx]] = (1-self.alpha) * embeddings[child_idx].detach().clone() + self.alpha * self.child_memory[child_idx].detach().clone()
-                # ''' module for positive pair -> child memory bank '''
-                child_embeddings = self.child_memory[self.child_labels]
-                child_thetas = self.head(child_embeddings, self.child_labels)
-                child_loss = ce_loss(child_thetas, self.child_labels)
+                # self.head.kernel = (512, 10572)
+                prototype_matrix = torch.mm(self.head.kernel.T, self.head.kernel)
+                prototype_matrix = prototype_matrix[:, self.child_identity]
+                prototype_matrix = prototype_matrix[self.child_identity, :]
+                prototype_label = torch.eye(prototype_matrix.shape[0]).to(conf.device)
+                child_loss = criterion_prototype(prototype_matrix, prototype_label)
                 child_total_loss = child_lambda * child_loss
+
                 loss = arcface_loss + child_total_loss
                 loss.backward()
                 running_loss += loss.item()
@@ -921,77 +905,20 @@ class face_learner(object):
                     running_mixup_loss = 0.0
                     running_mixup_total_loss = 0.0
 
-                if self.step % self.evaluate_every == 0 and self.step != 0:
+                if e >= self.milestones[1] and self.step % self.evaluate_every == 0 and self.step != 0:
+                    self.model.eval()
+                    self.evaluate_new_total()
                     print('evaluating....')
-                    # # LFW evaluation
-                    # accuracy, best_threshold, roc_curve_tensor, dist = self.evaluate(conf, self.lfw, self.lfw_issame)
-                    # # NEGATIVE WRONG
-                    # wrong_list = np.where((self.lfw_issame == False) & (dist < best_threshold))[0]
-                    # negative_wrong = len(wrong_list)
-                    # # POSITIVE WRONG
-                    # wrong_list = np.where((self.lfw_issame == True) & (dist > best_threshold))[0]
-                    # positive_wrong = len(wrong_list)
-                    # self.board_val('lfw', accuracy, best_threshold, roc_curve_tensor, negative_wrong, positive_wrong)
-                    # # FGNETC evaluation
-                    # accuracy2, best_threshold2, roc_curve_tensor2, dist2 = self.evaluate(conf, self.fgnetc,
-                    #                                                                      self.fgnetc_issame)
-                    # # NEGATIVE WRONG
-                    # wrong_list = np.where((self.fgnetc_issame == False) & (dist2 < best_threshold2))[0]
-                    # negative_wrong2 = len(wrong_list)
-                    # # POSITIVE WRONG
-                    # wrong_list = np.where((self.fgnetc_issame == True) & (dist2 > best_threshold2))[0]
-                    # positive_wrong2 = len(wrong_list)
-                    # self.board_val('fgent_c', accuracy2, best_threshold2, roc_curve_tensor2, negative_wrong2,
-                    #                positive_wrong2)
-
-                    # FGNETC evaluation
-                    fgnetc_accuracy, fgnetc_thres, roc_curve_tensor2, fgnetc_dist = self.evaluate(conf, self.fgnetc,
-                                                                                                  self.fgnetc_issame)
-                    # NEGATIVE WRONG
-                    wrong_list = np.where((self.fgnetc_issame == False) & (fgnetc_dist < fgnetc_thres))[0]
-                    fgnetc_negative = len(wrong_list)
-                    # POSITIVE WRONG
-                    wrong_list = np.where((self.fgnetc_issame == True) & (fgnetc_dist > fgnetc_thres))[0]
-                    fgnetc_positive = len(wrong_list)
-                    print(f'fgnetc_acc: {fgnetc_accuracy}')
-
-                    if fgnetc_accuracy > fgnetc_best_acc:
-                        fgnetc_best_acc = fgnetc_accuracy
-
-                    if self.conf.wandb:
-                        wandb.log({
-                            "fgnet_c_best_acc": fgnetc_best_acc,
-                            "fgnet_c_acc": fgnetc_accuracy,
-                            "fgnet_c_best_threshold": fgnetc_thres,
-                            "fgnet_c_negative_wrong": fgnetc_negative,
-                            "fgnet_c_positive_wrong": fgnetc_positive,
-                        }, step=self.step)
-
                     self.model.train()
 
-                    if self.step % self.save_every == 0 and self.step != 0:
-                        print('saving model....')
-                        # save with most recently calculated accuracy?
-                        # if conf.finetune_model_path is not None:
-                        #     self.save_state(conf, accuracy2,
-                        #                     extra=str(conf.data_mode) + '_' + str(conf.net_depth) + '_' + str(
-                        #                         conf.batch_size) + 'finetune')
-                        # else:
-                        #     self.save_state(conf, accuracy2,extra=str(conf.data_mode) + '_' + str(conf.exp) + '_' + str(conf.batch_size))
+                elif e < self.milestones[1] and self.step % self.evaluate_every == 0 and self.step != 0:
+                    self.model.eval()
+                    self.evaluate_new()
+                    print('evaluating....')
+                    self.model.train()
 
-                        if fgnetc_accuracy > best_accuracy:
-                            best_accuracy = fgnetc_accuracy
-                            print('saving best model....')
-                            self.save_best_state(conf, best_accuracy, extra=str(conf.data_mode) + '_' + str(conf.exp))
                 self.step += 1
-        if conf.finetune_model_path is not None:
-            self.save_state(conf, accuracy, to_save_folder=True,
-                            extra=str(conf.data_mode) + '_' + str(conf.net_depth) + '_' + str(
-                                conf.batch_size) + '_finetune')
-        else:
-            self.save_state(conf, accuracy, to_save_folder=True,
-                            extra=str(conf.data_mode) + '_' + str(conf.net_depth) + '_' + str(
-                                conf.batch_size) + '_final')
+
     # training with memory bank
     def train_adult_memory(self, conf, epochs):
         '''
@@ -1037,7 +964,7 @@ class face_learner(object):
                 arcface_loss = ce_loss(thetas, labels)
 
                 if conf.lambda_mode == 'normal':
-                    child_lambda = 0.0 if (e == 0) or (e in self.milestones) else 1.0
+                    child_lambda = 0.0 if (e == 0) or (e in self.milestones) else self.conf.lambda_child * 1.0
                 elif conf.lambda_mode == 'zero':
                     child_lambda = 0.0 if (e == 0) or (e >= self.milestones[0]) else self.conf.lambda_child * 1.0
                 elif conf.lambda_mode == 'anneal9':
