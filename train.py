@@ -52,6 +52,7 @@ if __name__ == '__main__':
     parser.add_argument("--use_adult_memory_pretrain", help='whether to use pretrained model 2', action='store_true')
     parser.add_argument("--main_lambda", help='main lambda for main loss', default=1.0, type=float)
     parser.add_argument("--log_degree", help='whether to log degree', action='store_true')
+    parser.add_argument("--use_prototype", help='whether to use prototype', action='store_true')
 
     # data path -> added temporarily
     parser.add_argument("--vgg_folder", help='vgg folder directory', default='/home/nas1_userD/yonggyu/Face_dataset/vgg')
@@ -114,9 +115,9 @@ if __name__ == '__main__':
         sys.exit(0)
 
     # actual training
-    if args.use_memory: # our memory bank method
-        print('using memory bank...')
-        learner.train_memory(args, args.epochs)
+    if args.use_prototype: # our memory bank method
+        print('using prototype ...')
+        learner.train_prototype(args, args.epochs)
     elif args.loss == 'DAL':
         learner.train_dal(args, args.epochs)
     elif args.loss == 'OECNN':
