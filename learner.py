@@ -421,8 +421,8 @@ class face_learner(object):
         trans_list += [transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))]
         t = transforms.Compose(trans_list)
 
-        txt_root = '/home/nas1_userE/jungsoolee/Face_dataset/txt_files'
-
+        # txt_root = '/home/nas1_userE/jungsoolee/Face_dataset/txt_files'
+        txt_root = './dataset/txt_files_sh'
         txt_dir = 'fgnet10_child.txt'
         print(f'working on : {txt_dir}')
         pair_list, label_list = self.control_text_list(txt_root, txt_dir)
@@ -803,12 +803,16 @@ class face_learner(object):
         ce_loss = nn.CrossEntropyLoss()
         # initialize memory bank
         # reversed shape to use like dictionary
-        self.child_memory = nn.Parameter(torch.Tensor(self.class_num, conf.embedding_size)).to(conf.device)
         child_loss = 0.0
         mixup_loss = torch.tensor(0.0)
         self.child_labels = torch.tensor(self.child_identity).cuda()
         fgnetc_best_acc = 0.0
-        criterion_prototype = nn.L1Loss()
+        if conf.prototype_loss == 'MSE':
+            criterion_prototype = nn.MSELoss()
+        elif conf.prototype_loss == 'CE':
+            criterion_prototype = nn.CrossEntropyLoss()
+        else:
+            criterion_prototype = nn.L1Loss()
         print(f'total epoch: {self.epoch}')
         for e in range(self.epoch):
             print('epoch {} started'.format(e))
@@ -829,13 +833,22 @@ class face_learner(object):
                 arcface_loss = ce_loss(thetas, labels)
 
                 # new prototype method
-                child_lambda = self.conf.lambda_child * 1
+                if self.conf.prototype_mode == 'all':
+                    child_lambda = self.conf.lambda_child * 1
+                elif self.conf.prototype_mode == 'zero':
+                    child_lambda = 0.0 if e > self.milestones[0] else self.conf.lambda_child * 1.0
+                elif self.conf.prototype_mode == 'second':
+                    child_lambda = 1.0 if e > self.milestones[0] else self.conf.lambda_child * 0.0
 
                 # self.head.kernel = (512, 10572)
                 prototype_matrix = torch.mm(self.head.kernel.T, self.head.kernel)
                 prototype_matrix = prototype_matrix[:, self.child_identity]
                 prototype_matrix = prototype_matrix[self.child_identity, :]
-                prototype_label = torch.eye(prototype_matrix.shape[0]).to(conf.device)
+                if conf.prototype_loss == 'CE':
+                    prototype_label = torch.arange(prototype_matrix.shape[0]).to(conf.device)
+                else:
+                    prototype_label = torch.eye(prototype_matrix.shape[0]).to(conf.device)
+
                 child_loss = criterion_prototype(prototype_matrix, prototype_label)
                 child_total_loss = child_lambda * child_loss
 
@@ -860,12 +873,20 @@ class face_learner(object):
                 del imgs, labels, thetas, arcface_loss
                 del child_idx, ages
 
+                if self.conf.log_degree:
+                    child_thetas = self.head.forward_arccos(child_embeddings, self.child_labels)
+                    adult_thetas = self.head.forward_arccos(adult_embeddings, self.child_labels)
+                    running_child_degree = running_child_degree + torch.rad2deg(child_thetas)
+                    running_adult_degree = running_adult_degree + torch.rad2deg(adult_thetas)
+                    running_child_degree = running_child_degree.mean()
+                    running_adult_degree = running_adult_degree.mean()
+
                 if self.step % self.board_loss_every == 0 and self.step != 0:  # XXX
                     # print('tensorboard plotting....')
                     # print('wandb plotting....')
                     loss_board = running_loss / self.board_loss_every
-
                     arcface_loss_board = running_arcface_loss / self.board_loss_every
+
                     # self.writer.add_scalar('train_loss', loss_board, self.step)
                     # self.writer.add_scalar('arcface_loss', arcface_loss_board, self.step)
 
@@ -874,6 +895,16 @@ class face_learner(object):
                             "train_loss": loss_board,
                             "arcface_total_loss": arcface_loss_board,
                         }, step=self.step)
+
+                    if self.conf.log_degree:
+                        child_degree_board = running_child_degree / self.board_loss_every
+                        adult_degree_board = running_adult_degree / self.board_loss_every
+
+                        wandb.log({
+                            "child_degree_board": child_degree_board,
+                            "adult_degree_board": adult_degree_board,
+                        }, step=self.step)
+
                     child_loss_board = running_child_loss / self.board_loss_every
                     child_total_loss_board = running_child_total_loss / self.board_loss_every
 
@@ -904,6 +935,8 @@ class face_learner(object):
                     running_child_total_loss = 0.0
                     running_mixup_loss = 0.0
                     running_mixup_total_loss = 0.0
+                    running_child_degree, running_adult_degree = torch.zeros(self.child_labels.size()).to(
+                        self.conf.device), torch.zeros(self.child_labels.size()).to(self.conf.device)
 
                 if e >= self.milestones[1] and self.step % self.evaluate_every == 0 and self.step != 0:
                     self.model.eval()
@@ -916,7 +949,6 @@ class face_learner(object):
                     self.evaluate_new()
                     print('evaluating....')
                     self.model.train()
-
                 self.step += 1
 
     # training with memory bank
