@@ -57,7 +57,7 @@ class face_learner(object):
             wandb.run.name = conf.exp
 
         if not inference:
-            self.alpha = conf.alpha
+            # self.alpha = conf.alpha
             # self.milestones = [6, 11, 16]
             # self.milestones = [8, 16, 24] # Ours 30 naive
             # self.milestones = [9, 15, 21]
@@ -97,27 +97,27 @@ class face_learner(object):
             print(f'curr milestones: {self.milestones}')
             print(f'total epochs: {self.epoch}')
 
-            for e in range(self.epoch):
-                if conf.lambda_mode == 'normal':
-                    child_lambda = 0.0 if (e == 0) or (e in self.milestones) else self.conf.lambda_child * 1.0
-                elif conf.lambda_mode == 'zero':
-                    child_lambda = 0.0 if (e == 0) or (e >= self.milestones[0]) else self.conf.lambda_child * 1.0
-                elif conf.lambda_mode == 'anneal9':
-                    if (e == 0) or (e in self.milestones):
-                        child_lambda = 0.0
-                    elif e >= self.milestones[0]:
-                        child_lambda = conf.lambda_child * 0.9 ** (e-self.milestones[0])
-                    else:
-                        child_lambda = 1
-
-                elif conf.lambda_mode == 'anneal8':
-                    if (e == 0) or (e in self.milestones):
-                        child_lambda = 0.0
-                    elif e >= self.milestones[0]:
-                        child_lambda = conf.lambda_child * 0.8 ** (e-self.milestones[0])
-                    else:
-                        child_lambda = 1
-                print(f'e: {e} / child_lambda: {child_lambda}')
+            # for e in range(self.epoch):
+            #     if conf.lambda_mode == 'normal':
+            #         child_lambda = 0.0 if (e == 0) or (e in self.milestones) else self.conf.lambda_child * 1.0
+            #     elif conf.lambda_mode == 'zero':
+            #         child_lambda = 0.0 if (e == 0) or (e >= self.milestones[0]) else self.conf.lambda_child * 1.0
+            #     elif conf.lambda_mode == 'anneal9':
+            #         if (e == 0) or (e in self.milestones):
+            #             child_lambda = 0.0
+            #         elif e >= self.milestones[0]:
+            #             child_lambda = conf.lambda_child * 0.9 ** (e-self.milestones[0])
+            #         else:
+            #             child_lambda = 1
+            #
+            #     elif conf.lambda_mode == 'anneal8':
+            #         if (e == 0) or (e in self.milestones):
+            #             child_lambda = 0.0
+            #         elif e >= self.milestones[0]:
+            #             child_lambda = conf.lambda_child * 0.8 ** (e-self.milestones[0])
+            #         else:
+            #             child_lambda = 1
+            #     print(f'e: {e} / child_lambda: {child_lambda}')
 
             self.loader, self.class_num, self.ds, self.child_identity, self.child_identity_min, self.child_identity_max = get_train_loader(conf)
             self.log_path = os.path.join(conf.log_path, conf.data_mode, conf.exp)
@@ -954,698 +954,697 @@ class face_learner(object):
                 self.step += 1
 
     # training with memory bank
-    def train_adult_memory(self, conf, epochs):
-        '''
-        Train function for original vgg dataset
-        XXX: Need to make a new funtion train_age_invariant(conf, epochs)
-        '''
-        self.model.train()
-        running_loss = 0.
-        running_arcface_loss, running_child_loss, running_child_total_loss = 0.0, 0.0, 0.0
-        running_mixup_loss, running_mixup_total_loss = 0.0, 0.0
-        best_accuracy = 0.0
-        ce_loss = nn.CrossEntropyLoss()
-        l1_loss = nn.L1Loss()
-        # initialize memory bank
-        # reversed shape to use like dictionary
-        self.child_memory = nn.Parameter(torch.Tensor(self.class_num, conf.embedding_size)).to(conf.device)
-        self.adult_memory = nn.Parameter(torch.Tensor(self.class_num, conf.embedding_size)).to(conf.device)
-        child_loss = 0.0
-        mixup_loss = torch.tensor(0.0)
-        self.child_labels = torch.tensor(self.child_identity).cuda()
-        self.adult_labels = torch.zeros(self.class_num).cuda()
-        self.adult_labels[self.child_labels] = 1
-        fgnetc_best_acc = 0.0
-        running_child_degree, running_adult_degree = torch.zeros(self.child_labels.size()).to(self.conf.device), torch.zeros(self.child_labels.size()).to(self.conf.device)
-        print(f'total epoch: {self.epoch}')
-        for e in range(self.epoch):
-            print('epoch {} started'.format(e))
-            if e in self.milestones:
-                self.schedule_lr()
-            for imgs, labels, ages in tqdm(iter(self.loader)):
-                # for imgs, labels in tqdm(iter(self.loader)):
-                self.optimizer1.zero_grad()
-                self.optimizer2.zero_grad()
-                imgs = imgs.to(conf.device)
-                labels = labels.to(conf.device)
-
-                child_idx = torch.where(ages == 0)[0]
-                adult_flag = torch.index_select(self.adult_labels, 0, labels)
-                adult_idx = labels[torch.where(adult_flag ==True)]
-                embeddings = self.model(imgs)
-                # thetas = self.head(embeddings, labels)
-                thetas = self.head(embeddings, labels, ages)
-                arcface_loss = ce_loss(thetas, labels)
-
-                if conf.lambda_mode == 'normal':
-                    child_lambda = 0.0 if (e == 0) or (e in self.milestones) else self.conf.lambda_child * 1.0
-                elif conf.lambda_mode == 'zero':
-                    child_lambda = 0.0 if (e == 0) or (e >= self.milestones[0]) else self.conf.lambda_child * 1.0
-                elif conf.lambda_mode == 'anneal9':
-                    if (e == 0) or (e in self.milestones):
-                        child_lambda = 0.0
-                    elif e >= self.milestones[0]:
-                        child_lambda = conf.lambda_child * 0.9 ** (e - self.milestones[0])
-                    else:
-                        child_lambda = 1
-                elif conf.lambda_mode == 'anneal8':
-                    if (e == 0) or (e in self.milestones):
-                        child_lambda = 0.0
-                    elif e >= self.milestones[0]:
-                        child_lambda = conf.lambda_child * 0.8 ** (e - self.milestones[0])
-                    else:
-                        child_lambda = 1
-
-                # child_lambda=1.0
-                with torch.no_grad():
-                    if len(child_idx) > 0:
-                        if (e == 0) or (e in self.milestones):
-                            self.child_memory[labels[child_idx]] = embeddings[child_idx].detach().clone()
-                        else:
-                            update_vector = (1-self.alpha) * embeddings[child_idx].detach().clone() + self.alpha * self.child_memory[child_idx].detach().clone()
-                            update_vector = torch.div(update_vector, torch.norm(update_vector, keepdim=True))
-                            self.child_memory[labels[child_idx]] = update_vector
-
-                with torch.no_grad():
-                    if len(adult_idx) > 0:
-                        if (e == 0) or (e in self.milestones):
-                            self.adult_memory[adult_idx] = embeddings[torch.where(adult_flag ==True)].detach().clone()
-                        else:
-                            update_vector = (1-self.alpha) * embeddings[torch.where(adult_flag ==True)].detach().clone() + self.alpha * self.child_memory[adult_idx].detach().clone()
-                            update_vector = torch.div(update_vector, torch.norm(update_vector, keepdim=True))
-                            self.adult_memory[adult_idx] = update_vector
-
-                # ''' module for positive pair -> child memory bank '''
-                child_embeddings = self.child_memory[self.child_labels]
-                adult_embeddings = self.adult_memory[self.child_labels]
-
-                if self.conf.original_positive:
-                    child_loss = self.head.forward_original_positive(child_embeddings, adult_embeddings, self.child_labels)
-                elif self.conf.feature_level:
-                    child_loss = l1_loss(l2_norm(child_embeddings), l2_norm(adult_embeddings))
-                elif self.conf.positive_zero:
-                    child_thetas = self.head(child_embeddings, self.child_labels)
-                    negative_thetas = child_thetas.clone()
-                    negative_thetas[torch.arange(negative_thetas.shape[0]), self.child_labels] = 0
-                    negative_thetas = torch.index_select(negative_thetas, 1, self.child_labels).sum(dim=1)
-                    # negative_thetas = negative_thetas / (negative_thetas.shape[0] - 1)
-                    positive_thetas = child_thetas[torch.arange(negative_thetas.shape[0]), self.child_labels]
-
-                    positive_loss = l1_loss(positive_thetas, torch.ones(positive_thetas.size()).to(conf.device))
-                    negative_loss = l1_loss(negative_thetas, torch.zeros(negative_thetas.size()).to(conf.device))
-                    child_loss = self.conf.positive_lambda * positive_loss + self.conf.negative_lambda * negative_loss
-                elif self.conf.positive_ce:
-                    child_thetas = self.head.forward_margin(child_embeddings, self.child_labels, self.conf.child_margin)
-                    child_thetas = child_thetas[:, self.child_labels]
-                    child_loss = ce_loss(child_thetas, torch.arange(child_thetas.shape[0]).to(self.conf.device))
-                elif self.conf.use_arccos:
-                    child_thetas = self.head.forward_arccos(child_embeddings, self.child_labels)
-                    adult_thetas = self.head.forward_arccos(adult_embeddings, self.child_labels)
-                    child_loss = l1_loss(child_thetas, adult_thetas)
-                elif self.conf.use_strange:
-                    child_thetas = self.head(child_embeddings, self.child_labels)
-                    adult_thetas = self.head(adult_embeddings, self.child_labels)
-                    child_thetas = torch.index_select(child_thetas, 1, self.child_labels).sum(dim=1)
-                    adult_thetas = torch.index_select(adult_thetas, 1, self.child_labels).sum(dim=1)
-                    if self.conf.positive_zero:
-                        child_loss = l1_loss(child_thetas, torch.zeros(child_thetas.size()).to(conf.device))
-                else:
-                    child_thetas = self.head(child_embeddings, self.child_labels)
-                    adult_thetas = self.head(adult_embeddings, self.child_labels)
-                    child_thetas = torch.index_select(child_thetas, 1, self.child_labels).sum(dim=1)
-                    adult_thetas = torch.index_select(adult_thetas, 1, self.child_labels).sum(dim=1)
-                    child_loss = l1_loss(child_thetas, adult_thetas)
-
-                child_total_loss = child_lambda * child_loss
-                loss = self.conf.main_lambda * arcface_loss + child_total_loss
-                loss.backward()
-                running_loss += loss.item()
-
-
-                running_arcface_loss += arcface_loss.item()
-                # if 'POSITIVE' in conf.exp:
-                running_child_loss += child_loss.item()
-                running_child_total_loss += child_total_loss.item()
-
-                if 'MIXUP' in conf.exp:
-                    running_mixup_loss += mixup_loss.item()
-                    running_mixup_total_loss += mixup_total_loss.item()
-
-                self.optimizer1.step()
-                self.optimizer2.step()
-
-                del embeddings
-                # del child_embeddings, child_labels, child_thetas
-                del imgs, labels, thetas, arcface_loss
-                del child_idx, ages
-
-                if self.conf.log_degree:
-                    child_thetas = self.head.forward_arccos(child_embeddings, self.child_labels)
-                    adult_thetas = self.head.forward_arccos(adult_embeddings, self.child_labels)
-                    running_child_degree = running_child_degree + torch.rad2deg(child_thetas)
-                    running_adult_degree = running_adult_degree + torch.rad2deg(adult_thetas)
-                    running_child_degree = running_child_degree.mean()
-                    running_adult_degree = running_adult_degree.mean()
-
-
-                if self.step % self.board_loss_every == 0 and self.step != 0:  # XXX
-                    # print('tensorboard plotting....')
-                    # print('wandb plotting....')
-                    loss_board = running_loss / self.board_loss_every
-                    arcface_loss_board = running_arcface_loss / self.board_loss_every
-
-
-                    # self.writer.add_scalar('train_loss', loss_board, self.step)
-                    # self.writer.add_scalar('arcface_loss', arcface_loss_board, self.step)
-
-                    if self.conf.wandb:
-                        wandb.log({
-                            "train_loss": loss_board,
-                            "arcface_total_loss": arcface_loss_board,
-                        }, step=self.step)
-
-                    if self.conf.log_degree:
-                        child_degree_board = running_child_degree / self.board_loss_every
-                        adult_degree_board = running_adult_degree / self.board_loss_every
-
-                        wandb.log({
-                            "child_degree_board": child_degree_board,
-                            "adult_degree_board": adult_degree_board,
-                        }, step=self.step)
-
-                    child_loss_board = running_child_loss / self.board_loss_every
-                    child_total_loss_board = running_child_total_loss / self.board_loss_every
-
-                    if self.conf.wandb:
-                        wandb.log({
-                            "child_loss": child_loss_board,
-                            "child_total_loss": child_total_loss_board,
-                            "child_lambda": child_lambda,
-                        }, step=self.step)
-
-                        # self.writer.add_scalar('child_loss', child_loss_board, self.step)
-                        # self.writer.add_scalar('child_total_loss', child_total_loss_board, self.step)
-                    if 'MIXUP' in conf.exp:
-                        mixup_loss_board = running_mixup_loss / self.board_loss_every
-                        mixup_total_loss_board = running_mixup_total_loss / self.board_loss_every
-                        if self.conf.wandb:
-                            wandb.log({
-                                "mixup_loss": mixup_loss_board,
-                                "mixup_total_loss": mixup_total_loss_board,
-                            }, step=self.step)
-
-                        # self.writer.add_scalar('mixup_loss', mixup_loss_board, self.step)
-                        # self.writer.add_scalar('mixup_total_loss', mixup_total_loss_board, self.step)
-
-                    running_loss = 0.
-                    running_arcface_loss = 0.0
-                    running_child_loss = 0.0
-                    running_child_total_loss = 0.0
-                    running_mixup_loss = 0.0
-                    running_mixup_total_loss = 0.0
-                    running_child_degree, running_adult_degree = torch.zeros(self.child_labels.size()).to(self.conf.device), torch.zeros(self.child_labels.size()).to(self.conf.device)
-
-                if e >= self.milestones[1] and self.step % self.evaluate_every == 0 and self.step != 0:
-                    self.model.eval()
-                    self.evaluate_new_total()
-                    print('evaluating....')
-                    self.model.train()
-
-                elif e < self.milestones[1] and self.step % self.evaluate_every == 0 and self.step != 0:
-                    self.model.eval()
-                    self.evaluate_new()
-                    print('evaluating....')
-                    self.model.train()
-                self.step += 1
-        if conf.finetune_model_path is not None:
-            self.save_state(conf, accuracy, to_save_folder=True,
-                            extra=str(conf.data_mode) + '_' + str(conf.net_depth) + '_' + str(
-                                conf.batch_size) + '_finetune')
-        else:
-            self.save_state(conf, accuracy, to_save_folder=True,
-                            extra=str(conf.data_mode) + '_' + str(conf.net_depth) + '_' + str(
-                                conf.batch_size) + '_final')
-
-    def train_adult_memory_pretrain(self, conf, epochs):
-        '''
-        Train function for original vgg dataset
-        XXX: Need to make a new funtion train_age_invariant(conf, epochs)
-        '''
-        self.model.train()
-        running_loss = 0.
-        running_arcface_loss, running_child_loss, running_child_total_loss = 0.0, 0.0, 0.0
-        running_mixup_loss, running_mixup_total_loss = 0.0, 0.0
-        best_accuracy = 0.0
-        ce_loss = nn.CrossEntropyLoss()
-        l1_loss = nn.L1Loss()
-        # initialize memory bank
-        # reversed shape to use like dictionary
-        # self.child_memory = torch.zeros(torch.Tensor(self.class_num, conf.embedding_size)).to(conf.device)
-        # self.adult_memory = torch.zeros(torch.Tensor(self.class_num, conf.embedding_size)).to(conf.device)
-
-        self.child_memory = torch.zeros(self.class_num, conf.embedding_size).to(conf.device)
-        self.adult_memory = torch.zeros(self.class_num, conf.embedding_size).to(conf.device)
-        child_loss = 0.0
-        mixup_loss = torch.tensor(0.0)
-        self.child_labels = torch.tensor(self.child_identity).cuda()
-        self.adult_labels = torch.zeros(self.class_num).cuda()
-        self.adult_labels[self.child_labels] = 1
-        fgnetc_best_acc = 0.0
-        running_child_degree, running_adult_degree = torch.zeros(self.child_labels.size()).to(self.conf.device), torch.zeros(self.child_labels.size()).to(self.conf.device)
-        print(f'total epoch: {self.epoch}')
-
-        child_image_path_temp = list(self.ds.child_image2age.keys())
-        child_image_path_temp = [path for path in child_image_path_temp if int(path.split('/')[0]) in self.ds.child_identity]
-        labels, batch = [], []
-
-        train_transform = transforms.Compose([
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-            transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
-        ])
-
-        for image_path in child_image_path_temp:
-            child_image_path = glob.glob(os.path.join('./dataset/CASIA_112', image_path + '*.jpg'))[0]
-            img = Image.open(child_image_path)
-            img = train_transform(img)
-            label = int(child_image_path.split('/')[-2])
-            batch.append(img)
-            labels.append(label)
-
-        batch = torch.stack(batch)
-        labels = torch.tensor(labels)
-        labels = labels.long()
-
-        for i in range(0, batch.shape[0], 64):
-            print(i)
-            if batch.shape[0] - i > 64:
-                imgs = batch[i: i+ 64]
-                curr_labels = labels[i: i+64]
-            else:
-                imgs = batch[i:]
-                curr_labels = labels[i:]
-
-            imgs = imgs.to(conf.device)
-            curr_labels = curr_labels.to(conf.device)
-            with torch.no_grad():
-                embeddings = self.model(imgs)
-                self.child_memory[curr_labels] = embeddings[torch.arange(curr_labels.shape[0])].detach().clone()
-
-        for e in range(self.epoch):
-            print('epoch {} started'.format(e))
-            if e in self.milestones:
-                self.schedule_lr()
-            for imgs, labels, ages in tqdm(iter(self.loader)):
-                # for imgs, labels in tqdm(iter(self.loader)):
-                self.optimizer1.zero_grad()
-                self.optimizer2.zero_grad()
-                imgs = imgs.to(conf.device)
-                labels = labels.to(conf.device)
-
-                child_idx = torch.where(ages == 0)[0]
-                adult_flag = torch.index_select(self.adult_labels, 0, labels)
-                adult_idx = labels[torch.where(adult_flag ==True)]
-
-                embeddings = self.model(imgs)
-                # thetas = self.head(embeddings, labels)
-                thetas = self.head(embeddings, labels, ages)
-                arcface_loss = ce_loss(thetas, labels)
-
-
-                child_lambda = 1.0
-                # if conf.lambda_mode == 'normal':
-                #     child_lambda = 0.0 if (e == 0) or (e in self.milestones) else 1.0
-                # elif conf.lambda_mode == 'zero':
-                #     child_lambda = 0.0 if (e == 0) or (e >= self.milestones[0]) else self.conf.lambda_child * 1.0
-                # elif conf.lambda_mode == 'anneal9':
-                #     if (e == 0) or (e in self.milestones):
-                #         child_lambda = 0.0
-                #     elif e >= self.milestones[0]:
-                #         child_lambda = conf.lambda_child * 0.9 ** (e - self.milestones[0])
-                #     else:
-                #         child_lambda = 1
-                # elif conf.lambda_mode == 'anneal8':
-                #     if (e == 0) or (e in self.milestones):
-                #         child_lambda = 0.0
-                #     elif e >= self.milestones[0]:
-                #         child_lambda = conf.lambda_child * 0.8 ** (e - self.milestones[0])
-                #     else:
-                #         child_lambda = 1
-
-                # child_lambda=1.0
-                with torch.no_grad():
-                    if len(child_idx) > 0:
-                        if (e == 0) or (e in self.milestones):
-                            self.child_memory[labels[child_idx]] = embeddings[child_idx].detach().clone()
-                        else:
-                            update_vector = (1-self.alpha) * embeddings[child_idx].detach().clone() + self.alpha * self.child_memory[child_idx].detach().clone()
-                            update_vector = torch.div(update_vector, torch.norm(update_vector, keepdim=True))
-                            self.child_memory[labels[child_idx]] = update_vector
-
-                with torch.no_grad():
-                    if len(adult_idx) > 0:
-                        if (e == 0) or (e in self.milestones):
-                            self.adult_memory[adult_idx] = embeddings[torch.where(adult_flag ==True)].detach().clone()
-                        else:
-                            update_vector = (1-self.alpha) * embeddings[torch.where(adult_flag ==True)].detach().clone() + self.alpha * self.child_memory[adult_idx].detach().clone()
-                            update_vector = torch.div(update_vector, torch.norm(update_vector, keepdim=True))
-                            self.adult_memory[adult_idx] = update_vector
-
-                # ''' module for positive pair -> child memory bank '''
-                child_embeddings = self.child_memory[self.child_labels]
-                adult_embeddings = self.adult_memory[self.child_labels]
-
-                if self.conf.original_positive:
-                    child_loss = self.head.forward_original_positive(child_embeddings, adult_embeddings, self.child_labels)
-                elif self.conf.feature_level:
-                    child_loss = l1_loss(l2_norm(child_embeddings), l2_norm(adult_embeddings))
-                elif self.conf.positive_zero:
-                    child_thetas = self.head(child_embeddings, self.child_labels)
-                    negative_thetas = child_thetas.clone()
-                    negative_thetas[torch.arange(negative_thetas.shape[0]), self.child_labels] = 0
-                    negative_thetas = torch.index_select(negative_thetas, 1, self.child_labels).sum(dim=1)
-                    # negative_thetas = negative_thetas / (negative_thetas.shape[0] - 1)
-                    positive_thetas = child_thetas[torch.arange(negative_thetas.shape[0]), self.child_labels]
-
-                    positive_loss = l1_loss(positive_thetas, torch.ones(positive_thetas.size()).to(conf.device))
-                    negative_loss = l1_loss(negative_thetas, torch.zeros(negative_thetas.size()).to(conf.device))
-                    child_loss = self.conf.positive_lambda * positive_loss + self.conf.negative_lambda * negative_loss
-                elif self.conf.positive_ce:
-                    child_thetas = self.head.forward_margin(child_embeddings, self.child_labels, self.conf.child_margin)
-                    child_thetas = child_thetas[:, self.child_labels]
-                    child_loss = ce_loss(child_thetas, torch.arange(child_thetas.shape[0]).to(self.conf.device))
-                elif self.conf.use_arccos:
-                    child_thetas = self.head.forward_arccos(child_embeddings, self.child_labels)
-                    adult_thetas = self.head.forward_arccos(adult_embeddings, self.child_labels)
-                    child_loss = l1_loss(child_thetas, adult_thetas)
-                elif self.conf.use_strange:
-                    child_thetas = self.head(child_embeddings, self.child_labels)
-                    adult_thetas = self.head(adult_embeddings, self.child_labels)
-                    child_thetas = torch.index_select(child_thetas, 1, self.child_labels).sum(dim=1)
-                    adult_thetas = torch.index_select(adult_thetas, 1, self.child_labels).sum(dim=1)
-                    if self.conf.positive_zero:
-                        child_loss = l1_loss(child_thetas, torch.zeros(child_thetas.size()).to(conf.device))
-                else:
-                    child_thetas = self.head(child_embeddings, self.child_labels)
-                    adult_thetas = self.head(adult_embeddings, self.child_labels)
-                    child_thetas = torch.index_select(child_thetas, 1, self.child_labels).sum(dim=1)
-                    adult_thetas = torch.index_select(adult_thetas, 1, self.child_labels).sum(dim=1)
-                    child_loss = l1_loss(child_thetas, adult_thetas)
-
-                child_total_loss = child_lambda * child_loss
-                loss = self.conf.main_lambda * arcface_loss + child_total_loss
-                loss.backward()
-                running_loss += loss.item()
-
-                # if not self.conf.use_arccos:
-                #     child_thetas = self.head.forward_arccos(child_embeddings, self.child_labels)
-                #     adult_thetas = self.head.forward_arccos(adult_embeddings, self.child_labels)
-                # running_child_degree = running_child_degree + torch.rad2deg(child_thetas)
-                # running_adult_degree = running_adult_degree + torch.rad2deg(adult_thetas)
-                # running_child_degree = running_child_degree.mean()
-                # running_adult_degree = running_adult_degree.mean()
-
-                running_arcface_loss += arcface_loss.item()
-                # if 'POSITIVE' in conf.exp:
-                running_child_loss += child_loss.item()
-                running_child_total_loss += child_total_loss.item()
-
-                if 'MIXUP' in conf.exp:
-                    running_mixup_loss += mixup_loss.item()
-                    running_mixup_total_loss += mixup_total_loss.item()
-
-                self.optimizer1.step()
-                self.optimizer2.step()
-
-                del embeddings
-                # del child_embeddings, child_labels, child_thetas
-                del imgs, labels, thetas, arcface_loss
-                del child_idx, ages
-
-                if self.step % self.board_loss_every == 0 and self.step != 0:  # XXX
-                    # print('tensorboard plotting....')
-                    # print('wandb plotting....')
-                    loss_board = running_loss / self.board_loss_every
-                    arcface_loss_board = running_arcface_loss / self.board_loss_every
-                    # child_degree_board = running_child_degree / self.board_loss_every
-                    # adult_degree_board = running_adult_degree / self.board_loss_every
-                    # self.writer.add_scalar('train_loss', loss_board, self.step)
-                    # self.writer.add_scalar('arcface_loss', arcface_loss_board, self.step)
-
-                    if self.conf.wandb:
-                        wandb.log({
-                            "train_loss": loss_board,
-                            "arcface_total_loss": arcface_loss_board,
-                            # "child_degree_board": child_degree_board,
-                            # "adult_degree_board": adult_degree_board,
-                        }, step=self.step)
-
-                    child_loss_board = running_child_loss / self.board_loss_every
-                    child_total_loss_board = running_child_total_loss / self.board_loss_every
-
-                    if self.conf.wandb:
-                        wandb.log({
-                            "child_loss": child_loss_board,
-                            "child_total_loss": child_total_loss_board,
-                            "child_lambda": child_lambda,
-                        }, step=self.step)
-
-                        # self.writer.add_scalar('child_loss', child_loss_board, self.step)
-                        # self.writer.add_scalar('child_total_loss', child_total_loss_board, self.step)
-                    if 'MIXUP' in conf.exp:
-                        mixup_loss_board = running_mixup_loss / self.board_loss_every
-                        mixup_total_loss_board = running_mixup_total_loss / self.board_loss_every
-                        if self.conf.wandb:
-                            wandb.log({
-                                "mixup_loss": mixup_loss_board,
-                                "mixup_total_loss": mixup_total_loss_board,
-                            }, step=self.step)
-
-                        # self.writer.add_scalar('mixup_loss', mixup_loss_board, self.step)
-                        # self.writer.add_scalar('mixup_total_loss', mixup_total_loss_board, self.step)
-
-                    running_loss = 0.
-                    running_arcface_loss = 0.0
-                    running_child_loss = 0.0
-                    running_child_total_loss = 0.0
-                    running_mixup_loss = 0.0
-                    running_mixup_total_loss = 0.0
-                    running_child_degree, running_adult_degree = torch.zeros(self.child_labels.size()).to(self.conf.device), torch.zeros(self.child_labels.size()).to(self.conf.device)
-
-                if self.step % self.evaluate_every == 0 and self.step != 0:
-                    print('evaluating....')
-                    # # LFW evaluation
-                    # accuracy, best_threshold, roc_curve_tensor, dist = self.evaluate(conf, self.lfw, self.lfw_issame)
-                    # # NEGATIVE WRONG
-                    # wrong_list = np.where((self.lfw_issame == False) & (dist < best_threshold))[0]
-                    # negative_wrong = len(wrong_list)
-                    # # POSITIVE WRONG
-                    # wrong_list = np.where((self.lfw_issame == True) & (dist > best_threshold))[0]
-                    # positive_wrong = len(wrong_list)
-                    # self.board_val('lfw', accuracy, best_threshold, roc_curve_tensor, negative_wrong, positive_wrong)
-                    # # FGNETC evaluation
-                    # accuracy2, best_threshold2, roc_curve_tensor2, dist2 = self.evaluate(conf, self.fgnetc,
-                    #                                                                      self.fgnetc_issame)
-                    # # NEGATIVE WRONG
-                    # wrong_list = np.where((self.fgnetc_issame == False) & (dist2 < best_threshold2))[0]
-                    # negative_wrong2 = len(wrong_list)
-                    # # POSITIVE WRONG
-                    # wrong_list = np.where((self.fgnetc_issame == True) & (dist2 > best_threshold2))[0]
-                    # positive_wrong2 = len(wrong_list)
-                    # self.board_val('fgent_c', accuracy2, best_threshold2, roc_curve_tensor2, negative_wrong2,
-                    #                positive_wrong2)
-
-                    # FGNETC evaluation
-                    fgnetc_accuracy, fgnetc_thres, roc_curve_tensor2, fgnetc_dist = self.evaluate(conf, self.fgnetc,
-                                                                                                  self.fgnetc_issame)
-                    # NEGATIVE WRONG
-                    wrong_list = np.where((self.fgnetc_issame == False) & (fgnetc_dist < fgnetc_thres))[0]
-                    fgnetc_negative = len(wrong_list)
-                    # POSITIVE WRONG
-                    wrong_list = np.where((self.fgnetc_issame == True) & (fgnetc_dist > fgnetc_thres))[0]
-                    fgnetc_positive = len(wrong_list)
-                    print(f'fgnetc_acc: {fgnetc_accuracy}')
-
-                    if fgnetc_accuracy > fgnetc_best_acc:
-                        fgnetc_best_acc = fgnetc_accuracy
-
-                    if self.conf.wandb:
-                        wandb.log({
-                            "fgnet_c_best_acc": fgnetc_best_acc,
-                            "fgnet_c_acc": fgnetc_accuracy,
-                            "fgnet_c_best_threshold": fgnetc_thres,
-                            "fgnet_c_negative_wrong": fgnetc_negative,
-                            "fgnet_c_positive_wrong": fgnetc_positive,
-                        }, step=self.step)
-
-                    self.model.train()
-
-                    if self.step % self.save_every == 0 and self.step != 0:
-                        print('saving model....')
-                        # save with most recently calculated accuracy?
-                        # if conf.finetune_model_path is not None:
-                        #     self.save_state(conf, accuracy2,
-                        #                     extra=str(conf.data_mode) + '_' + str(conf.net_depth) + '_' + str(
-                        #                         conf.batch_size) + 'finetune')
-                        # else:
-                        #     self.save_state(conf, accuracy2,extra=str(conf.data_mode) + '_' + str(conf.exp) + '_' + str(conf.batch_size))
-
-                        if fgnetc_accuracy > best_accuracy:
-                            best_accuracy = fgnetc_accuracy
-                            print('saving best model....')
-                            self.save_best_state(conf, best_accuracy, extra=str(conf.data_mode) + '_' + str(conf.exp))
-                self.step += 1
-        if conf.finetune_model_path is not None:
-            self.save_state(conf, accuracy, to_save_folder=True,
-                            extra=str(conf.data_mode) + '_' + str(conf.net_depth) + '_' + str(
-                                conf.batch_size) + '_finetune')
-        else:
-            self.save_state(conf, accuracy, to_save_folder=True,
-                            extra=str(conf.data_mode) + '_' + str(conf.net_depth) + '_' + str(
-                                conf.batch_size) + '_final')
-
-    def train_mixup(self, conf, epochs):
-        '''
-        Train function for original vgg dataset
-        XXX: Need to make a new funtion train_age_invariant(conf, epochs)
-        '''
-        self.model.train()
-
-        running_loss = 0.            
-        best_accuracy = 0.0
-        ce_loss = nn.CrossEntropyLoss()
-        print(f'total epoch: {self.epoch}')
-        for e in range(self.epoch):
-            print('epoch {} started'.format(e))
-
-            if e in self.milestones:
-                self.schedule_lr()
-
-            for imgs, labels, ages in tqdm(iter(self.loader)):
-            # for imgs, labels in tqdm(iter(self.loader)):
-                self.optimizer1.zero_grad()
-                self.optimizer2.zero_grad()
-                label1, label2 = labels
-                if imgs.shape[0] == 1:
-                    continue
-
-                imgs = imgs.to(conf.device)
-                label1 = label1.to(conf.device)
-                label2 = label2.to(conf.device)
-                label2 = torch.where(label2==-1, label1, label2)
-
-                embeddings = self.model(imgs)
-                # thetas = self.head(embeddings, labels)
-                thetas1 = self.head(embeddings, label1, ages)
-                thetas2 = self.head(embeddings, label2, ages)
-
-                loss = 0.5 * ce_loss(thetas1, label1) + 0.5 * ce_loss(thetas2, label2)
-                loss.backward()
-                running_loss += loss.item()
-
-                self.optimizer1.step()
-                self.optimizer2.step()
-
-                if self.step % self.board_loss_every == 0 and self.step != 0: # XXX
-                    # print('wandb plotting....')
-                    loss_board = running_loss / self.board_loss_every
-                    # self.writer.add_scalar('train_loss', loss_board, self.step)
-                    if self.conf.wandb:
-                        wandb.log({
-                            "train_loss": loss_board,
-                        }, step=self.step)
-
-                    running_loss = 0.
-
-                # added wrong on evaluations
-                if self.step % self.evaluate_every == 0 and self.step != 0:
-                    self.model.eval()
-                    print('evaluating....')
-                    # # LFW evaluation
-                    # accuracy, best_threshold, roc_curve_tensor, dist = self.evaluate(conf, self.lfw, self.lfw_issame)
-                    # # NEGATIVE WRONG
-                    # wrong_list = np.where((self.lfw_issame == False) & (dist < best_threshold))[0]
-                    # negative_wrong = len(wrong_list)
-                    # # POSITIVE WRONG
-                    # wrong_list = np.where((self.lfw_issame == True) & (dist > best_threshold))[0]
-                    # positive_wrong = len(wrong_list)
-                    # self.board_val('lfw', accuracy, best_threshold, roc_curve_tensor, negative_wrong, positive_wrong)
-                    lfw_accuracy, lfw_thres, roc_curve_tensor2, lfw_dist = self.evaluate(conf, self.lfw, self.lfw_issame)
-                    # NEGATIVE WRONG
-                    wrong_list = np.where((self.lfw_issame == False) & (lfw_dist < lfw_thres))[0]
-                    lfw_negative = len(wrong_list)
-                    # POSITIVE WRONG
-                    wrong_list = np.where((self.lfw_issame == True) & (lfw_dist > lfw_thres))[0]
-                    lfw_positive = len(wrong_list)
-
-                    # # CFP FP evaluation
-                    # accuracy, best_threshold, roc_curve_tensor, dist = self.evaluate(conf, self.cfp_fp, self.cfp_fp_issame)
-                    # # NEGATIVE WRONG
-                    # wrong_list = np.where((self.cfp_fp_issame == False) & (dist < best_threshold))[0]
-                    # negative_wrong = len(wrong_list)
-                    # # POSITIVE WRONG
-                    # wrong_list = np.where((self.cfp_fp_issame == True) & (dist > best_threshold))[0]
-                    # positive_wrong = len(wrong_list)
-                    # self.board_val('cfp_fp', accuracy, best_threshold, roc_curve_tensor, negative_wrong, positive_wrong)
-                    #
-                    # # agedb evaluation
-                    # accuracy, best_threshold, roc_curve_tensor, dist = self.evaluate(conf, self.agedb, self.agedb_issame)
-                    # # NEGATIVE WRONG
-                    # wrong_list = np.where((self.agedb_issame == False) & (dist < best_threshold))[0]
-                    # negative_wrong = len(wrong_list)
-                    # # POSITIVE WRONG
-                    # wrong_list = np.where((self.agedb_issame == True) & (dist > best_threshold))[0]
-                    # positive_wrong = len(wrong_list)
-                    # self.board_val('agedb', accuracy, best_threshold, roc_curve_tensor, negative_wrong, positive_wrong)
-
-                    # FGNETC evaluation
-                    fgnetc_accuracy, fgnetc_thres, roc_curve_tensor2, fgnetc_dist = self.evaluate(conf, self.fgnetc, self.fgnetc_issame)
-                    # NEGATIVE WRONG
-                    wrong_list = np.where((self.fgnetc_issame == False) & (fgnetc_dist < fgnetc_thres))[0]
-                    fgnetc_negative = len(wrong_list)
-                    # POSITIVE WRONG
-                    wrong_list = np.where((self.fgnetc_issame == True) & (fgnetc_dist > fgnetc_thres))[0]
-                    fgnetc_positive = len(wrong_list)
-                    # self.board_val('fgent_c', accuracy2, best_threshold2, roc_curve_tensor2, fgnet_negative\, positive_wrong2)
-                    print(f'fgnetc_acc: {fgnetc_accuracy}')
-
-                    if self.conf.wandb:
-                        wandb.log({
-                            "lfw_acc": lfw_accuracy,
-                            "lfw_best_threshold": lfw_thres,
-                            "lfw_negative_wrong": lfw_negative,
-                            "lfw_positive_wrong": lfw_positive,
-
-                            "fgnet_c_acc": fgnetc_accuracy,
-                            "fgnet_c_best_threshold": fgnetc_thres,
-                            "fgnet_c_negative_wrong": fgnetc_negative,
-                            "fgnet_c_positive_wrong": fgnetc_positive,
-                        }, step=self.step)
-
-                    self.model.train()
-                    if self.step % self.save_every == 0 and self.step != 0:
-                        print('saving model....')
-                        # save with most recently calculated accuracy?
-                        # if conf.finetune_model_path is not None:
-                        #     self.save_state(conf, accuracy2,
-                        #                     extra=str(conf.data_mode) + '_' + str(conf.net_depth) + '_' + str(
-                        #                         conf.batch_size) + 'finetune')
-                        # else:
-                        #     self.save_state(conf, accuracy2,extra=str(conf.data_mode) + '_' + str(conf.exp) + '_' + str(conf.batch_size))
-
-                        if fgnetc_accuracy > best_accuracy:
-                            best_accuracy = fgnetc_accuracy
-                            print('saving best model....')
-                            self.save_best_state(conf, best_accuracy, extra=str(conf.data_mode) + '_' + str(conf.exp))
-                self.step += 1
-
-        # if conf.finetune_model_path is not None:
-        #     self.save_state(conf, fgnetc_accuracy, to_save_folder=True, extra=str(conf.data_mode)  + '_' + str(conf.net_depth) + '_'+ str(conf.batch_size) +'_finetune')
-        # else:
-        #     self.save_state(conf, fgnetc_accuracy, to_save_folder=True, extra=str(conf.data_mode)  + '_' + str(conf.net_depth) + '_'+ str(conf.batch_size) +'_final')
-        if conf.wandb:
-            wandb.finish()
-
+    # def train_adult_memory(self, conf, epochs):
+    #     '''
+    #     Train function for original vgg dataset
+    #     XXX: Need to make a new funtion train_age_invariant(conf, epochs)
+    #     '''
+    #     self.model.train()
+    #     running_loss = 0.
+    #     running_arcface_loss, running_child_loss, running_child_total_loss = 0.0, 0.0, 0.0
+    #     running_mixup_loss, running_mixup_total_loss = 0.0, 0.0
+    #     best_accuracy = 0.0
+    #     ce_loss = nn.CrossEntropyLoss()
+    #     l1_loss = nn.L1Loss()
+    #     # initialize memory bank
+    #     # reversed shape to use like dictionary
+    #     self.child_memory = nn.Parameter(torch.Tensor(self.class_num, conf.embedding_size)).to(conf.device)
+    #     self.adult_memory = nn.Parameter(torch.Tensor(self.class_num, conf.embedding_size)).to(conf.device)
+    #     child_loss = 0.0
+    #     mixup_loss = torch.tensor(0.0)
+    #     self.child_labels = torch.tensor(self.child_identity).cuda()
+    #     self.adult_labels = torch.zeros(self.class_num).cuda()
+    #     self.adult_labels[self.child_labels] = 1
+    #     fgnetc_best_acc = 0.0
+    #     running_child_degree, running_adult_degree = torch.zeros(self.child_labels.size()).to(self.conf.device), torch.zeros(self.child_labels.size()).to(self.conf.device)
+    #     print(f'total epoch: {self.epoch}')
+    #     for e in range(self.epoch):
+    #         print('epoch {} started'.format(e))
+    #         if e in self.milestones:
+    #             self.schedule_lr()
+    #         for imgs, labels, ages in tqdm(iter(self.loader)):
+    #             # for imgs, labels in tqdm(iter(self.loader)):
+    #             self.optimizer1.zero_grad()
+    #             self.optimizer2.zero_grad()
+    #             imgs = imgs.to(conf.device)
+    #             labels = labels.to(conf.device)
+    #
+    #             child_idx = torch.where(ages == 0)[0]
+    #             adult_flag = torch.index_select(self.adult_labels, 0, labels)
+    #             adult_idx = labels[torch.where(adult_flag ==True)]
+    #             embeddings = self.model(imgs)
+    #             # thetas = self.head(embeddings, labels)
+    #             thetas = self.head(embeddings, labels, ages)
+    #             arcface_loss = ce_loss(thetas, labels)
+    #
+    #             if conf.lambda_mode == 'normal':
+    #                 child_lambda = 0.0 if (e == 0) or (e in self.milestones) else self.conf.lambda_child * 1.0
+    #             elif conf.lambda_mode == 'zero':
+    #                 child_lambda = 0.0 if (e == 0) or (e >= self.milestones[0]) else self.conf.lambda_child * 1.0
+    #             elif conf.lambda_mode == 'anneal9':
+    #                 if (e == 0) or (e in self.milestones):
+    #                     child_lambda = 0.0
+    #                 elif e >= self.milestones[0]:
+    #                     child_lambda = conf.lambda_child * 0.9 ** (e - self.milestones[0])
+    #                 else:
+    #                     child_lambda = 1
+    #             elif conf.lambda_mode == 'anneal8':
+    #                 if (e == 0) or (e in self.milestones):
+    #                     child_lambda = 0.0
+    #                 elif e >= self.milestones[0]:
+    #                     child_lambda = conf.lambda_child * 0.8 ** (e - self.milestones[0])
+    #                 else:
+    #                     child_lambda = 1
+    #
+    #             # child_lambda=1.0
+    #             with torch.no_grad():
+    #                 if len(child_idx) > 0:
+    #                     if (e == 0) or (e in self.milestones):
+    #                         self.child_memory[labels[child_idx]] = embeddings[child_idx].detach().clone()
+    #                     else:
+    #                         update_vector = (1-self.alpha) * embeddings[child_idx].detach().clone() + self.alpha * self.child_memory[child_idx].detach().clone()
+    #                         update_vector = torch.div(update_vector, torch.norm(update_vector, keepdim=True))
+    #                         self.child_memory[labels[child_idx]] = update_vector
+    #
+    #             with torch.no_grad():
+    #                 if len(adult_idx) > 0:
+    #                     if (e == 0) or (e in self.milestones):
+    #                         self.adult_memory[adult_idx] = embeddings[torch.where(adult_flag ==True)].detach().clone()
+    #                     else:
+    #                         update_vector = (1-self.alpha) * embeddings[torch.where(adult_flag ==True)].detach().clone() + self.alpha * self.child_memory[adult_idx].detach().clone()
+    #                         update_vector = torch.div(update_vector, torch.norm(update_vector, keepdim=True))
+    #                         self.adult_memory[adult_idx] = update_vector
+    #
+    #             # ''' module for positive pair -> child memory bank '''
+    #             child_embeddings = self.child_memory[self.child_labels]
+    #             adult_embeddings = self.adult_memory[self.child_labels]
+    #
+    #             if self.conf.original_positive:
+    #                 child_loss = self.head.forward_original_positive(child_embeddings, adult_embeddings, self.child_labels)
+    #             elif self.conf.feature_level:
+    #                 child_loss = l1_loss(l2_norm(child_embeddings), l2_norm(adult_embeddings))
+    #             elif self.conf.positive_zero:
+    #                 child_thetas = self.head(child_embeddings, self.child_labels)
+    #                 negative_thetas = child_thetas.clone()
+    #                 negative_thetas[torch.arange(negative_thetas.shape[0]), self.child_labels] = 0
+    #                 negative_thetas = torch.index_select(negative_thetas, 1, self.child_labels).sum(dim=1)
+    #                 # negative_thetas = negative_thetas / (negative_thetas.shape[0] - 1)
+    #                 positive_thetas = child_thetas[torch.arange(negative_thetas.shape[0]), self.child_labels]
+    #
+    #                 positive_loss = l1_loss(positive_thetas, torch.ones(positive_thetas.size()).to(conf.device))
+    #                 negative_loss = l1_loss(negative_thetas, torch.zeros(negative_thetas.size()).to(conf.device))
+    #                 child_loss = self.conf.positive_lambda * positive_loss + self.conf.negative_lambda * negative_loss
+    #             elif self.conf.positive_ce:
+    #                 child_thetas = self.head.forward_margin(child_embeddings, self.child_labels, self.conf.child_margin)
+    #                 child_thetas = child_thetas[:, self.child_labels]
+    #                 child_loss = ce_loss(child_thetas, torch.arange(child_thetas.shape[0]).to(self.conf.device))
+    #             elif self.conf.use_arccos:
+    #                 child_thetas = self.head.forward_arccos(child_embeddings, self.child_labels)
+    #                 adult_thetas = self.head.forward_arccos(adult_embeddings, self.child_labels)
+    #                 child_loss = l1_loss(child_thetas, adult_thetas)
+    #             elif self.conf.use_strange:
+    #                 child_thetas = self.head(child_embeddings, self.child_labels)
+    #                 adult_thetas = self.head(adult_embeddings, self.child_labels)
+    #                 child_thetas = torch.index_select(child_thetas, 1, self.child_labels).sum(dim=1)
+    #                 adult_thetas = torch.index_select(adult_thetas, 1, self.child_labels).sum(dim=1)
+    #                 if self.conf.positive_zero:
+    #                     child_loss = l1_loss(child_thetas, torch.zeros(child_thetas.size()).to(conf.device))
+    #             else:
+    #                 child_thetas = self.head(child_embeddings, self.child_labels)
+    #                 adult_thetas = self.head(adult_embeddings, self.child_labels)
+    #                 child_thetas = torch.index_select(child_thetas, 1, self.child_labels).sum(dim=1)
+    #                 adult_thetas = torch.index_select(adult_thetas, 1, self.child_labels).sum(dim=1)
+    #                 child_loss = l1_loss(child_thetas, adult_thetas)
+    #
+    #             child_total_loss = child_lambda * child_loss
+    #             loss = self.conf.main_lambda * arcface_loss + child_total_loss
+    #             loss.backward()
+    #             running_loss += loss.item()
+    #
+    #
+    #             running_arcface_loss += arcface_loss.item()
+    #             # if 'POSITIVE' in conf.exp:
+    #             running_child_loss += child_loss.item()
+    #             running_child_total_loss += child_total_loss.item()
+    #
+    #             if 'MIXUP' in conf.exp:
+    #                 running_mixup_loss += mixup_loss.item()
+    #                 running_mixup_total_loss += mixup_total_loss.item()
+    #
+    #             self.optimizer1.step()
+    #             self.optimizer2.step()
+    #
+    #             del embeddings
+    #             # del child_embeddings, child_labels, child_thetas
+    #             del imgs, labels, thetas, arcface_loss
+    #             del child_idx, ages
+    #
+    #             if self.conf.log_degree:
+    #                 child_thetas = self.head.forward_arccos(child_embeddings, self.child_labels)
+    #                 adult_thetas = self.head.forward_arccos(adult_embeddings, self.child_labels)
+    #                 running_child_degree = running_child_degree + torch.rad2deg(child_thetas)
+    #                 running_adult_degree = running_adult_degree + torch.rad2deg(adult_thetas)
+    #                 running_child_degree = running_child_degree.mean()
+    #                 running_adult_degree = running_adult_degree.mean()
+    #
+    #
+    #             if self.step % self.board_loss_every == 0 and self.step != 0:  # XXX
+    #                 # print('tensorboard plotting....')
+    #                 # print('wandb plotting....')
+    #                 loss_board = running_loss / self.board_loss_every
+    #                 arcface_loss_board = running_arcface_loss / self.board_loss_every
+    #
+    #
+    #                 # self.writer.add_scalar('train_loss', loss_board, self.step)
+    #                 # self.writer.add_scalar('arcface_loss', arcface_loss_board, self.step)
+    #
+    #                 if self.conf.wandb:
+    #                     wandb.log({
+    #                         "train_loss": loss_board,
+    #                         "arcface_total_loss": arcface_loss_board,
+    #                     }, step=self.step)
+    #
+    #                 if self.conf.log_degree:
+    #                     child_degree_board = running_child_degree / self.board_loss_every
+    #                     adult_degree_board = running_adult_degree / self.board_loss_every
+    #
+    #                     wandb.log({
+    #                         "child_degree_board": child_degree_board,
+    #                         "adult_degree_board": adult_degree_board,
+    #                     }, step=self.step)
+    #
+    #                 child_loss_board = running_child_loss / self.board_loss_every
+    #                 child_total_loss_board = running_child_total_loss / self.board_loss_every
+    #
+    #                 if self.conf.wandb:
+    #                     wandb.log({
+    #                         "child_loss": child_loss_board,
+    #                         "child_total_loss": child_total_loss_board,
+    #                         "child_lambda": child_lambda,
+    #                     }, step=self.step)
+    #
+    #                     # self.writer.add_scalar('child_loss', child_loss_board, self.step)
+    #                     # self.writer.add_scalar('child_total_loss', child_total_loss_board, self.step)
+    #                 if 'MIXUP' in conf.exp:
+    #                     mixup_loss_board = running_mixup_loss / self.board_loss_every
+    #                     mixup_total_loss_board = running_mixup_total_loss / self.board_loss_every
+    #                     if self.conf.wandb:
+    #                         wandb.log({
+    #                             "mixup_loss": mixup_loss_board,
+    #                             "mixup_total_loss": mixup_total_loss_board,
+    #                         }, step=self.step)
+    #
+    #                     # self.writer.add_scalar('mixup_loss', mixup_loss_board, self.step)
+    #                     # self.writer.add_scalar('mixup_total_loss', mixup_total_loss_board, self.step)
+    #
+    #                 running_loss = 0.
+    #                 running_arcface_loss = 0.0
+    #                 running_child_loss = 0.0
+    #                 running_child_total_loss = 0.0
+    #                 running_mixup_loss = 0.0
+    #                 running_mixup_total_loss = 0.0
+    #                 running_child_degree, running_adult_degree = torch.zeros(self.child_labels.size()).to(self.conf.device), torch.zeros(self.child_labels.size()).to(self.conf.device)
+    #
+    #             if e >= self.milestones[1] and self.step % self.evaluate_every == 0 and self.step != 0:
+    #                 self.model.eval()
+    #                 self.evaluate_new_total()
+    #                 print('evaluating....')
+    #                 self.model.train()
+    #
+    #             elif e < self.milestones[1] and self.step % self.evaluate_every == 0 and self.step != 0:
+    #                 self.model.eval()
+    #                 self.evaluate_new()
+    #                 print('evaluating....')
+    #                 self.model.train()
+    #             self.step += 1
+    #     if conf.finetune_model_path is not None:
+    #         self.save_state(conf, accuracy, to_save_folder=True,
+    #                         extra=str(conf.data_mode) + '_' + str(conf.net_depth) + '_' + str(
+    #                             conf.batch_size) + '_finetune')
+    #     else:
+    #         self.save_state(conf, accuracy, to_save_folder=True,
+    #                         extra=str(conf.data_mode) + '_' + str(conf.net_depth) + '_' + str(
+    #                             conf.batch_size) + '_final')
+    #
+    # def train_adult_memory_pretrain(self, conf, epochs):
+    #     '''
+    #     Train function for original vgg dataset
+    #     XXX: Need to make a new funtion train_age_invariant(conf, epochs)
+    #     '''
+    #     self.model.train()
+    #     running_loss = 0.
+    #     running_arcface_loss, running_child_loss, running_child_total_loss = 0.0, 0.0, 0.0
+    #     running_mixup_loss, running_mixup_total_loss = 0.0, 0.0
+    #     best_accuracy = 0.0
+    #     ce_loss = nn.CrossEntropyLoss()
+    #     l1_loss = nn.L1Loss()
+    #     # initialize memory bank
+    #     # reversed shape to use like dictionary
+    #     # self.child_memory = torch.zeros(torch.Tensor(self.class_num, conf.embedding_size)).to(conf.device)
+    #     # self.adult_memory = torch.zeros(torch.Tensor(self.class_num, conf.embedding_size)).to(conf.device)
+    #
+    #     self.child_memory = torch.zeros(self.class_num, conf.embedding_size).to(conf.device)
+    #     self.adult_memory = torch.zeros(self.class_num, conf.embedding_size).to(conf.device)
+    #     child_loss = 0.0
+    #     mixup_loss = torch.tensor(0.0)
+    #     self.child_labels = torch.tensor(self.child_identity).cuda()
+    #     self.adult_labels = torch.zeros(self.class_num).cuda()
+    #     self.adult_labels[self.child_labels] = 1
+    #     fgnetc_best_acc = 0.0
+    #     running_child_degree, running_adult_degree = torch.zeros(self.child_labels.size()).to(self.conf.device), torch.zeros(self.child_labels.size()).to(self.conf.device)
+    #     print(f'total epoch: {self.epoch}')
+    #
+    #     child_image_path_temp = list(self.ds.child_image2age.keys())
+    #     child_image_path_temp = [path for path in child_image_path_temp if int(path.split('/')[0]) in self.ds.child_identity]
+    #     labels, batch = [], []
+    #
+    #     train_transform = transforms.Compose([
+    #         transforms.RandomHorizontalFlip(),
+    #         transforms.ToTensor(),
+    #         transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
+    #     ])
+    #
+    #     for image_path in child_image_path_temp:
+    #         child_image_path = glob.glob(os.path.join('./dataset/CASIA_112', image_path + '*.jpg'))[0]
+    #         img = Image.open(child_image_path)
+    #         img = train_transform(img)
+    #         label = int(child_image_path.split('/')[-2])
+    #         batch.append(img)
+    #         labels.append(label)
+    #
+    #     batch = torch.stack(batch)
+    #     labels = torch.tensor(labels)
+    #     labels = labels.long()
+    #
+    #     for i in range(0, batch.shape[0], 64):
+    #         print(i)
+    #         if batch.shape[0] - i > 64:
+    #             imgs = batch[i: i+ 64]
+    #             curr_labels = labels[i: i+64]
+    #         else:
+    #             imgs = batch[i:]
+    #             curr_labels = labels[i:]
+    #
+    #         imgs = imgs.to(conf.device)
+    #         curr_labels = curr_labels.to(conf.device)
+    #         with torch.no_grad():
+    #             embeddings = self.model(imgs)
+    #             self.child_memory[curr_labels] = embeddings[torch.arange(curr_labels.shape[0])].detach().clone()
+    #
+    #     for e in range(self.epoch):
+    #         print('epoch {} started'.format(e))
+    #         if e in self.milestones:
+    #             self.schedule_lr()
+    #         for imgs, labels, ages in tqdm(iter(self.loader)):
+    #             # for imgs, labels in tqdm(iter(self.loader)):
+    #             self.optimizer1.zero_grad()
+    #             self.optimizer2.zero_grad()
+    #             imgs = imgs.to(conf.device)
+    #             labels = labels.to(conf.device)
+    #
+    #             child_idx = torch.where(ages == 0)[0]
+    #             adult_flag = torch.index_select(self.adult_labels, 0, labels)
+    #             adult_idx = labels[torch.where(adult_flag ==True)]
+    #
+    #             embeddings = self.model(imgs)
+    #             # thetas = self.head(embeddings, labels)
+    #             thetas = self.head(embeddings, labels, ages)
+    #             arcface_loss = ce_loss(thetas, labels)
+    #
+    #
+    #             child_lambda = 1.0
+    #             # if conf.lambda_mode == 'normal':
+    #             #     child_lambda = 0.0 if (e == 0) or (e in self.milestones) else 1.0
+    #             # elif conf.lambda_mode == 'zero':
+    #             #     child_lambda = 0.0 if (e == 0) or (e >= self.milestones[0]) else self.conf.lambda_child * 1.0
+    #             # elif conf.lambda_mode == 'anneal9':
+    #             #     if (e == 0) or (e in self.milestones):
+    #             #         child_lambda = 0.0
+    #             #     elif e >= self.milestones[0]:
+    #             #         child_lambda = conf.lambda_child * 0.9 ** (e - self.milestones[0])
+    #             #     else:
+    #             #         child_lambda = 1
+    #             # elif conf.lambda_mode == 'anneal8':
+    #             #     if (e == 0) or (e in self.milestones):
+    #             #         child_lambda = 0.0
+    #             #     elif e >= self.milestones[0]:
+    #             #         child_lambda = conf.lambda_child * 0.8 ** (e - self.milestones[0])
+    #             #     else:
+    #             #         child_lambda = 1
+    #
+    #             # child_lambda=1.0
+    #             with torch.no_grad():
+    #                 if len(child_idx) > 0:
+    #                     if (e == 0) or (e in self.milestones):
+    #                         self.child_memory[labels[child_idx]] = embeddings[child_idx].detach().clone()
+    #                     else:
+    #                         update_vector = (1-self.alpha) * embeddings[child_idx].detach().clone() + self.alpha * self.child_memory[child_idx].detach().clone()
+    #                         update_vector = torch.div(update_vector, torch.norm(update_vector, keepdim=True))
+    #                         self.child_memory[labels[child_idx]] = update_vector
+    #
+    #             with torch.no_grad():
+    #                 if len(adult_idx) > 0:
+    #                     if (e == 0) or (e in self.milestones):
+    #                         self.adult_memory[adult_idx] = embeddings[torch.where(adult_flag ==True)].detach().clone()
+    #                     else:
+    #                         update_vector = (1-self.alpha) * embeddings[torch.where(adult_flag ==True)].detach().clone() + self.alpha * self.child_memory[adult_idx].detach().clone()
+    #                         update_vector = torch.div(update_vector, torch.norm(update_vector, keepdim=True))
+    #                         self.adult_memory[adult_idx] = update_vector
+    #
+    #             # ''' module for positive pair -> child memory bank '''
+    #             child_embeddings = self.child_memory[self.child_labels]
+    #             adult_embeddings = self.adult_memory[self.child_labels]
+    #
+    #             if self.conf.original_positive:
+    #                 child_loss = self.head.forward_original_positive(child_embeddings, adult_embeddings, self.child_labels)
+    #             elif self.conf.feature_level:
+    #                 child_loss = l1_loss(l2_norm(child_embeddings), l2_norm(adult_embeddings))
+    #             elif self.conf.positive_zero:
+    #                 child_thetas = self.head(child_embeddings, self.child_labels)
+    #                 negative_thetas = child_thetas.clone()
+    #                 negative_thetas[torch.arange(negative_thetas.shape[0]), self.child_labels] = 0
+    #                 negative_thetas = torch.index_select(negative_thetas, 1, self.child_labels).sum(dim=1)
+    #                 # negative_thetas = negative_thetas / (negative_thetas.shape[0] - 1)
+    #                 positive_thetas = child_thetas[torch.arange(negative_thetas.shape[0]), self.child_labels]
+    #
+    #                 positive_loss = l1_loss(positive_thetas, torch.ones(positive_thetas.size()).to(conf.device))
+    #                 negative_loss = l1_loss(negative_thetas, torch.zeros(negative_thetas.size()).to(conf.device))
+    #                 child_loss = self.conf.positive_lambda * positive_loss + self.conf.negative_lambda * negative_loss
+    #             elif self.conf.positive_ce:
+    #                 child_thetas = self.head.forward_margin(child_embeddings, self.child_labels, self.conf.child_margin)
+    #                 child_thetas = child_thetas[:, self.child_labels]
+    #                 child_loss = ce_loss(child_thetas, torch.arange(child_thetas.shape[0]).to(self.conf.device))
+    #             elif self.conf.use_arccos:
+    #                 child_thetas = self.head.forward_arccos(child_embeddings, self.child_labels)
+    #                 adult_thetas = self.head.forward_arccos(adult_embeddings, self.child_labels)
+    #                 child_loss = l1_loss(child_thetas, adult_thetas)
+    #             elif self.conf.use_strange:
+    #                 child_thetas = self.head(child_embeddings, self.child_labels)
+    #                 adult_thetas = self.head(adult_embeddings, self.child_labels)
+    #                 child_thetas = torch.index_select(child_thetas, 1, self.child_labels).sum(dim=1)
+    #                 adult_thetas = torch.index_select(adult_thetas, 1, self.child_labels).sum(dim=1)
+    #                 if self.conf.positive_zero:
+    #                     child_loss = l1_loss(child_thetas, torch.zeros(child_thetas.size()).to(conf.device))
+    #             else:
+    #                 child_thetas = self.head(child_embeddings, self.child_labels)
+    #                 adult_thetas = self.head(adult_embeddings, self.child_labels)
+    #                 child_thetas = torch.index_select(child_thetas, 1, self.child_labels).sum(dim=1)
+    #                 adult_thetas = torch.index_select(adult_thetas, 1, self.child_labels).sum(dim=1)
+    #                 child_loss = l1_loss(child_thetas, adult_thetas)
+    #
+    #             child_total_loss = child_lambda * child_loss
+    #             loss = self.conf.main_lambda * arcface_loss + child_total_loss
+    #             loss.backward()
+    #             running_loss += loss.item()
+    #
+    #             # if not self.conf.use_arccos:
+    #             #     child_thetas = self.head.forward_arccos(child_embeddings, self.child_labels)
+    #             #     adult_thetas = self.head.forward_arccos(adult_embeddings, self.child_labels)
+    #             # running_child_degree = running_child_degree + torch.rad2deg(child_thetas)
+    #             # running_adult_degree = running_adult_degree + torch.rad2deg(adult_thetas)
+    #             # running_child_degree = running_child_degree.mean()
+    #             # running_adult_degree = running_adult_degree.mean()
+    #
+    #             running_arcface_loss += arcface_loss.item()
+    #             # if 'POSITIVE' in conf.exp:
+    #             running_child_loss += child_loss.item()
+    #             running_child_total_loss += child_total_loss.item()
+    #
+    #             if 'MIXUP' in conf.exp:
+    #                 running_mixup_loss += mixup_loss.item()
+    #                 running_mixup_total_loss += mixup_total_loss.item()
+    #
+    #             self.optimizer1.step()
+    #             self.optimizer2.step()
+    #
+    #             del embeddings
+    #             # del child_embeddings, child_labels, child_thetas
+    #             del imgs, labels, thetas, arcface_loss
+    #             del child_idx, ages
+    #
+    #             if self.step % self.board_loss_every == 0 and self.step != 0:  # XXX
+    #                 # print('tensorboard plotting....')
+    #                 # print('wandb plotting....')
+    #                 loss_board = running_loss / self.board_loss_every
+    #                 arcface_loss_board = running_arcface_loss / self.board_loss_every
+    #                 # child_degree_board = running_child_degree / self.board_loss_every
+    #                 # adult_degree_board = running_adult_degree / self.board_loss_every
+    #                 # self.writer.add_scalar('train_loss', loss_board, self.step)
+    #                 # self.writer.add_scalar('arcface_loss', arcface_loss_board, self.step)
+    #
+    #                 if self.conf.wandb:
+    #                     wandb.log({
+    #                         "train_loss": loss_board,
+    #                         "arcface_total_loss": arcface_loss_board,
+    #                         # "child_degree_board": child_degree_board,
+    #                         # "adult_degree_board": adult_degree_board,
+    #                     }, step=self.step)
+    #
+    #                 child_loss_board = running_child_loss / self.board_loss_every
+    #                 child_total_loss_board = running_child_total_loss / self.board_loss_every
+    #
+    #                 if self.conf.wandb:
+    #                     wandb.log({
+    #                         "child_loss": child_loss_board,
+    #                         "child_total_loss": child_total_loss_board,
+    #                         "child_lambda": child_lambda,
+    #                     }, step=self.step)
+    #
+    #                     # self.writer.add_scalar('child_loss', child_loss_board, self.step)
+    #                     # self.writer.add_scalar('child_total_loss', child_total_loss_board, self.step)
+    #                 if 'MIXUP' in conf.exp:
+    #                     mixup_loss_board = running_mixup_loss / self.board_loss_every
+    #                     mixup_total_loss_board = running_mixup_total_loss / self.board_loss_every
+    #                     if self.conf.wandb:
+    #                         wandb.log({
+    #                             "mixup_loss": mixup_loss_board,
+    #                             "mixup_total_loss": mixup_total_loss_board,
+    #                         }, step=self.step)
+    #
+    #                     # self.writer.add_scalar('mixup_loss', mixup_loss_board, self.step)
+    #                     # self.writer.add_scalar('mixup_total_loss', mixup_total_loss_board, self.step)
+    #
+    #                 running_loss = 0.
+    #                 running_arcface_loss = 0.0
+    #                 running_child_loss = 0.0
+    #                 running_child_total_loss = 0.0
+    #                 running_mixup_loss = 0.0
+    #                 running_mixup_total_loss = 0.0
+    #                 running_child_degree, running_adult_degree = torch.zeros(self.child_labels.size()).to(self.conf.device), torch.zeros(self.child_labels.size()).to(self.conf.device)
+    #
+    #             if self.step % self.evaluate_every == 0 and self.step != 0:
+    #                 print('evaluating....')
+    #                 # # LFW evaluation
+    #                 # accuracy, best_threshold, roc_curve_tensor, dist = self.evaluate(conf, self.lfw, self.lfw_issame)
+    #                 # # NEGATIVE WRONG
+    #                 # wrong_list = np.where((self.lfw_issame == False) & (dist < best_threshold))[0]
+    #                 # negative_wrong = len(wrong_list)
+    #                 # # POSITIVE WRONG
+    #                 # wrong_list = np.where((self.lfw_issame == True) & (dist > best_threshold))[0]
+    #                 # positive_wrong = len(wrong_list)
+    #                 # self.board_val('lfw', accuracy, best_threshold, roc_curve_tensor, negative_wrong, positive_wrong)
+    #                 # # FGNETC evaluation
+    #                 # accuracy2, best_threshold2, roc_curve_tensor2, dist2 = self.evaluate(conf, self.fgnetc,
+    #                 #                                                                      self.fgnetc_issame)
+    #                 # # NEGATIVE WRONG
+    #                 # wrong_list = np.where((self.fgnetc_issame == False) & (dist2 < best_threshold2))[0]
+    #                 # negative_wrong2 = len(wrong_list)
+    #                 # # POSITIVE WRONG
+    #                 # wrong_list = np.where((self.fgnetc_issame == True) & (dist2 > best_threshold2))[0]
+    #                 # positive_wrong2 = len(wrong_list)
+    #                 # self.board_val('fgent_c', accuracy2, best_threshold2, roc_curve_tensor2, negative_wrong2,
+    #                 #                positive_wrong2)
+    #
+    #                 # FGNETC evaluation
+    #                 fgnetc_accuracy, fgnetc_thres, roc_curve_tensor2, fgnetc_dist = self.evaluate(conf, self.fgnetc,
+    #                                                                                               self.fgnetc_issame)
+    #                 # NEGATIVE WRONG
+    #                 wrong_list = np.where((self.fgnetc_issame == False) & (fgnetc_dist < fgnetc_thres))[0]
+    #                 fgnetc_negative = len(wrong_list)
+    #                 # POSITIVE WRONG
+    #                 wrong_list = np.where((self.fgnetc_issame == True) & (fgnetc_dist > fgnetc_thres))[0]
+    #                 fgnetc_positive = len(wrong_list)
+    #                 print(f'fgnetc_acc: {fgnetc_accuracy}')
+    #
+    #                 if fgnetc_accuracy > fgnetc_best_acc:
+    #                     fgnetc_best_acc = fgnetc_accuracy
+    #
+    #                 if self.conf.wandb:
+    #                     wandb.log({
+    #                         "fgnet_c_best_acc": fgnetc_best_acc,
+    #                         "fgnet_c_acc": fgnetc_accuracy,
+    #                         "fgnet_c_best_threshold": fgnetc_thres,
+    #                         "fgnet_c_negative_wrong": fgnetc_negative,
+    #                         "fgnet_c_positive_wrong": fgnetc_positive,
+    #                     }, step=self.step)
+    #
+    #                 self.model.train()
+    #
+    #                 if self.step % self.save_every == 0 and self.step != 0:
+    #                     print('saving model....')
+    #                     # save with most recently calculated accuracy?
+    #                     # if conf.finetune_model_path is not None:
+    #                     #     self.save_state(conf, accuracy2,
+    #                     #                     extra=str(conf.data_mode) + '_' + str(conf.net_depth) + '_' + str(
+    #                     #                         conf.batch_size) + 'finetune')
+    #                     # else:
+    #                     #     self.save_state(conf, accuracy2,extra=str(conf.data_mode) + '_' + str(conf.exp) + '_' + str(conf.batch_size))
+    #
+    #                     if fgnetc_accuracy > best_accuracy:
+    #                         best_accuracy = fgnetc_accuracy
+    #                         print('saving best model....')
+    #                         self.save_best_state(conf, best_accuracy, extra=str(conf.data_mode) + '_' + str(conf.exp))
+    #             self.step += 1
+    #     if conf.finetune_model_path is not None:
+    #         self.save_state(conf, accuracy, to_save_folder=True,
+    #                         extra=str(conf.data_mode) + '_' + str(conf.net_depth) + '_' + str(
+    #                             conf.batch_size) + '_finetune')
+    #     else:
+    #         self.save_state(conf, accuracy, to_save_folder=True,
+    #                         extra=str(conf.data_mode) + '_' + str(conf.net_depth) + '_' + str(
+    #                             conf.batch_size) + '_final')
+    #
+    # def train_mixup(self, conf, epochs):
+    #     '''
+    #     Train function for original vgg dataset
+    #     XXX: Need to make a new funtion train_age_invariant(conf, epochs)
+    #     '''
+    #     self.model.train()
+    #
+    #     running_loss = 0.
+    #     best_accuracy = 0.0
+    #     ce_loss = nn.CrossEntropyLoss()
+    #     print(f'total epoch: {self.epoch}')
+    #     for e in range(self.epoch):
+    #         print('epoch {} started'.format(e))
+    #
+    #         if e in self.milestones:
+    #             self.schedule_lr()
+    #
+    #         for imgs, labels, ages in tqdm(iter(self.loader)):
+    #         # for imgs, labels in tqdm(iter(self.loader)):
+    #             self.optimizer1.zero_grad()
+    #             self.optimizer2.zero_grad()
+    #             label1, label2 = labels
+    #             if imgs.shape[0] == 1:
+    #                 continue
+    #
+    #             imgs = imgs.to(conf.device)
+    #             label1 = label1.to(conf.device)
+    #             label2 = label2.to(conf.device)
+    #             label2 = torch.where(label2==-1, label1, label2)
+    #
+    #             embeddings = self.model(imgs)
+    #             # thetas = self.head(embeddings, labels)
+    #             thetas1 = self.head(embeddings, label1, ages)
+    #             thetas2 = self.head(embeddings, label2, ages)
+    #
+    #             loss = 0.5 * ce_loss(thetas1, label1) + 0.5 * ce_loss(thetas2, label2)
+    #             loss.backward()
+    #             running_loss += loss.item()
+    #
+    #             self.optimizer1.step()
+    #             self.optimizer2.step()
+    #
+    #             if self.step % self.board_loss_every == 0 and self.step != 0: # XXX
+    #                 # print('wandb plotting....')
+    #                 loss_board = running_loss / self.board_loss_every
+    #                 # self.writer.add_scalar('train_loss', loss_board, self.step)
+    #                 if self.conf.wandb:
+    #                     wandb.log({
+    #                         "train_loss": loss_board,
+    #                     }, step=self.step)
+    #
+    #                 running_loss = 0.
+    #
+    #             # added wrong on evaluations
+    #             if self.step % self.evaluate_every == 0 and self.step != 0:
+    #                 self.model.eval()
+    #                 print('evaluating....')
+    #                 # # LFW evaluation
+    #                 # accuracy, best_threshold, roc_curve_tensor, dist = self.evaluate(conf, self.lfw, self.lfw_issame)
+    #                 # # NEGATIVE WRONG
+    #                 # wrong_list = np.where((self.lfw_issame == False) & (dist < best_threshold))[0]
+    #                 # negative_wrong = len(wrong_list)
+    #                 # # POSITIVE WRONG
+    #                 # wrong_list = np.where((self.lfw_issame == True) & (dist > best_threshold))[0]
+    #                 # positive_wrong = len(wrong_list)
+    #                 # self.board_val('lfw', accuracy, best_threshold, roc_curve_tensor, negative_wrong, positive_wrong)
+    #                 lfw_accuracy, lfw_thres, roc_curve_tensor2, lfw_dist = self.evaluate(conf, self.lfw, self.lfw_issame)
+    #                 # NEGATIVE WRONG
+    #                 wrong_list = np.where((self.lfw_issame == False) & (lfw_dist < lfw_thres))[0]
+    #                 lfw_negative = len(wrong_list)
+    #                 # POSITIVE WRONG
+    #                 wrong_list = np.where((self.lfw_issame == True) & (lfw_dist > lfw_thres))[0]
+    #                 lfw_positive = len(wrong_list)
+    #
+    #                 # # CFP FP evaluation
+    #                 # accuracy, best_threshold, roc_curve_tensor, dist = self.evaluate(conf, self.cfp_fp, self.cfp_fp_issame)
+    #                 # # NEGATIVE WRONG
+    #                 # wrong_list = np.where((self.cfp_fp_issame == False) & (dist < best_threshold))[0]
+    #                 # negative_wrong = len(wrong_list)
+    #                 # # POSITIVE WRONG
+    #                 # wrong_list = np.where((self.cfp_fp_issame == True) & (dist > best_threshold))[0]
+    #                 # positive_wrong = len(wrong_list)
+    #                 # self.board_val('cfp_fp', accuracy, best_threshold, roc_curve_tensor, negative_wrong, positive_wrong)
+    #                 #
+    #                 # # agedb evaluation
+    #                 # accuracy, best_threshold, roc_curve_tensor, dist = self.evaluate(conf, self.agedb, self.agedb_issame)
+    #                 # # NEGATIVE WRONG
+    #                 # wrong_list = np.where((self.agedb_issame == False) & (dist < best_threshold))[0]
+    #                 # negative_wrong = len(wrong_list)
+    #                 # # POSITIVE WRONG
+    #                 # wrong_list = np.where((self.agedb_issame == True) & (dist > best_threshold))[0]
+    #                 # positive_wrong = len(wrong_list)
+    #                 # self.board_val('agedb', accuracy, best_threshold, roc_curve_tensor, negative_wrong, positive_wrong)
+    #
+    #                 # FGNETC evaluation
+    #                 fgnetc_accuracy, fgnetc_thres, roc_curve_tensor2, fgnetc_dist = self.evaluate(conf, self.fgnetc, self.fgnetc_issame)
+    #                 # NEGATIVE WRONG
+    #                 wrong_list = np.where((self.fgnetc_issame == False) & (fgnetc_dist < fgnetc_thres))[0]
+    #                 fgnetc_negative = len(wrong_list)
+    #                 # POSITIVE WRONG
+    #                 wrong_list = np.where((self.fgnetc_issame == True) & (fgnetc_dist > fgnetc_thres))[0]
+    #                 fgnetc_positive = len(wrong_list)
+    #                 # self.board_val('fgent_c', accuracy2, best_threshold2, roc_curve_tensor2, fgnet_negative\, positive_wrong2)
+    #                 print(f'fgnetc_acc: {fgnetc_accuracy}')
+    #
+    #                 if self.conf.wandb:
+    #                     wandb.log({
+    #                         "lfw_acc": lfw_accuracy,
+    #                         "lfw_best_threshold": lfw_thres,
+    #                         "lfw_negative_wrong": lfw_negative,
+    #                         "lfw_positive_wrong": lfw_positive,
+    #
+    #                         "fgnet_c_acc": fgnetc_accuracy,
+    #                         "fgnet_c_best_threshold": fgnetc_thres,
+    #                         "fgnet_c_negative_wrong": fgnetc_negative,
+    #                         "fgnet_c_positive_wrong": fgnetc_positive,
+    #                     }, step=self.step)
+    #
+    #                 self.model.train()
+    #                 if self.step % self.save_every == 0 and self.step != 0:
+    #                     print('saving model....')
+    #                     # save with most recently calculated accuracy?
+    #                     # if conf.finetune_model_path is not None:
+    #                     #     self.save_state(conf, accuracy2,
+    #                     #                     extra=str(conf.data_mode) + '_' + str(conf.net_depth) + '_' + str(
+    #                     #                         conf.batch_size) + 'finetune')
+    #                     # else:
+    #                     #     self.save_state(conf, accuracy2,extra=str(conf.data_mode) + '_' + str(conf.exp) + '_' + str(conf.batch_size))
+    #
+    #                     if fgnetc_accuracy > best_accuracy:
+    #                         best_accuracy = fgnetc_accuracy
+    #                         print('saving best model....')
+    #                         self.save_best_state(conf, best_accuracy, extra=str(conf.data_mode) + '_' + str(conf.exp))
+    #             self.step += 1
+    #
+    #     # if conf.finetune_model_path is not None:
+    #     #     self.save_state(conf, fgnetc_accuracy, to_save_folder=True, extra=str(conf.data_mode)  + '_' + str(conf.net_depth) + '_'+ str(conf.batch_size) +'_finetune')
+    #     # else:
+    #     #     self.save_state(conf, fgnetc_accuracy, to_save_folder=True, extra=str(conf.data_mode)  + '_' + str(conf.net_depth) + '_'+ str(conf.batch_size) +'_final')
+    #     if conf.wandb:
+    #         wandb.finish()
 
     def analyze_angle(self, conf):
         '''
