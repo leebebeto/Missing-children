@@ -421,8 +421,8 @@ class face_learner(object):
         trans_list += [transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))]
         t = transforms.Compose(trans_list)
 
-        # txt_root = '/home/nas1_userE/jungsoolee/Face_dataset/txt_files'
-        txt_root = './dataset/txt_files_sh'
+        txt_root = '/home/nas1_userE/jungsoolee/Face_dataset/txt_files'
+        # txt_root = './dataset/txt_files_sh'
         txt_dir = 'fgnet10_child.txt'
         print(f'working on : {txt_dir}')
         pair_list, label_list = self.control_text_list(txt_root, txt_dir)
@@ -514,6 +514,7 @@ class face_learner(object):
                 "agedb10_acc": agedb10_best_acc,
                 "agedb20_acc": agedb20_best_acc,
                 "agedb30_acc": agedb30_best_acc,
+                "lag_acc": lag_best_acc,
             }, step=self.step)
 
         if self.conf.wandb:
@@ -524,6 +525,7 @@ class face_learner(object):
                 "best_agedb10_acc": self.agedb10_best_acc,
                 "best_agedb20_acc": self.agedb20_best_acc,
                 "best_agedb30_acc": self.agedb30_best_acc,
+                "best_lag_acc": self.lag_best_acc,
             }, step=self.step)
 
 
