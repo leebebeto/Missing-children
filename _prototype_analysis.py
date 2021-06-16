@@ -201,6 +201,7 @@ random.shuffle(child_identity)
 random.shuffle(adult_identity)
 
 fin = 200
+count = 0
 for idx, cls in enumerate(child_identity):
     child_image_temp = glob.glob(f'/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_NATIONAL/{cls}/*')
     child_image, adult_image = [], []
@@ -249,6 +250,7 @@ for idx, cls in enumerate(child_identity):
         child_means.append(child_theta.item())
     if idx > fin-1:
         break
+    count += 1
 
 
     # child_theta = torch.abs(torch.rad2deg(torch.arccos(cos_theta[:, cls])))
@@ -290,18 +292,18 @@ for idx, cls in enumerate(adult_identity):
         # adult_means.append(torch.div(euc_mean, torch.norm(euc_mean, keepdim=True)))
         adult_means.append(adult_theta.item())
 
-    if idx > fin -1:
+    if idx > count -1:
         break
 
 x_np = np.array(child_means)
 print(np.mean(x_np))
 x_df = pd.DataFrame(x_np)
-x_df.to_csv('child_proto2.csv')
+x_df.to_csv('intra_child_full.csv')
 
 x_np = np.array(adult_means)
 print(np.mean(x_np))
 x_df = pd.DataFrame(x_np)
-x_df.to_csv('adult_proto2.csv')
+x_df.to_csv('intra_adult_full.csv')
 # import pdb;
 
 # pdb.set_trace()
