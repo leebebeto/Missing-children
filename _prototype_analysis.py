@@ -121,6 +121,8 @@ train_transform = transforms.Compose([
 #     print(f'child mean: {torch.rad2deg(torch.arccos(child_negative))} || adult mean: {torch.rad2deg(torch.arccos(adult_negative))}')
 
 # # 2) child vs adult prototype within a class
+# child_all = []
+# adult_all = []
 # for cls in child_identity:
 #     child_image_temp = glob.glob(f'/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_NATIONAL/{cls}/*')
 #     child_image, adult_image = [], []
@@ -135,6 +137,9 @@ train_transform = transforms.Compose([
 #         except:
 #             adult_image.append(image)
 
+#     if len(adult_image)<10:
+#         continue
+
 #     batch = []
 #     for image in child_image:
 #         img = Image.open(image)
@@ -143,7 +148,7 @@ train_transform = transforms.Compose([
 #         label = int(image.split('/')[-2])
 #     batch = torch.stack(batch).cuda()
 
-#     import pdb; pdb.set_trace()
+#     # import pdb; pdb.set_trace()
 #     with torch.no_grad():
 #         embedding = learner.model(batch)
 #         kernel = learner.head.kernel
@@ -152,7 +157,7 @@ train_transform = transforms.Compose([
 #         cos_theta = cos_theta.clamp(-1,1)
 #     # child_theta = cos_theta[:, cls].mean()
 #     child_theta = torch.abs(torch.rad2deg(torch.arccos(cos_theta[:, cls])))
-#     # child_theta= child_theta.mean()
+#     child_theta= child_theta.mean()
 
 #     batch = []
 #     for image in adult_image:
@@ -170,9 +175,22 @@ train_transform = transforms.Compose([
 #         cos_theta = cos_theta.clamp(-1,1)
 #     # adult_theta = cos_theta[:, cls].mean()
 #     adult_theta = torch.abs(torch.rad2deg(torch.arccos(cos_theta[:, cls])))
-#     # adult_theta= adult_theta.mean()
+#     adult_theta= adult_theta.mean()
 #     print(f'cls: {cls} || child mean: {child_theta} || adult mean: {adult_theta}')
+#     # pdb.set_trace()
+#     child_all.append(child_theta.item())
+#     adult_all.append(adult_theta.item())
 #     # print(f'cls: {cls} || child mean: {torch.rad2deg(torch.arccos(child_theta))} || adult mean: {torch.rad2deg(torch.arccos(adult_theta))}')
+
+# x_np = np.array(child_all)
+# print(np.mean(x_np))
+# x_df = pd.DataFrame(x_np)
+# x_df.to_csv('child_proto.csv')
+
+# x_np = np.array(adult_all)
+# print(np.mean(x_np))
+# x_df = pd.DataFrame(x_np)
+# x_df.to_csv('adult_proto.csv')
 
 # 3) inter-child similarity, inter-adult similarity
 child_means = []
@@ -201,7 +219,7 @@ for idx, cls in enumerate(child_identity):
         # age = id2age[id_img]
         # if int(age) < 13:
         #     child_image.append(image)
-    print('id {}: child-{}, adult-{}'.format(idx, len(child_image), len(adult_image)))
+    # print('id {}: child-{}, adult-{}'.format(idx, len(child_image), len(adult_image)))
     # if len(adult_image) < 10:
     #     print('excluding id {}'.format(idx))
     #     continue
@@ -218,12 +236,17 @@ for idx, cls in enumerate(child_identity):
 
     with torch.no_grad():
         embedding = learner.model(batch)
-        # kernel = learner.head.kernel
-        # kernel_norm = l2_norm(kernel,axis=0)
-        # cos_theta = torch.mm(embedding, kernel_norm)
-        # cos_theta = cos_theta.clamp(-1,1)
-    euc_mean = torch.mean(embedding, dim=0)
-    child_means.append(torch.div(euc_mean, torch.norm(euc_mean, keepdim=True)))
+        kernel = learner.head.kernel
+        kernel_norm = l2_norm(kernel,axis=0)
+        cos_theta = torch.mm(embedding, kernel_norm)
+        cos_theta = cos_theta.clamp(-1,1)
+        # child_theta = torch.abs(torch.rad2deg(torch.arccos(cos_theta[:, cls])))
+        child_theta = torch.abs(torch.rad2deg(cos_theta[:, cls]))
+        child_theta= child_theta.mean()
+        # pdb.set_trace()
+        # euc_mean = torch.mean(embedding, dim=0)
+        # child_means.append(torch.div(euc_mean, torch.norm(euc_mean, keepdim=True)))
+        child_means.append(child_theta.item())
     if idx > fin-1:
         break
 
@@ -256,34 +279,44 @@ for idx, cls in enumerate(adult_identity):
 
     with torch.no_grad():
         embedding = learner.model(batch)
-        # kernel = learner.head.kernel
-        # kernel_norm = l2_norm(kernel,axis=0)
-        # cos_theta = torch.mm(embedding, kernel_norm)
-        # cos_theta = cos_theta.clamp(-1,1)
+        kernel = learner.head.kernel
+        kernel_norm = l2_norm(kernel,axis=0)
+        cos_theta = torch.mm(embedding, kernel_norm)
+        cos_theta = cos_theta.clamp(-1,1)
+        adult_theta = torch.abs(torch.rad2deg(cos_theta[:, cls]))
         # adult_theta = torch.abs(torch.rad2deg(torch.arccos(cos_theta[:, cls])))
-        euc_mean = torch.mean(embedding, dim=0)
-        adult_means.append(torch.div(euc_mean, torch.norm(euc_mean, keepdim=True)))
+        adult_theta= adult_theta.mean()
+        # euc_mean = torch.mean(embedding, dim=0)
+        # adult_means.append(torch.div(euc_mean, torch.norm(euc_mean, keepdim=True)))
+        adult_means.append(adult_theta.item())
 
-    if idx == 50:
+    if idx > fin -1:
         break
 
-import pdb;
+x_np = np.array(child_means)
+print(np.mean(x_np))
+x_df = pd.DataFrame(x_np)
+x_df.to_csv('child_proto2.csv')
 
-pdb.set_trace()
-with torch.no_grad():
-    print('total of {} ids selected'.format(len(child_means)))
-    matrix_size = len(child_means) ** 2
-    child_means = torch.stack(child_means)
-    adult_means = torch.stack(adult_means)
+x_np = np.array(adult_means)
+print(np.mean(x_np))
+x_df = pd.DataFrame(x_np)
+x_df.to_csv('adult_proto2.csv')
+# import pdb;
 
-    if idx > fin-1:
-        break
+# pdb.set_trace()
+# with torch.no_grad():
+#     print('total of {} ids selected'.format(len(child_means)))
+#     matrix_size = len(child_means) ** 2
+#     child_means = torch.stack(child_means)
+#     adult_means = torch.stack(adult_means)
+
     
-import pdb; pdb.set_trace()
-print('total of {} ids selected'.format(len(child_means)))
-matrix_size = len(child_means)**2
-child_means = torch.stack(child_means)
-adult_means = torch.stack(adult_means)
+# import pdb; pdb.set_trace()
+# print('total of {} ids selected'.format(len(child_means)))
+# matrix_size = len(child_means)**2
+# child_means = torch.stack(child_means)
+# adult_means = torch.stack(adult_means)
 
     # torch.set_printoptions(precision= 2, threshold=100000,linewidth=1000)
     # print(inter_child_sim)
@@ -291,33 +324,30 @@ adult_means = torch.stack(adult_means)
     # print(inter_adult_sim)
 
 
-inter_child_sum = torch.sum(inter_child_sim)/(matrix_size-len(child_means))
-inter_adult_sum = torch.sum(inter_adult_sim)/(matrix_size-len(child_means))
+# inter_child_sum = torch.sum(inter_child_sim)/(matrix_size-len(child_means))
+# inter_adult_sum = torch.sum(inter_adult_sim)/(matrix_size-len(child_means))
 
-print('inter child, inter adult')
-print(inter_child_sum.item())
-print(inter_adult_sum.item())
+# print('inter child, inter adult')
+# print(inter_child_sum.item())
+# print(inter_adult_sum.item())
 
-child_mask = inter_child_sim>0
-adult_mask = inter_adult_sim>0
-print('inter child, inter adult, positive only')
-print(torch.sum(child_mask*inter_child_sim)/torch.sum(child_mask))
-print(torch.sum(adult_mask*inter_adult_sim)/torch.sum(adult_mask))
+# child_mask = inter_child_sim>0
+# adult_mask = inter_adult_sim>0
+# print('inter child, inter adult, positive only')
+# print(torch.sum(child_mask*inter_child_sim)/torch.sum(child_mask))
+# print(torch.sum(adult_mask*inter_adult_sim)/torch.sum(adult_mask))
 
-print('num positive')
-print(torch.sum(child_mask)/2)
-print(torch.sum(adult_mask)/2)
-print(inter_child_sum.item())
-print(inter_adult_sum.item())
+# print('num positive')
+# print(torch.sum(child_mask)/2)
+# print(torch.sum(adult_mask)/2)
+# print(inter_child_sum.item())
+# print(inter_adult_sum.item())
 
 
-x_np = inter_child_sim.cpu().numpy()
-x_df = pd.DataFrame(x_np)
-x_df.to_csv('inter_child_sim{}.csv'.format(fin))
+# x_np = inter_child_sim.cpu().numpy()
+# x_df = pd.DataFrame(x_np)
+# x_df.to_csv('inter_child_sim{}.csv'.format(fin))
 
-x_np = inter_adult_sim.cpu().numpy()
-x_df = pd.DataFrame(x_np)
-x_df.to_csv('inter_adult_sim{}.csv'.format(fin))
-
-    # print(f'cls: {cls} || child mean: {child_theta} || adult mean: {adult_theta}')
-    # print(f'cls: {cls} || child mean: {torch.rad2deg(torch.arccos(child_theta))} || adult mean: {torch.rad2deg(torch.arccos(adult_theta))}')
+# x_np = inter_adult_sim.cpu().numpy()
+# x_df = pd.DataFrame(x_np)
+# x_df.to_csv('inter_adult_sim{}.csv'.format(fin))
