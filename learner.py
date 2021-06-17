@@ -231,8 +231,7 @@ class face_learner(object):
 
             self.board_loss_every = conf.loss_freq
             # self.evaluate_every = conf.evaluate_freq
-            # self.evaluate_every = len(self.loader)
-            self.evaluate_every = 5
+            self.evaluate_every = len(self.loader)
             self.save_every = conf.save_freq
 
 
@@ -619,17 +618,23 @@ class face_learner(object):
                     running_loss = 0.
 
                 # added wrong on evaluations
-                if e >= self.milestones[1] and self.step % self.evaluate_every == 0 and self.step != 0:
-                    self.model.eval()
-                    self.evaluate_new_total()
-                    print('evaluating....')
-                    self.model.train()
+                # if e >= self.milestones[1] and self.step % self.evaluate_every == 0 and self.step != 0:
+                #     self.model.eval()
+                #     self.evaluate_new_total()
+                #     print('evaluating....')
+                #     self.model.train()
+                #
+                # elif e < self.milestones[1] and self.step % self.evaluate_every == 0 and self.step != 0:
+                #     self.model.eval()
+                #     self.evaluate_new()
+                #     print('evaluating....')
+                #     self.model.train()
 
-                elif e < self.milestones[1] and self.step % self.evaluate_every == 0 and self.step != 0:
-                    self.model.eval()
-                    self.evaluate_new()
-                    print('evaluating....')
-                    self.model.train()
+                self.model.eval()
+                self.evaluate_new_total()
+                self.evaluate_new()
+                self.model.train()
+
 
                 self.step += 1
 
@@ -953,22 +958,18 @@ class face_learner(object):
                     running_child_degree, running_adult_degree = torch.zeros(self.child_labels.size()).to(
                         self.conf.device), torch.zeros(self.child_labels.size()).to(self.conf.device)
 
-                # if e >= self.milestones[1] and self.step % self.evaluate_every == 0 and self.step != 0:
-                #     self.model.eval()
-                #     self.evaluate_new_total()
-                #     print('evaluating....')
-                #     self.model.train()
-                #
-                # elif e < self.milestones[1] and self.step % self.evaluate_every == 0 and self.step != 0:
-                #     self.model.eval()
-                #     self.evaluate_new()
-                #     print('evaluating....')
-                #     self.model.train()
+                if e >= self.milestones[1] and self.step % self.evaluate_every == 0 and self.step != 0:
+                    self.model.eval()
+                    self.evaluate_new_total()
+                    print('evaluating....')
+                    self.model.train()
 
-                self.model.eval()
-                self.evaluate_new_total()
-                self.evaluate_new()
-                self.model.train()
+                elif e < self.milestones[1] and self.step % self.evaluate_every == 0 and self.step != 0:
+                    self.model.eval()
+                    self.evaluate_new()
+                    print('evaluating....')
+                    self.model.train()
+
                 self.step += 1
 
     # training with memory bank
