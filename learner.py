@@ -843,7 +843,7 @@ class face_learner(object):
                     child_lambda = 1.0 if e > self.milestones[0] else self.conf.lambda_child * 0.0
 
                 # self.head.kernel = (512, 10572)
-                prototype_matrix = torch.mm(self.head.kernel.T, self.head.kernel)
+                prototype_matrix = torch.mm(l2_norm(self.head.kernel, axis=0).T, l2_norm(self.head.kernel, axis=0))
                 prototype_matrix = prototype_matrix[:, self.child_identity]
                 prototype_matrix = prototype_matrix[self.child_identity, :]
                 if conf.prototype_loss == 'CE':
@@ -863,10 +863,6 @@ class face_learner(object):
                 running_child_loss += child_loss.item()
                 running_child_total_loss += child_total_loss.item()
 
-                if 'MIXUP' in conf.exp:
-                    running_mixup_loss += mixup_loss.item()
-                    running_mixup_total_loss += mixup_total_loss.item()
-
                 self.optimizer1.step()
                 self.optimizer2.step()
 
@@ -875,13 +871,13 @@ class face_learner(object):
                 del imgs, labels, thetas, arcface_loss
                 del child_idx, ages
 
-                if self.conf.log_degree:
-                    child_thetas = self.head.forward_arccos(child_embeddings, self.child_labels)
-                    adult_thetas = self.head.forward_arccos(adult_embeddings, self.child_labels)
-                    running_child_degree = running_child_degree + torch.rad2deg(child_thetas)
-                    running_adult_degree = running_adult_degree + torch.rad2deg(adult_thetas)
-                    running_child_degree = running_child_degree.mean()
-                    running_adult_degree = running_adult_degree.mean()
+                # if self.conf.log_degree:
+                #     child_thetas = self.head.forward_arccos(child_embeddings, self.child_labels)
+                #     adult_thetas = self.head.forward_arccos(adult_embeddings, self.child_labels)
+                #     running_child_degree = running_child_degree + torch.rad2deg(child_thetas)
+                #     running_adult_degree = running_adult_degree + torch.rad2deg(adult_thetas)
+                #     running_child_degree = running_child_degree.mean()
+                #     running_adult_degree = running_adult_degree.mean()
 
                 if self.step % self.board_loss_every == 0 and self.step != 0:  # XXX
                     # print('tensorboard plotting....')
@@ -898,14 +894,14 @@ class face_learner(object):
                             "arcface_total_loss": arcface_loss_board,
                         }, step=self.step)
 
-                    if self.conf.log_degree:
-                        child_degree_board = running_child_degree / self.board_loss_every
-                        adult_degree_board = running_adult_degree / self.board_loss_every
+                    # if self.conf.log_degree:
+                    #     child_degree_board = running_child_degree / self.board_loss_every
+                    #     adult_degree_board = running_adult_degree / self.board_loss_every
 
-                        wandb.log({
-                            "child_degree_board": child_degree_board,
-                            "adult_degree_board": adult_degree_board,
-                        }, step=self.step)
+                    #     wandb.log({
+                    #         "child_degree_board": child_degree_board,
+                    #         "adult_degree_board": adult_degree_board,
+                    #     }, step=self.step)
 
                     child_loss_board = running_child_loss / self.board_loss_every
                     child_total_loss_board = running_child_total_loss / self.board_loss_every
@@ -919,14 +915,6 @@ class face_learner(object):
 
                         # self.writer.add_scalar('child_loss', child_loss_board, self.step)
                         # self.writer.add_scalar('child_total_loss', child_total_loss_board, self.step)
-                    if 'MIXUP' in conf.exp:
-                        mixup_loss_board = running_mixup_loss / self.board_loss_every
-                        mixup_total_loss_board = running_mixup_total_loss / self.board_loss_every
-                        if self.conf.wandb:
-                            wandb.log({
-                                "mixup_loss": mixup_loss_board,
-                                "mixup_total_loss": mixup_total_loss_board,
-                            }, step=self.step)
 
                         # self.writer.add_scalar('mixup_loss', mixup_loss_board, self.step)
                         # self.writer.add_scalar('mixup_total_loss', mixup_total_loss_board, self.step)
@@ -935,10 +923,9 @@ class face_learner(object):
                     running_arcface_loss = 0.0
                     running_child_loss = 0.0
                     running_child_total_loss = 0.0
-                    running_mixup_loss = 0.0
                     running_mixup_total_loss = 0.0
-                    running_child_degree, running_adult_degree = torch.zeros(self.child_labels.size()).to(
-                        self.conf.device), torch.zeros(self.child_labels.size()).to(self.conf.device)
+                    # running_child_degree, running_adult_degree = torch.zeros(self.child_labels.size()).to(
+                    #     self.conf.device), torch.zeros(self.child_labels.size()).to(self.conf.device)
 
                 if e >= self.milestones[1] and self.step % self.evaluate_every == 0 and self.step != 0:
                     self.model.eval()
