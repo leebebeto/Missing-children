@@ -356,15 +356,27 @@ class face_learner(object):
         with torch.no_grad():  # Test 때 GPU를 사용할 경우 메모리 절약을 위해 torch.no_grad() 내에서 하는 것이 좋다.
             for idx, pair in enumerate(tqdm(pair_list)):
                 if data_dir is None:
+                    # if 'png' in pair:
+                    #     path_1, path_2 = pair.split('.png /home')
+                    #     path_1 = path_1 + '.png'
+                    # elif 'jpg' in pair:
+                    #     path_1, path_2 = pair.split('.jpg /home')
+                    #     path_1 = path_1 + '.jpg'
+                    # elif 'JPG' in pair:
+                    #     path_1, path_2 = pair.split('.JPG /home')
+                    #     path_1 = path_1 + '.JPG'
+
                     if 'png' in pair:
-                        path_1, path_2 = pair.split('.png /home')
+                        path_1, path_2 = pair.split('.png /dataset')
                         path_1 = path_1 + '.png'
                     elif 'jpg' in pair:
-                        path_1, path_2 = pair.split('.jpg /home')
+                        path_1, path_2 = pair.split('.jpg /dataset')
                         path_1 = path_1 + '.jpg'
                     elif 'JPG' in pair:
-                        path_1, path_2 = pair.split('.JPG /home')
+                        path_1, path_2 = pair.split('.JPG /dataset')
                         path_1 = path_1 + '.JPG'
+
+
                     path_2 = '/home' + path_2
                     path_2 = path_2[:-2]
                 elif data_dir == 'cacd_vs':
@@ -421,8 +433,8 @@ class face_learner(object):
         trans_list += [transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))]
         t = transforms.Compose(trans_list)
 
-        txt_root = '/home/nas1_userE/jungsoolee/Face_dataset/txt_files'
-        # txt_root = './dataset/txt_files_sh'
+        # txt_root = '/home/nas1_userE/jungsoolee/Face_dataset/txt_files'
+        txt_root = './dataset/txt_files_sh'
         txt_dir = 'fgnet10_child.txt'
         print(f'working on : {txt_dir}')
         pair_list, label_list = self.control_text_list(txt_root, txt_dir)
@@ -535,8 +547,8 @@ class face_learner(object):
         trans_list += [transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))]
         t = transforms.Compose(trans_list)
 
-        txt_root = '/home/nas1_userE/jungsoolee/Face_dataset/txt_files'
-
+        # txt_root = '/home/nas1_userE/jungsoolee/Face_dataset/txt_files'
+        txt_root = './dataset/txt_files_sh'
         txt_dir = 'fgnet30_child.txt'
         print(f'working on : {txt_dir}')
         pair_list, label_list = self.control_text_list(txt_root, txt_dir)
@@ -606,17 +618,23 @@ class face_learner(object):
                     running_loss = 0.
 
                 # added wrong on evaluations
-                if e >= self.milestones[1] and self.step % self.evaluate_every == 0 and self.step != 0:
-                    self.model.eval()
-                    self.evaluate_new_total()
-                    print('evaluating....')
-                    self.model.train()
+                # if e >= self.milestones[1] and self.step % self.evaluate_every == 0 and self.step != 0:
+                #     self.model.eval()
+                #     self.evaluate_new_total()
+                #     print('evaluating....')
+                #     self.model.train()
+                #
+                # elif e < self.milestones[1] and self.step % self.evaluate_every == 0 and self.step != 0:
+                #     self.model.eval()
+                #     self.evaluate_new()
+                #     print('evaluating....')
+                #     self.model.train()
 
-                elif e < self.milestones[1] and self.step % self.evaluate_every == 0 and self.step != 0:
-                    self.model.eval()
-                    self.evaluate_new()
-                    print('evaluating....')
-                    self.model.train()
+                self.model.eval()
+                self.evaluate_new_total()
+                self.evaluate_new()
+                self.model.train()
+
 
                 self.step += 1
 
@@ -938,6 +956,7 @@ class face_learner(object):
                     self.evaluate_new()
                     print('evaluating....')
                     self.model.train()
+
                 self.step += 1
 
     # training with memory bank
