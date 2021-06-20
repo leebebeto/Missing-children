@@ -378,7 +378,7 @@ class face_learner(object):
                 imgs = torch.cat((img_1, img_2), dim=0)
 
                 # Extract feature and save
-                if self.conf.loss == 'DAL':
+                if self.conf.loss == 'DAL' or self.conf.loss == 'OECNN':
                     features = net(imgs, emb=True)
                 else:
                     features = net(imgs)
