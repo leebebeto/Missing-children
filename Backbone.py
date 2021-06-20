@@ -368,14 +368,14 @@ class OECNN_model(nn.Module):
             self.margin_fc = CosMargin(n_cls, embedding_size=512, s=64.,m=0.35)  # 32 0.1 worked
         elif head.lower() in 'arcface':
             self.margin_fc = ArcfaceMargin(n_cls, embedding_size=512, s=64.,m=0.5)
-        self.age_classifier = nn.Sequential(nn.Linear(64, 64))
+        self.age_classifier = nn.Sequential(nn.Linear(1, 1))
         self.id_cr = nn.CrossEntropyLoss()
         self.age_cr = nn.MSELoss()
 
     def forward(self, xs, ys=None, agegrps=None, emb=False):
         # 512-D embedding
         embs = self.backbone(xs)
-        age_input = embs.norm(dim=1, p=2)
+        age_input = embs.norm(dim=1, p=2).unsqueeze(1)
         age_logits = self.age_classifier(age_input)
         id_logits = self.margin_fc(l2_norm(embs), ys)
         if emb:
@@ -384,6 +384,7 @@ class OECNN_model(nn.Module):
         idLoss = self.id_cr(id_logits, ys)
 
         # age classifier
+        agegrps = agegrps.unsqueeze(1)
         age_acc = accuracy(age_logits, agegrps)
         # import pdb; pdb.set_trace()
         # age_label = torch.zeros((xs.shape[0], 100)).cuda()
