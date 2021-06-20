@@ -94,30 +94,6 @@ class face_learner(object):
                 self.epoch= 28
 
 
-            print(f'curr milestones: {self.milestones}')
-            print(f'total epochs: {self.epoch}')
-
-            # for e in range(self.epoch):
-            #     if conf.lambda_mode == 'normal':
-            #         child_lambda = 0.0 if (e == 0) or (e in self.milestones) else self.conf.lambda_child * 1.0
-            #     elif conf.lambda_mode == 'zero':
-            #         child_lambda = 0.0 if (e == 0) or (e >= self.milestones[0]) else self.conf.lambda_child * 1.0
-            #     elif conf.lambda_mode == 'anneal9':
-            #         if (e == 0) or (e in self.milestones):
-            #             child_lambda = 0.0
-            #         elif e >= self.milestones[0]:
-            #             child_lambda = conf.lambda_child * 0.9 ** (e-self.milestones[0])
-            #         else:
-            #             child_lambda = 1
-            #
-            #     elif conf.lambda_mode == 'anneal8':
-            #         if (e == 0) or (e in self.milestones):
-            #             child_lambda = 0.0
-            #         elif e >= self.milestones[0]:
-            #             child_lambda = conf.lambda_child * 0.8 ** (e-self.milestones[0])
-            #         else:
-            #             child_lambda = 1
-            #     print(f'e: {e} / child_lambda: {child_lambda}')
 
             self.loader, self.class_num, self.ds, self.child_identity, self.child_identity_min, self.child_identity_max = get_train_loader(conf)
             self.log_path = os.path.join(conf.log_path, conf.data_mode, conf.exp)
@@ -148,11 +124,14 @@ class face_learner(object):
                 self.head = FC(in_feature=conf.embedding_size, out_feature=self.class_num, fc_type='MV-Arc').to(conf.device)
             elif conf.loss == 'Broad':
                 self.head = BroadFaceArcFace(in_features=conf.embedding_size, out_features=10572).to(conf.device)
-                # root_path = '../../../nas1_temp/jooyeolyun/mia_params/baseline'
-                # model_path = os.path.join(root_path, 'fgnetc_best_model_2021-05-31-20-56_accuracy:0.851_step:190000_casia_arcface_baseline30.pth')
-                # head_path = os.path.join(root_path, 'fgnetc_best_head_2021-05-31-20-56_accuracy:0.851_step:190000_casia_arcface_baseline30.pth')
-                # self.model.load_state_dict(torch.load(model_path))
-                # self.head.load_state_dict(torch.load(head_path))
+                root_path = 'work_space/models_serious/baseline_broad_origin'
+                model_path = os.path.join(root_path, 'fgnetc_best_model_2021-06-15-04-52_accuracy:0.990_step:274000_casia_baseline_broad_origin.pth')
+                head_path = os.path.join(root_path, 'fgnetc_best_head_2021-06-15-04-52_accuracy:0.990_step:274000_casia_baseline_broad_origin.pth')
+                self.model.load_state_dict(torch.load(model_path))
+                self.head.load_state_dict(torch.load(head_path))
+                print('broad face loaded ...')
+                self.milestones = [13, 18]
+                self.epoch = 20
                 # import pdb; pdb.set_trace()
             # else:
             #     import sys
@@ -186,6 +165,8 @@ class face_learner(object):
                 if conf.use_sync == True:
                     self.model = convert_model(self.model)
 
+            print(f'curr milestones: {self.milestones}')
+            print(f'total epochs: {self.epoch}')
 
             print(self.class_num)
             print(conf)
@@ -230,8 +211,8 @@ class face_learner(object):
             # self.save_every = len(self.loader)//5
 
             self.board_loss_every = conf.loss_freq
-            # self.evaluate_every = conf.evaluate_freq
-            self.evaluate_every = len(self.loader)
+            self.evaluate_every = conf.evaluate_freq
+            # self.evaluate_every = len(self.loader)
             self.save_every = conf.save_freq
 
 
@@ -250,7 +231,6 @@ class face_learner(object):
             # self.fgnetc_issame = np.load(os.path.join(dataset_root, "FGNET_new_align_label.npy"))
             # # self.cfp_fp, self.cfp_fp_issame = get_val_data(dataset_root, 'cfp_fp')
             # # self.agedb, self.agedb_issame = get_val_data(dataset_root, 'agedb_30')
-
 
             self.fgnet10_best_acc, self.fgnet20_best_acc, self.fgnet30_best_acc, self.average_best_acc = 0.0, 0.0, 0.0, 0.0
             self.agedb10_best_acc, self.agedb20_best_acc, self.agedb30_best_acc, self.lag_best_acc= 0.0, 0.0, 0.0, 0.0
@@ -356,29 +336,31 @@ class face_learner(object):
         with torch.no_grad():  # Test 때 GPU를 사용할 경우 메모리 절약을 위해 torch.no_grad() 내에서 하는 것이 좋다.
             for idx, pair in enumerate(tqdm(pair_list)):
                 if data_dir is None:
-                    # if 'png' in pair:
-                    #     path_1, path_2 = pair.split('.png /home')
-                    #     path_1 = path_1 + '.png'
-                    # elif 'jpg' in pair:
-                    #     path_1, path_2 = pair.split('.jpg /home')
-                    #     path_1 = path_1 + '.jpg'
-                    # elif 'JPG' in pair:
-                    #     path_1, path_2 = pair.split('.JPG /home')
-                    #     path_1 = path_1 + '.JPG'
-
                     if 'png' in pair:
-                        path_1, path_2 = pair.split('.png /dataset')
+                        path_1, path_2 = pair.split('.png /home')
                         path_1 = path_1 + '.png'
                     elif 'jpg' in pair:
-                        path_1, path_2 = pair.split('.jpg /dataset')
+                        path_1, path_2 = pair.split('.jpg /home')
                         path_1 = path_1 + '.jpg'
                     elif 'JPG' in pair:
-                        path_1, path_2 = pair.split('.JPG /dataset')
+                        path_1, path_2 = pair.split('.JPG /home')
                         path_1 = path_1 + '.JPG'
-
-
                     path_2 = '/home' + path_2
                     path_2 = path_2[:-2]
+
+                    # if 'png' in pair:
+                    #     path_1, path_2 = pair.split('.png ')
+                    #     path_1 = path_1 + '.png'
+                    #     path_2 = path_2[:-1]
+                    # elif 'jpg' in pair:
+                    #     path_1, path_2 = pair.split('.jpg ')
+                    #     path_1 = path_1 + '.jpg'
+                    #     path_2 = path_2[:-1]
+                    # elif 'JPG' in pair:
+                    #     path_1, path_2 = pair.split('.JPG ')
+                    #     path_1 = path_1 + '.JPG'
+                    #     path_2 = path_2[:-1]
+                    #
                 elif data_dir == 'cacd_vs':
                     image_root = '/home/nas1_userE/jungsoolee/Face_dataset/CACD_VS_single_112_RF'
                     path_1, path_2 = pair.split(' ')
@@ -433,8 +415,8 @@ class face_learner(object):
         trans_list += [transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))]
         t = transforms.Compose(trans_list)
 
-        # txt_root = '/home/nas1_userE/jungsoolee/Face_dataset/txt_files'
-        txt_root = './dataset/txt_files_sh'
+        txt_root = '/home/nas1_userE/jungsoolee/Face_dataset/txt_files'
+        # txt_root = './dataset/txt_files_sh'
         txt_dir = 'fgnet10_child.txt'
         print(f'working on : {txt_dir}')
         pair_list, label_list = self.control_text_list(txt_root, txt_dir)
@@ -547,18 +529,19 @@ class face_learner(object):
         trans_list += [transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))]
         t = transforms.Compose(trans_list)
 
-        # txt_root = '/home/nas1_userE/jungsoolee/Face_dataset/txt_files'
-        txt_root = './dataset/txt_files_sh'
-        txt_dir = 'fgnet30_child.txt'
+        txt_root = '/home/nas1_userE/jungsoolee/Face_dataset/txt_files'
+        # txt_root = '/home/nas1_userE/jungsoolee/Missing-children/txt_files_sh'
+        # txt_root = './dataset/txt_files_sh'
+        txt_dir = 'agedb30_child.txt'
         print(f'working on : {txt_dir}')
         pair_list, label_list = self.control_text_list(txt_root, txt_dir)
-        fgnet30_best_acc, fgnet30_best_th, fgnet30_idx = self.verification(self.model, label_list, pair_list, transform=t)
+        agedb30_best_acc, agedb30_best_th, agedb30_idx = self.verification(self.model, label_list, pair_list, transform=t)
         # fgnet30_best_acc, fgnet30_best_th, fgnet30_idx = 0.5, 0.5, 0.5
-        print(f'txt_dir: {txt_dir}, best_accr: {fgnet30_best_acc}')
+        print(f'txt_dir: {txt_dir}, best_accr: {agedb30_best_acc}')
 
         if self.conf.wandb:
             wandb.log({
-                "fgnet30_acc": fgnet30_best_acc,
+                "agedb30_acc": agedb30_best_acc,
             }, step=self.step)
 
 
@@ -618,22 +601,22 @@ class face_learner(object):
                     running_loss = 0.
 
                 # added wrong on evaluations
-                # if e >= self.milestones[1] and self.step % self.evaluate_every == 0 and self.step != 0:
-                #     self.model.eval()
-                #     self.evaluate_new_total()
-                #     print('evaluating....')
-                #     self.model.train()
-                #
-                # elif e < self.milestones[1] and self.step % self.evaluate_every == 0 and self.step != 0:
-                #     self.model.eval()
-                #     self.evaluate_new()
-                #     print('evaluating....')
-                #     self.model.train()
+                if e >= self.milestones[1] and self.step % self.evaluate_every == 0 and self.step != 0:
+                    self.model.eval()
+                    self.evaluate_new_total()
+                    print('evaluating....')
+                    self.model.train()
 
-                self.model.eval()
-                self.evaluate_new_total()
-                self.evaluate_new()
-                self.model.train()
+                elif e < self.milestones[1] and self.step % self.evaluate_every == 0 and self.step != 0:
+                    self.model.eval()
+                    self.evaluate_new()
+                    print('evaluating....')
+                    self.model.train()
+                #
+                # self.model.eval()
+                # self.evaluate_new_total()
+                # self.evaluate_new()
+                # self.model.train()
 
 
                 self.step += 1
@@ -861,7 +844,7 @@ class face_learner(object):
                     child_lambda = 1.0 if e > self.milestones[0] else self.conf.lambda_child * 0.0
 
                 # self.head.kernel = (512, 10572)
-                prototype_matrix = torch.mm(self.head.kernel.T, self.head.kernel)
+                prototype_matrix = torch.mm(l2_norm(self.head.kernel, axis=0).T, l2_norm(self.head.kernel, axis=0))
                 prototype_matrix = prototype_matrix[:, self.child_identity]
                 prototype_matrix = prototype_matrix[self.child_identity, :]
                 if conf.prototype_loss == 'CE':
@@ -969,7 +952,6 @@ class face_learner(object):
                     self.evaluate_new()
                     print('evaluating....')
                     self.model.train()
-
                 self.step += 1
 
     # training with memory bank
@@ -1792,11 +1774,11 @@ class face_learner(object):
         os.makedirs(save_path, exist_ok=True)
         torch.save(self.model.state_dict(), os.path.join(save_path, (
             'fgnetc_best_model_{}_accuracy:{:.3f}_step:{}_{}.pth'.format(get_time(), accuracy, self.step, extra))))
-        if not model_only:
-            torch.save(
-                self.head.state_dict(), os.path.join(save_path, (
-                    'fgnetc_best_head_{}_accuracy:{:.3f}_step:{}_{}.pth'.format(get_time(), accuracy, self.step,
-                                                                                extra))))
+        # if not model_only:
+        #     torch.save(
+        #         self.head.state_dict(), os.path.join(save_path, (
+        #             'fgnetc_best_head_{}_accuracy:{:.3f}_step:{}_{}.pth'.format(get_time(), accuracy, self.step,
+        #                                                                         extra))))
 
     def save_state(self, conf, accuracy, to_save_folder=False, extra=None, model_only=False):
         if to_save_folder:

@@ -738,9 +738,7 @@ class BroadFaceArcFace(nn.Module):
             self.feature_mb.shape[0] == self.label_mb.shape[0] == self.proxy_mb.shape[0]
         )
 
-    # def compute_arcface(self, x, y, w):
-    def forward(self, x, y, ages=None):
-
+    def compute_arcface(self, x, y, w):
         cosine = F.linear(F.normalize(x), F.normalize(self.kernel))
         sine = torch.sqrt(1.0 - torch.pow(cosine, 2))
 
@@ -756,31 +754,31 @@ class BroadFaceArcFace(nn.Module):
         ce_loss = self.criterion(logit, y)
         return ce_loss.mean()
 
-    # def forward(self, input, label, ages=None):
-    #     # input is not l2 normalized
-    #     weight_now = self.kernel.data[self.label_mb]
-    #     delta_weight = weight_now - self.proxy_mb
-    #
-    #     if self.compensate:
-    #         update_feature_mb = (
-    #             self.feature_mb
-    #             + (
-    #                 self.feature_mb.norm(p=2, dim=1, keepdim=True)
-    #                 / self.proxy_mb.norm(p=2, dim=1, keepdim=True)
-    #             )
-    #             * delta_weight
-    #         )
-    #     else:
-    #         update_feature_mb = self.feature_mb
-    #
-    #     large_input = torch.cat([update_feature_mb, input.data], dim=0)
-    #     large_label = torch.cat([self.label_mb, label], dim=0)
-    #
-    #     batch_loss = self.compute_arcface(input, label, self.kernel.data)
-    #     broad_loss = self.compute_arcface(large_input, large_label, self.kernel)
-    #     self.update(input, label)
-    #
-    #     return batch_loss + broad_loss
+    def forward(self, input, label, ages=None):
+        # input is not l2 normalized
+        weight_now = self.kernel.data[self.label_mb]
+        delta_weight = weight_now - self.proxy_mb
+
+        if self.compensate:
+            update_feature_mb = (
+                self.feature_mb
+                + (
+                    self.feature_mb.norm(p=2, dim=1, keepdim=True)
+                    / self.proxy_mb.norm(p=2, dim=1, keepdim=True)
+                )
+                * delta_weight
+            )
+        else:
+            update_feature_mb = self.feature_mb
+
+        large_input = torch.cat([update_feature_mb, input.data], dim=0)
+        large_label = torch.cat([self.label_mb, label], dim=0)
+
+        batch_loss = self.compute_arcface(input, label, self.kernel.data)
+        broad_loss = self.compute_arcface(large_input, large_label, self.kernel)
+        self.update(input, label)
+
+        return batch_loss + broad_loss
 
 
 ################################## Sphereface ################################################

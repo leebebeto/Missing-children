@@ -368,25 +368,26 @@ class OECNN_model(nn.Module):
             self.margin_fc = CosMargin(n_cls, embedding_size=512, s=64.,m=0.35)  # 32 0.1 worked
         elif head.lower() in 'arcface':
             self.margin_fc = ArcfaceMargin(n_cls, embedding_size=512, s=64.,m=0.5)
-        self.age_classifier = nn.Sequential(nn.Linear(embedding_size, 100))
+        self.age_classifier = nn.Sequential(nn.Linear(64, 64))
         self.id_cr = nn.CrossEntropyLoss()
         self.age_cr = nn.MSELoss()
 
     def forward(self, xs, ys=None, agegrps=None, emb=False):
         # 512-D embedding
         embs = self.backbone(xs)
-        age_logits = self.age_classifier(l2_norm(embs))
-        id_logits = self.margin_fc(embs, ys)
+        age_input = embs.norm(dim=1, p=2)
+        age_logits = self.age_classifier(age_input)
+        id_logits = self.margin_fc(l2_norm(embs), ys)
         if emb:
             return l2_norm(embs)
         id_acc = accuracy(torch.max(id_logits, dim=1)[1], ys)
         idLoss = self.id_cr(id_logits, ys)
 
         # age classifier
-        age_acc = accuracy(torch.max(age_logits, dim=1)[1], agegrps)
-
-        age_label = torch.zeros((xs.shape[0], 100)).cuda()
-        age_label[torch.arange(xs.shape[0]), agegrps] = 1
-        ageLoss = self.age_cr(age_logits, age_label)
+        age_acc = accuracy(age_logits, agegrps)
+        # import pdb; pdb.set_trace()
+        # age_label = torch.zeros((xs.shape[0], 100)).cuda()
+        # age_label[torch.arange(xs.shape[0]), agegrps] = 1
+        ageLoss = self.age_cr(age_logits, agegrps.float())
 
         return idLoss, id_acc, ageLoss, age_acc
