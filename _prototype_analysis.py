@@ -34,12 +34,13 @@ args = parser.parse_args()
 # conf = get_config(training=False)
 learner = face_learner(args, inference=True, load_head=True)
 save_path = '/home/nas1_temp/jooyeolyun/mia_params/baseline/'
+save_path = '/home/nas1_temp/jooyeolyun/repos/Missing-children/work_space/models_serious/interclass_MSE_proto1/fgnet30/'
 
 # learner.load_state(conf, 'ir_se50.pth', model_only=True, from_save_folder=True)
 model_path = os.path.join(save_path,
-                          'fgnetc_best_model_2021-05-27-19-11_accuracy:0.842_step:119574_casia_arcface_baseline_64.pth')
+                          'fgnetc_best_model_2021-06-20-15-20_accuracy:0.820_step:352636_casia_interclass_MSE_proto1.pth')
 head_path = os.path.join(save_path,
-                         'fgnetc_best_head_2021-05-27-19-11_accuracy:0.842_step:119574_casia_arcface_baseline_64.pth')
+                         'fgnetc_best_head_2021-06-20-15-20_accuracy:0.820_step:352636_casia_interclass_MSE_proto1.pth')
 learner.load_state(args, model_path=model_path, head_path=head_path)
 learner.model.eval()
 
