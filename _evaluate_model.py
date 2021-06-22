@@ -20,20 +20,22 @@ parser.add_argument("--wandb", help="whether to use wandb", action='store_true')
 parser.add_argument("--epochs", help="num epochs", default=50, type=int)
 parser.add_argument("--batch_size", help="batch_size", default=64, type=int)
 parser.add_argument("--loss", help="loss", default='Arcface', type=str)
+parser.add_argument("--test_dir", help="test_dir", default='agedb30', type=str)
 args = parser.parse_args()
 
 # conf = get_config(training=False)
 learner = face_learner(args, inference=True)
-save_path = '/home/nas1_temp/jooyeolyun/mia_params/'
+# save_path = '/home/nas1_temp/jooyeolyun/mia_params/'
 
 # learner.load_state(conf, 'ir_se50.pth', model_only=True, from_save_folder=True)
-model_path = os.path.join(save_path, args.model_path)
+# model_path = os.path.join(save_path, args.model_path)
+model_path = os.path.join(args.model_path)
 learner.load_state(args, model_path = model_path)
 before_time = time.time()
 
 #
 # print('evaluating fgnetc')
-# dataset_root = os.path.join('/home/nas1_userE/jungsoolee/Face_dataset/face_emore2')
+# dataset_root = os.path.join('/home/nas1_userE/jungsoolee/Face_dataset/faces_emore')
 # fgnetc = np.load(os.path.join(dataset_root, "FGNET_new_align_list.npy")).astype(np.float32)
 # fgnetc_issame = np.load(os.path.join(dataset_root, "FGNET_new_align_label.npy"))
 # fgnetc_accuracy, fgnetc_thres, roc_curve_tensor2, fgnetc_dist = learner.evaluate(args, fgnetc, fgnetc_issame, nrof_folds=10, tta=True)
@@ -173,41 +175,101 @@ print('child-specific face recognition starts...')
 
 import glob
 txt_root = '/home/nas1_userE/jungsoolee/Face_dataset/txt_files'
-txt_dir = 'agedb10_child.txt'
+
+txt_dir = f'{args.test_dir}_child.txt'
 print(f'working on : {txt_dir}')
 pair_list, label_list = control_text_list(txt_root, txt_dir)
 best_accr, best_th, idx = verification(model, label_list, pair_list, transform=t)
 print(f'txt_dir: {txt_dir}, best_accr: {best_accr}')
 
-txt_dir = 'fgnet10_child.txt'
-print(f'working on : {txt_dir}')
-pair_list, label_list = control_text_list(txt_root, txt_dir)
-best_accr, best_th, idx = verification(model, label_list, pair_list, transform=t)
-print(f'txt_dir: {txt_dir}, best_accr: {best_accr}')
 
-txt_dir = 'agedb20_child.txt'
-print(f'working on : {txt_dir}')
-pair_list, label_list = control_text_list(txt_root, txt_dir)
-best_accr, best_th, idx = verification(model, label_list, pair_list, transform=t)
-print(f'txt_dir: {txt_dir}, best_accr: {best_accr}')
+# txt_dir = 'agedb20_child.txt'
+# print(f'working on : {txt_dir}')
+# pair_list, label_list = control_text_list(txt_root, txt_dir)
+# best_accr, best_th, idx = verification(model, label_list, pair_list, transform=t)
+# print(f'txt_dir: {txt_dir}, best_accr: {best_accr}')
+#
+# txt_dir = 'fgnet20_child.txt'
+# print(f'working on : {txt_dir}')
+# pair_list, label_list = control_text_list(txt_root, txt_dir)
+# best_accr, best_th, idx = verification(model, label_list, pair_list, transform=t)
+# print(f'txt_dir: {txt_dir}, best_accr: {best_accr}')
+#
+# txt_dir = 'agedb30_child.txt'
+# print(f'working on : {txt_dir}')
+# pair_list, label_list = control_text_list(txt_root, txt_dir)
+# best_accr, best_th, idx = verification(model, label_list, pair_list, transform=t)
+# print(f'txt_dir: {txt_dir}, best_accr: {best_accr}')
+#
+# txt_dir = 'fgnet30_child.txt'
+# print(f'working on : {txt_dir}')
+# pair_list, label_list = control_text_list(txt_root, txt_dir)
+# best_accr, best_th, idx = verification(model, label_list, pair_list, transform=t)
+# print(f'txt_dir: {txt_dir}, best_accr: {best_accr}')
+#
+#
+# txt_dir = 'lag.txt'
+# print(f'working on : {txt_dir}')
+# pair_list, label_list = control_text_list(txt_root, txt_dir)
+# best_accr, best_th, idx = verification(model, label_list, pair_list, transform=t)
+# print(f'txt_dir: {txt_dir}, best_accr: {best_accr}')
 
-txt_dir = 'fgnet20_child.txt'
-print(f'working on : {txt_dir}')
-pair_list, label_list = control_text_list(txt_root, txt_dir)
-best_accr, best_th, idx = verification(model, label_list, pair_list, transform=t)
-print(f'txt_dir: {txt_dir}, best_accr: {best_accr}')
+# txt_dir = 'fgnet_normal_3000.txt'
+# print(f'working on : {txt_dir}')
+# pair_list, label_list = control_text_list(txt_root, txt_dir)
+# best_accr, best_th, idx = verification(model, label_list, pair_list, transform=t)
+# print(f'txt_dir: {txt_dir}, best_accr: {best_accr}')
+#
+# txt_dir = 'agedb_normal_3000.txt'
+# print(f'working on : {txt_dir}')
+# pair_list, label_list = control_text_list(txt_root, txt_dir)
+# best_accr, best_th, idx = verification(model, label_list, pair_list, transform=t)
+# print(f'txt_dir: {txt_dir}, best_accr: {best_accr}')
+#
+# dataset_root = os.path.join('/home/nas1_userE/jungsoolee/Face_dataset/faces_emore')
+# print('evaluating calfw')
+# calfw, calfw_issame = get_val_pair(dataset_root, 'calfw')
+# accuracy, best_threshold, roc_curve_tensor, dist = learner.evaluate_prev(args, calfw, calfw_issame, nrof_folds=10, tta=True)
+# print('calfw - accuracy:{}, threshold:{}'.format(accuracy, best_threshold))
+#
+# print('general face recognition starts...')
+# print('evaluating lfw')
+# lfw, lfw_issame = get_val_pair(dataset_root, 'lfw')
+# accuracy, best_threshold, roc_curve_tensor, dist = learner.evaluate_prev(args, lfw, lfw_issame, nrof_folds=10, tta=True)
+# print('lfw - accuracy:{}, threshold:{}'.format(accuracy, best_threshold))
+#
+# print('evaluating agedb_30')
+# agedb_30, agedb_30_issame = get_val_pair(dataset_root, 'agedb_30')
+# accuracy, best_threshold, roc_curve_tensor, _ = learner.evaluate_prev(args, agedb_30, agedb_30_issame, nrof_folds=10, tta=True)
+# print('agedb_30 - accuracy:{}, threshold:{}'.format(accuracy, best_threshold))
+#
+# cfp_fp, cfp_fp_issame = get_val_pair(dataset_root, 'cfp_fp')
+# accuracy, best_threshold, roc_curve_tensor, _ = learner.evaluate_prev(args, cfp_fp, cfp_fp_issame, nrof_folds=10, tta=True)
+# print('cfp_fp - accuracy:{}, threshold:{}'.format(accuracy, best_threshold))
+# # trans.ToPILImage()(roc_curve_tensor)
+#
+# cplfw, cplfw_issame = get_val_pair(dataset_root, 'cplfw')
+# accuracy, best_threshold, roc_curve_tensor, _ = learner.evaluate_prev(args, cplfw, cplfw_issame, nrof_folds=10, tta=True)
+# print('cplfw - accuracy:{}, threshold:{}'.format(accuracy, best_threshold))
+# trans.ToPILImage()(roc_curve_tensor)
+#
+#
 
-txt_dir = 'agedb30_child.txt'
-print(f'working on : {txt_dir}')
-pair_list, label_list = control_text_list(txt_root, txt_dir)
-best_accr, best_th, idx = verification(model, label_list, pair_list, transform=t)
-print(f'txt_dir: {txt_dir}, best_accr: {best_accr}')
 
-txt_dir = 'fgnet30_child.txt'
-print(f'working on : {txt_dir}')
-pair_list, label_list = control_text_list(txt_root, txt_dir)
-best_accr, best_th, idx = verification(model, label_list, pair_list, transform=t)
-print(f'txt_dir: {txt_dir}, best_accr: {best_accr}')
+
+
+################################################### NO NEED ###################################################
+# txt_dir = 'agedb10_child.txt'
+# print(f'working on : {txt_dir}')
+# pair_list, label_list = control_text_list(txt_root, txt_dir)
+# best_accr, best_th, idx = verification(model, label_list, pair_list, transform=t)
+# print(f'txt_dir: {txt_dir}, best_accr: {best_accr}')
+#
+# txt_dir = 'fgnet10_child.txt'
+# print(f'working on : {txt_dir}')
+# pair_list, label_list = control_text_list(txt_root, txt_dir)
+# best_accr, best_th, idx = verification(model, label_list, pair_list, transform=t)
+# print(f'txt_dir: {txt_dir}, best_accr: {best_accr}')
 
 # txt_dir = 'agedb10_20_child.txt'
 # print(f'working on : {txt_dir}')
@@ -233,11 +295,16 @@ print(f'txt_dir: {txt_dir}, best_accr: {best_accr}')
 # best_accr, best_th, idx = verification(model, label_list, pair_list, transform=t)
 # print(f'txt_dir: {txt_dir}, best_accr: {best_accr}')
 
-txt_dir = 'lag.txt'
-print(f'working on : {txt_dir}')
-pair_list, label_list = control_text_list(txt_root, txt_dir)
-best_accr, best_th, idx = verification(model, label_list, pair_list, transform=t)
-print(f'txt_dir: {txt_dir}, best_accr: {best_accr}')
+# cfp_ff, cfp_ff_issame = get_val_pair(conf.emore_folder, 'cfp_ff')
+# accuracy, best_threshold, roc_curve_tensor = learner.evaluate(conf, cfp_ff, cfp_ff_issame, nrof_folds=10, tta=True)
+# print('cfp_ff - accuracy:{}, threshold:{}'.format(accuracy, best_threshold))
+# trans.ToPILImage()(roc_curve_tensor)
+
+# vgg2_fp, vgg2_fp_issame = get_val_pair(conf.emore_folder, 'vgg2_fp')
+# accuracy, best_threshold, roc_curve_tensor = learner.evaluate(conf, vgg2_fp, vgg2_fp_issame, nrof_folds=10, tta=True)
+# print('vgg2_fp - accuracy:{}, threshold:{}'.format(accuracy, best_threshold))
+# # trans.ToPILImage()(roc_curve_tensor)
+
 #
 # print('20gap datasets')
 # txt_dir = 'fgnet20_child.txt'
@@ -265,62 +332,3 @@ print(f'txt_dir: {txt_dir}, best_accr: {best_accr}')
 # best_accr, best_th, idx = verification(model, label_list, pair_list, transform=t, data_dir='morph')
 # print(f'txt_dir: {txt_dir}, best_accr: {best_accr}')
 #
-# txt_dir = 'fgnet_normal_3000.txt'
-# print(f'working on : {txt_dir}')
-# pair_list, label_list = control_text_list(txt_root, txt_dir)
-# best_accr, best_th, idx = verification(model, label_list, pair_list, transform=t)
-# print(f'txt_dir: {txt_dir}, best_accr: {best_accr}')
-
-# txt_dir = 'agedb_normal_3000.txt'
-# print(f'working on : {txt_dir}')
-# pair_list, label_list = control_text_list(txt_root, txt_dir)
-# best_accr, best_th, idx = verification(model, label_list, pair_list, transform=t)
-# print(f'txt_dir: {txt_dir}, best_accr: {best_accr}')
-
-#
-# print('general face recognition starts...')
-# dataset_root = os.path.join('/home/nas1_userE/jungsoolee/Face_dataset/faces_emore')
-# print('evaluating lfw')
-# lfw, lfw_issame = get_val_pair(dataset_root, 'lfw')
-# accuracy, best_threshold, roc_curve_tensor, dist = learner.evaluate(args, lfw, lfw_issame, nrof_folds=10, tta=True)
-# print('lfw - accuracy:{}, threshold:{}'.format(accuracy, best_threshold))
-#
-# print('evaluating agedb_30')
-# agedb_30, agedb_30_issame = get_val_pair(dataset_root, 'agedb_30')
-# accuracy, best_threshold, roc_curve_tensor, _ = learner.evaluate(args, agedb_30, agedb_30_issame, nrof_folds=10, tta=True)
-# print('agedb_30 - accuracy:{}, threshold:{}'.format(accuracy, best_threshold))
-#
-# print('evaluating calfw')
-# calfw, calfw_issame = get_val_pair(dataset_root, 'calfw')
-# accuracy, best_threshold, roc_curve_tensor, dist = learner.evaluate(args, calfw, calfw_issame, nrof_folds=10, tta=True)
-# print('calfw - accuracy:{}, threshold:{}'.format(accuracy, best_threshold))
-#
-# cfp_fp, cfp_fp_issame = get_val_pair(dataset_root, 'cfp_fp')
-# accuracy, best_threshold, roc_curve_tensor, _ = learner.evaluate(args, cfp_fp, cfp_fp_issame, nrof_folds=10, tta=True)
-# print('cfp_fp - accuracy:{}, threshold:{}'.format(accuracy, best_threshold))
-# # trans.ToPILImage()(roc_curve_tensor)
-#
-# cplfw, cplfw_issame = get_val_pair(dataset_root, 'cplfw')
-# accuracy, best_threshold, roc_curve_tensor, _ = learner.evaluate(args, cplfw, cplfw_issame, nrof_folds=10, tta=True)
-# print('cplfw - accuracy:{}, threshold:{}'.format(accuracy, best_threshold))
-# trans.ToPILImage()(roc_curve_tensor)
-#
-#
-
-
-
-
-
-
-
-################################################### NO NEED ###################################################
-
-# cfp_ff, cfp_ff_issame = get_val_pair(conf.emore_folder, 'cfp_ff')
-# accuracy, best_threshold, roc_curve_tensor = learner.evaluate(conf, cfp_ff, cfp_ff_issame, nrof_folds=10, tta=True)
-# print('cfp_ff - accuracy:{}, threshold:{}'.format(accuracy, best_threshold))
-# trans.ToPILImage()(roc_curve_tensor)
-
-# vgg2_fp, vgg2_fp_issame = get_val_pair(conf.emore_folder, 'vgg2_fp')
-# accuracy, best_threshold, roc_curve_tensor = learner.evaluate(conf, vgg2_fp, vgg2_fp_issame, nrof_folds=10, tta=True)
-# print('vgg2_fp - accuracy:{}, threshold:{}'.format(accuracy, best_threshold))
-# # trans.ToPILImage()(roc_curve_tensor)

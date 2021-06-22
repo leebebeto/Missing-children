@@ -34,17 +34,17 @@ args = parser.parse_args()
 # conf = get_config(training=False)
 learner = face_learner(args, inference=True, load_head=True)
 save_path = '/home/nas1_temp/jooyeolyun/mia_params/baseline/'
-save_path = '/home/nas1_temp/jooyeolyun/repos/Missing-children/work_space/models_serious/interclass_MSE_proto1/fgnet30/'
+save_path = '/home/nas1_temp/jooyeolyun/repos/Missing-children/work_space/models_serious/interclass_MSE_proto1/lag/'
 
 # learner.load_state(conf, 'ir_se50.pth', model_only=True, from_save_folder=True)
 model_path = os.path.join(save_path,
-                          'fgnetc_best_model_2021-06-20-15-20_accuracy:0.820_step:352636_casia_interclass_MSE_proto1.pth')
+                          'fgnetc_best_model_2021-06-20-17-50_accuracy:0.908_step:367968_casia_interclass_MSE_proto1.pth')
 head_path = os.path.join(save_path,
-                         'fgnetc_best_head_2021-06-20-15-20_accuracy:0.820_step:352636_casia_interclass_MSE_proto1.pth')
+                         'fgnetc_best_head_2021-06-20-17-50_accuracy:0.908_step:367968_casia_interclass_MSE_proto1.pth')
 learner.load_state(args, model_path=model_path, head_path=head_path)
 learner.model.eval()
 
-age_file = open('./dataset/casia-webface.txt').readlines()
+age_file = open('/home/nas1_userE/jungsoolee/Face_dataset/casia-webface.txt').readlines()
 id2age = {
     os.path.join(str(int(line.split(' ')[1].split('/')[1])), str(int(line.split(' ')[1].split('/')[2][:-4]))): float(
         line.split(' ')[2]) for line in age_file}
@@ -238,17 +238,17 @@ for idx, cls in enumerate(child_identity):
 
     with torch.no_grad():
         embedding = learner.model(batch)
-        kernel = learner.head.kernel
-        kernel_norm = l2_norm(kernel,axis=0)
-        cos_theta = torch.mm(embedding, kernel_norm)
-        cos_theta = cos_theta.clamp(-1,1)
-        # child_theta = torch.abs(torch.rad2deg(torch.arccos(cos_theta[:, cls])))
-        child_theta = torch.abs(torch.rad2deg(cos_theta[:, cls]))
-        child_theta= child_theta.mean()
+        # kernel = learner.head.kernel
+        # kernel_norm = l2_norm(kernel,axis=0)
+        # cos_theta = torch.mm(embedding, kernel_norm)
+        # cos_theta = cos_theta.clamp(-1,1)
+        # # child_theta = torch.abs(torch.rad2deg(torch.arccos(cos_theta[:, cls])))
+        # child_theta = torch.abs(torch.rad2deg(cos_theta[:, cls]))
+        # child_theta= child_theta.mean()
         # pdb.set_trace()
-        # euc_mean = torch.mean(embedding, dim=0)
-        # child_means.append(torch.div(euc_mean, torch.norm(euc_mean, keepdim=True)))
-        child_means.append(child_theta.item())
+        euc_mean = torch.mean(embedding, dim=0)
+        child_means.append(torch.div(euc_mean, torch.norm(euc_mean, keepdim=True)))
+        # child_means.append(child_theta.item())
     if idx > fin-1:
         break
     count += 1
@@ -256,55 +256,55 @@ for idx, cls in enumerate(child_identity):
 
     # child_theta = torch.abs(torch.rad2deg(torch.arccos(cos_theta[:, cls])))
     # child_theta= child_theta.mean()
-for idx, cls in enumerate(adult_identity):
-    adult_image_temp = glob.glob(f'/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_NATIONAL/{cls}/*')
-    adult_image = []
-    for image in adult_image_temp:
-        id_img = '/'.join((image.split('/')[-2], image.split('/')[-1].split('_')[0]))[:-4]
-        try:
-            age = id2age[id_img]
-            if int(age) >= 13:
-                adult_image.append(image)
-            else:
-                pass
-        except:
-            pass
-        # age = id2age[id_img]
-        # if int(age) >= 13:
-        #     adult_image.append(image)
-    batch = []
-    for image in adult_image:
-        img = Image.open(image)
-        img = train_transform(img)
-        batch.append(img)
-        label = int(image.split('/')[-2])
-    batch = torch.stack(batch).cuda()
-
-    with torch.no_grad():
-        embedding = learner.model(batch)
-        kernel = learner.head.kernel
-        kernel_norm = l2_norm(kernel,axis=0)
-        cos_theta = torch.mm(embedding, kernel_norm)
-        cos_theta = cos_theta.clamp(-1,1)
-        adult_theta = torch.abs(torch.rad2deg(cos_theta[:, cls]))
-        # adult_theta = torch.abs(torch.rad2deg(torch.arccos(cos_theta[:, cls])))
-        adult_theta= adult_theta.mean()
-        # euc_mean = torch.mean(embedding, dim=0)
-        # adult_means.append(torch.div(euc_mean, torch.norm(euc_mean, keepdim=True)))
-        adult_means.append(adult_theta.item())
-
-    if idx > count -1:
-        break
-
-x_np = np.array(child_means)
+# for idx, cls in enumerate(adult_identity):
+#     adult_image_temp = glob.glob(f'/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_NATIONAL/{cls}/*')
+#     adult_image = []
+#     for image in adult_image_temp:
+#         id_img = '/'.join((image.split('/')[-2], image.split('/')[-1].split('_')[0]))[:-4]
+#         try:
+#             age = id2age[id_img]
+#             if int(age) >= 13:
+#                 adult_image.append(image)
+#             else:
+#                 pass
+#         except:
+#             pass
+#         # age = id2age[id_img]
+#         # if int(age) >= 13:
+#         #     adult_image.append(image)
+#     batch = []
+#     for image in adult_image:
+#         img = Image.open(image)
+#         img = train_transform(img)
+#         batch.append(img)
+#         label = int(image.split('/')[-2])
+#     batch = torch.stack(batch).cuda()
+#
+#     with torch.no_grad():
+#         embedding = learner.model(batch)
+#         kernel = learner.head.kernel
+#         kernel_norm = l2_norm(kernel,axis=0)
+#         cos_theta = torch.mm(embedding, kernel_norm)
+#         cos_theta = cos_theta.clamp(-1,1)
+#         adult_theta = torch.abs(torch.rad2deg(cos_theta[:, cls]))
+#         # adult_theta = torch.abs(torch.rad2deg(torch.arccos(cos_theta[:, cls])))
+#         adult_theta= adult_theta.mean()
+#         # euc_mean = torch.mean(embedding, dim=0)
+#         # adult_means.append(torch.div(euc_mean, torch.norm(euc_mean, keepdim=True)))
+#         adult_means.append(adult_theta.item())
+#
+#     if idx > count -1:
+#         break
+child_sim = torch.mm(torch.stack(child_means), torch.stack(child_means).T)
+x_np = np.array(child_sim.detach().cpu())
 print(np.mean(x_np))
 x_df = pd.DataFrame(x_np)
-x_df.to_csv('intra_child_full.csv')
+x_df.to_csv('inter-child-ours-200-36.csv')
 
-x_np = np.array(adult_means)
-print(np.mean(x_np))
-x_df = pd.DataFrame(x_np)
-x_df.to_csv('intra_adult_full.csv')
+# x_np = np.array(adult_means)
+# print(np.mean(x_np))
+# x_df = pd.DataFrame(x_np)
+# x_df.to_csv('inter-adult-ours-200.csv')
 
 # 4) prototype inter class
 

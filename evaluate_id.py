@@ -20,14 +20,16 @@ parser.add_argument("--wandb", help="whether to use wandb", action='store_true')
 parser.add_argument("--epochs", help="num epochs", default=50, type=int)
 parser.add_argument("--batch_size", help="batch_size", default=64, type=int)
 parser.add_argument("--loss", help="loss", default='Arcface', type=str)
+parser.add_argument("--test_dir", help="test dir", default='fgnet20', type=str)
 args = parser.parse_args()
 
 # conf = get_config(training=False)
 learner = face_learner(args, inference=True)
-save_path = '/home/nas1_temp/jooyeolyun/mia_params/'
+# save_path = '/home/nas1_temp/jooyeolyun/mia_params/'
 
 # learner.load_state(conf, 'ir_se50.pth', model_only=True, from_save_folder=True)
-model_path = os.path.join(save_path, args.model_path)
+# model_path = os.path.join(save_path, args.model_path)
+model_path = os.path.join(args.model_path)
 learner.load_state(args, model_path = model_path)
 before_time = time.time()
 
@@ -113,6 +115,7 @@ def verification(net, data_dict, transform):
             for i in range(int(imgs.shape[0]/2)):
                 similarities.append(cos_dist(features[i], features[i+int(imgs.shape[0]/2)]).cpu())
             similarities = torch.stack(similarities)
+
             for k in [1, 5, 10]:
                 top_sim, top_idx = torch.topk(similarities, k, dim=0, largest=True)
                 if 0 in top_idx:
@@ -122,30 +125,38 @@ def verification(net, data_dict, transform):
         print(f'top {k} id acc: {top_dict[k]}')
 
 import glob
-print(f'working on : fgnetc....')
-with open('/home/nas1_userE/jungsoolee/Face_dataset/txt_files/fgnetc_identification.pickle', 'rb') as f:
-    data_dict = pickle.load(f)
 
-verification(model, data_dict, transform=t)
-
-print(f'working on : agedbc....')
-with open('/home/nas1_userE/jungsoolee/Face_dataset/txt_files/agedbc_identification.pickle', 'rb') as f:
+print(f'working on : {args.test_dir}....')
+with open(f'/home/nas1_userE/jungsoolee/Face_dataset/txt_files/{args.test_dir}_identification.pickle', 'rb') as f:
     data_dict = pickle.load(f)
 
 verification(model, data_dict, transform=t)
 
 
-print(f'working on : fgnetc20....')
-with open('/home/nas1_userE/jungsoolee/Face_dataset/txt_files/fgnetc20_identification.pickle', 'rb') as f:
-    data_dict = pickle.load(f)
+# print(f'working on : fgnetc....')
+# with open('/home/nas1_userE/jungsoolee/Face_dataset/txt_files/fgnetc_identification.pickle', 'rb') as f:
+#     data_dict = pickle.load(f)
+#
+# verification(model, data_dict, transform=t)
+#
+# print(f'working on : agedbc....')
+# with open('/home/nas1_userE/jungsoolee/Face_dataset/txt_files/agedbc_identification.pickle', 'rb') as f:
+#     data_dict = pickle.load(f)
+#
+# verification(model, data_dict, transform=t)
 
-verification(model, data_dict, transform=t)
 
-print(f'working on : agedbc20....')
-with open('/home/nas1_userE/jungsoolee/Face_dataset/txt_files/agedbc20_identification.pickle', 'rb') as f:
-    data_dict = pickle.load(f)
+# print(f'working on : fgnetc20....')
+# with open('/home/nas1_userE/jungsoolee/Face_dataset/txt_files/fgnetc20_identification.pickle', 'rb') as f:
+#     data_dict = pickle.load(f)
+#
+# verification(model, data_dict, transform=t)
 
-verification(model, data_dict, transform=t)
+# print(f'working on : agedbc20....')
+# with open('/home/nas1_userE/jungsoolee/Face_dataset/txt_files/agedbc20_identification.pickle', 'rb') as f:
+#     data_dict = pickle.load(f)
+#
+# verification(model, data_dict, transform=t)
 
 # print(f'working on : lag....')
 # with open('/home/nas1_userE/jungsoolee/Face_dataset/txt_files/lag_identification.pickle', 'rb') as f:

@@ -350,7 +350,6 @@ class CASIADataset(Dataset):
         #     self.child_identity_freq = {int(k): v for k, v in sorted(self.child_image2freq.items(), key=lambda item: item[1]) if v >= 5}
         self.child_identity = list(self.child_identity_freq.keys())
         print(f'child number: {len(self.child_identity)}')
-
         self.child_identity_min = list(self.child_identity_freq.keys())[:conf.new_id + 1]
         self.child_identity_max = list(self.child_identity_freq.keys())[-(conf.new_id + 1):]
 
