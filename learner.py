@@ -17,7 +17,7 @@ import os
 import glob
 from data.data_pipe import de_preprocess, get_train_loader, get_val_data
 from model import *
-from utils import get_time, gen_plot, hflip_batch, separate_bn_paras
+from utils import get_time, gen_plot, hflip_batch, separate_bn_paras, model_profile
 from verification import evaluate, evaluate_dist
 from torchvision.utils import save_image
 import pdb
@@ -44,6 +44,7 @@ class face_learner(object):
         else:
             self.model = Backbone(conf.net_depth, conf.drop_ratio, conf.net_mode).to(conf.device)
         print('{}_{} model generated'.format(conf.net_mode, conf.net_depth))
+        model_profile(self.model)
 
         # For Tsne -> you can ignore these codes
         # self.head = Arcface(embedding_size=conf.embedding_size, classnum=11076).to(conf.device)

@@ -5,6 +5,8 @@ from datetime import datetime
 from PIL import Image
 from data.data_pipe import de_preprocess
 import matplotlib.pyplot as plt
+from ptflops import get_model_complexity_info # REMOVE AT PUBLISH
+
 plt.switch_backend('agg')
 
 
@@ -111,3 +113,9 @@ def gen_plot(fpr, tpr):
 #             best_accuracy = fgnetc_accuracy
 #             print('saving best model....')
 #             self.save_best_state(conf, best_accuracy, extra=str(conf.data_mode) + '_' + str(conf.exp))
+
+def model_profile(net):
+    macs, params = get_model_complexity_info(net, (3, 112, 112), as_strings=False, print_per_layer_stat=False)
+
+    print('{:<30}  {:<8}'.format('Computational complexity: ', int(macs)))
+    print('{:<30}  {:<8}'.format('Number of parameters: ', params))
