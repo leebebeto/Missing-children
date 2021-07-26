@@ -5,7 +5,7 @@ from datetime import datetime
 from PIL import Image
 from data.data_pipe import de_preprocess
 import matplotlib.pyplot as plt
-from ptflops import get_model_complexity_info # REMOVE AT PUBLISH
+# from ptflops import get_model_complexity_info # REMOVE AT PUBLISH
 
 plt.switch_backend('agg')
 
@@ -57,6 +57,12 @@ def gen_plot(fpr, tpr):
     buf.seek(0)
     plt.close()
     return buf
+
+def model_profile(net):
+    macs, params = get_model_complexity_info(net, (3, 112, 112), as_strings=False, print_per_layer_stat=False)
+
+    print('{:<30}  {:<8}'.format('Computational complexity: ', int(macs)))
+    print('{:<30}  {:<8}'.format('Number of parameters: ', params))
 
 # lfw_accuracy, lfw_thres, roc_curve_tensor2, lfw_dist = self.evaluate(conf, self.lfw, self.lfw_issame)
 # # NEGATIVE WRONG
@@ -113,9 +119,3 @@ def gen_plot(fpr, tpr):
 #             best_accuracy = fgnetc_accuracy
 #             print('saving best model....')
 #             self.save_best_state(conf, best_accuracy, extra=str(conf.data_mode) + '_' + str(conf.exp))
-
-def model_profile(net):
-    macs, params = get_model_complexity_info(net, (3, 112, 112), as_strings=False, print_per_layer_stat=False)
-
-    print('{:<30}  {:<8}'.format('Computational complexity: ', int(macs)))
-    print('{:<30}  {:<8}'.format('Number of parameters: ', params))

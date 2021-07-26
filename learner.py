@@ -17,7 +17,8 @@ import os
 import glob
 from data.data_pipe import de_preprocess, get_train_loader, get_val_data
 from model import *
-from utils import get_time, gen_plot, hflip_batch, separate_bn_paras, model_profile
+# from utils import get_time, gen_plot, hflip_batch, separate_bn_paras, model_profile
+from utils import get_time, gen_plot, hflip_batch, separate_bn_paras
 from verification import evaluate, evaluate_dist
 from torchvision.utils import save_image
 import pdb
@@ -43,7 +44,7 @@ class face_learner(object):
         else:
             self.model = Backbone(conf.net_depth, conf.drop_ratio, conf.net_mode).to(conf.device)
         print('{}_{} model generated'.format(conf.net_mode, conf.net_depth))
-        model_profile(self.model)
+        # model_profile(self.model)
 
         # For Tsne -> you can ignore these codes
         # self.head = Arcface(embedding_size=conf.embedding_size, classnum=11076).to(conf.device)
@@ -67,8 +68,14 @@ class face_learner(object):
             self.milestones = [28, 38, 46] # Superlong 50epoch
 
             if 'baseline_arcface' in self.conf.exp:
-                self.milestones = [21, 30]  # Cosface paper 30epoch
-                self.epoch= 33
+            # if self.conf.loss == 'Arcface':
+                if self.conf.data_mode == 'ms1m':
+                    self.milestones = [8, 14]  # Cosface paper 30epoch
+                    self.epoch= 16
+
+                else:
+                    self.milestones = [21, 30]  # Cosface paper 30epoch
+                    self.epoch= 33
             #
             # if self.conf.loss == 'Cosface':
             #     self.milestones = [16, 25, 29]  # Cosface paper 30epoch
@@ -78,9 +85,13 @@ class face_learner(object):
                 self.milestones = [9, 15, 18]  # Cosface paper 30epoch
                 self.epoch= 21
 
-            if self.conf.loss == 'Curricular' or 'MILE28' in self.conf.exp:
-                self.milestones = [28, 38, 46]  # Cosface paper 30epoch
-                self.epoch= 50
+            if self.conf.loss == 'Curricular' or 'MILE28' in self.conf.exp or 'inter' in self.conf.exp:
+                if self.conf.data_mode == 'ms1m':
+                    self.milestones = [14, 19, 23]  # half milestones
+                    self.epoch= 25
+                else:
+                    self.milestones = [28, 38, 46]  # Cosface paper 30epoch
+                    self.epoch= 50
 
             # if self.conf.loss == 'DAL':
             #     self.milestones = [22, 33, 38]  # Cosface paper 30epoch
@@ -859,8 +870,6 @@ class face_learner(object):
                         prototype_matrix = torch.mm(l2_norm(kernel, axis=0), l2_norm(kernel, axis=0).T)
                     else:
                         prototype_matrix = torch.mm(l2_norm(kernel, axis=0).T, l2_norm(kernel, axis=0))
-                    print(prototype_matrix.shape)
-
                 else:
                     if conf.loss == 'Cosface' or conf.loss == 'MV-AM' or conf.loss == 'Broad':
                         prototype_matrix = torch.mm(l2_norm(self.head.kernel, axis=0), l2_norm(self.head.kernel, axis=0).T)
