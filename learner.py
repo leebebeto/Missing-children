@@ -848,10 +848,14 @@ class face_learner(object):
                     child_lambda = 1.0 if e > self.milestones[0] else self.conf.lambda_child * 0.0
 
                 # self.head.kernel = (512, 10572)
-                if conf.loss == 'Cosface':
+                if conf.loss == 'Cosface' or conf.loss == 'MV-AM' or conf.loss == 'Broad':
                     prototype_matrix = torch.mm(l2_norm(self.head.kernel, axis=0), l2_norm(self.head.kernel, axis=0).T)
                 else:
                     prototype_matrix = torch.mm(l2_norm(self.head.kernel, axis=0).T, l2_norm(self.head.kernel, axis=0))
+                # if conf.loss == 'Cosface':
+                #     prototype_matrix = torch.mm(l2_norm(self.head.kernel, axis=0), l2_norm(self.head.kernel, axis=0).T)
+                # else:
+                #     prototype_matrix = torch.mm(l2_norm(self.head.kernel, axis=0).T, l2_norm(self.head.kernel, axis=0))
 
                 prototype_matrix = prototype_matrix[:, self.child_identity]
                 prototype_matrix = prototype_matrix[self.child_identity, :]

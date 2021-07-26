@@ -34,13 +34,14 @@ args = parser.parse_args()
 # conf = get_config(training=False)
 learner = face_learner(args, inference=True, load_head=True)
 save_path = '/home/nas1_temp/jooyeolyun/mia_params/baseline/'
-save_path = '/home/nas1_temp/jooyeolyun/repos/Missing-children/work_space/models_serious/'
+# save_path = '/home/nas1_temp/jooyeolyun/repos/Missing-children/work_space/models_serious/'
 
 # learner.load_state(conf, 'ir_se50.pth', model_only=True, from_save_folder=True)
-model_path = os.path.join(save_path,
-                          'interclass_MSE_proto1_5678/fgnet30/fgnetc_best_model_2021-06-23-11-42_accuracy:0.804_step:454000_casia_interclass_MSE_proto1_5678.pth')
-head_path = os.path.join(save_path,
-                         'interclass_MSE_proto1/lag/fgnetc_best_head_2021-06-20-17-50_accuracy:0.908_step:367968_casia_interclass_MSE_proto1.pth')
+model_path = os.path.join(save_path, 'baseline_broad_4885/agedb30',
+                          'fgnetc_best_model_2021-06-20-01-34_accuracy:0.824_step:137988_casia_baseline_broad_4885.pth')
+head_path = os.path.join(save_path, 'baseline_cosface_4885_final/agedb30',
+                          'fgnetc_best_head_2021-06-18-17-10_accuracy:0.806_step:199316_casia_baseline_cosface_4885_final.pth')
+head_path = None
 learner.load_state(args, model_path=model_path, head_path=head_path)
 learner.model.eval()
 
@@ -124,6 +125,11 @@ train_transform = transforms.Compose([
 # # 2) child vs adult prototype within a class
 # child_all = []
 # adult_all = []
+
+# random.seed(4885)
+# random.shuffle(child_identity)
+# random.shuffle(adult_identity)
+
 # for cls in child_identity:
 #     child_image_temp = glob.glob(f'/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_NATIONAL/{cls}/*')
 #     child_image, adult_image = [], []
@@ -299,7 +305,7 @@ child_sim = torch.mm(torch.stack(child_means), torch.stack(child_means).T)
 x_np = np.array(child_sim.detach().cpu())
 print(np.mean(x_np))
 x_df = pd.DataFrame(x_np)
-x_df.to_csv('inter-child-ours-200-36.csv')
+x_df.to_csv('inter-child-broad.csv')
 
 # x_np = np.array(adult_means)
 # print(np.mean(x_np))
