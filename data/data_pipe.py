@@ -31,21 +31,21 @@ def get_train_dataset(imgs_folder):
 
 def get_train_loader(conf):
     # casia_folder =  './dataset/CASIA_112'
-    casia_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_NATIONAL'
+    casia_folder = '/home/nas3_userL/jungsoolee/Face_dataset/CASIA_REAL_NATIONAL'
     # casia_folder = os.path.join(conf.home,'dataset/CASIA_REAL_NATIONAL')
     # casia_folder =  '/home/nas1_userD/yonggyu/Face_dataset/casia'
     if 'monster' in conf.data_mode:
-        casia_prettiermonster47_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_PrettierMonster47'
-        casia_prettiermonster92_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_PrettierMonster92'
-        casia_prettiermonster150_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_PrettierMonster121'
-        casia_prettiermonster294_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_PrettierMonster294'
-        casia_prettiermonster489_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_PrettierMonster489'
+        casia_prettiermonster47_folder = '/home/nas3_userL/jungsoolee/Face_dataset/CASIA_REAL_PrettierMonster47'
+        casia_prettiermonster92_folder = '/home/nas3_userL/jungsoolee/Face_dataset/CASIA_REAL_PrettierMonster92'
+        casia_prettiermonster150_folder = '/home/nas3_userL/jungsoolee/Face_dataset/CASIA_REAL_PrettierMonster121'
+        casia_prettiermonster294_folder = '/home/nas3_userL/jungsoolee/Face_dataset/CASIA_REAL_PrettierMonster294'
+        casia_prettiermonster489_folder = '/home/nas3_userL/jungsoolee/Face_dataset/CASIA_REAL_PrettierMonster489'
         # casia_prettiermonster47_folder = os.path.join(conf.home,'dataset/CASIA_REAL_PrettierMonster47')
         # casia_prettiermonster92_folder = os.path.join(conf.home,'dataset/CASIA_REAL_PrettierMonster92')
         # casia_prettiermonster121_folder =os.path.join(conf.home,'dataset/CASIA_REAL_PrettierMonster121')
-        casia_babymonster50_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_BabyMonster50'
-        casia_babymonster100_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_BabyMonster100'
-        casia_babymonster150_folder = '/home/nas1_userE/jungsoolee/Face_dataset/CASIA_REAL_BabyMonster150'
+        casia_babymonster50_folder = '/home/nas3_userL/jungsoolee/Face_dataset/CASIA_REAL_BabyMonster50'
+        casia_babymonster100_folder = '/home/nas3_userL/jungsoolee/Face_dataset/CASIA_REAL_BabyMonster100'
+        casia_babymonster150_folder = '/home/nas3_userL/jungsoolee/Face_dataset/CASIA_REAL_BabyMonster150'
         
 
     print(casia_folder)
@@ -66,6 +66,14 @@ def get_train_loader(conf):
         print(f'vgg folder: {conf.vgg_folder}')
         ds, class_num = get_train_dataset(conf.vgg_folder)
         print('vgg loader generated')
+    elif conf.data_mode  == 'ms1m':
+        ms1m_root = '/home/nas3_userL/jungsoolee/Face_dataset/ms1m-refined-112/ms1m'
+        ds = MS1MDataset(ms1m_root, train_transforms=train_transform,  conf=conf)
+        class_num = ds.class_num
+        child_identity = ds.child_identity
+        child_identity_min = ds.child_identity_min
+        child_identity_max = ds.child_identity_max
+        print('casia loader generated')
     elif conf.data_mode == 'vgg_agedb':
         ds = VGGAgeDBDataset(conf.vgg_folder, conf.agedb_folder, train_transforms=train_transform)
         class_num = ds.class_num
@@ -142,7 +150,7 @@ class CasiaMonsterDataset(Dataset):
         self.casia_class_num = len(os.listdir(casia_imgs_folder))
 
         self.age_file = open('./dataset/casia-webface.txt').readlines()
-        # self.age_file = open('/home/nas1_userE/jungsoolee/Face_dataset/casia-webface.txt').readlines()
+        # self.age_file = open('/home/nas3_userL/jungsoolee/Face_dataset/casia-webface.txt').readlines()
         self.id2age = { os.path.join(str(int(line.split(' ')[1].split('/')[1])), str(int(line.split(' ')[1].split('/')[2][:-4]))) : float(line.split(' ')[2]) for line in self.age_file}
         self.child_image2age = { os.path.join(str(int(line.split(' ')[1].split('/')[1])), str(int(line.split(' ')[1].split('/')[2][:-4]))) : float(line.split(' ')[2]) for line in self.age_file if float(line.split(' ')[2]) < 13}
         self.child_image2freq = {id.split('/')[0]: 0 for id in self.child_image2age.keys()}
@@ -243,7 +251,7 @@ class CasiaMixupDataset(Dataset):
         self.casia_class_num = len(os.listdir(casia_imgs_folder))
 
         self.age_file = open('./dataset/casia-webface.txt').readlines()
-        # self.age_file = open('/home/nas1_userE/jungsoolee/Face_dataset/casia-webface.txt').readlines()
+        # self.age_file = open('/home/nas3_userL/jungsoolee/Face_dataset/casia-webface.txt').readlines()
         self.id2age = { os.path.join(str(int(line.split(' ')[1].split('/')[1])), str(int(line.split(' ')[1].split('/')[2][:-4]))) : float(line.split(' ')[2]) for line in self.age_file}
         self.child_image2age = { os.path.join(str(int(line.split(' ')[1].split('/')[1])), str(int(line.split(' ')[1].split('/')[2][:-4]))) : float(line.split(' ')[2]) for line in self.age_file if float(line.split(' ')[2]) < 13}
         self.child_image2freq = {id.split('/')[0]: 0 for id in self.child_image2age.keys()}
@@ -335,8 +343,8 @@ class CASIADataset(Dataset):
         self.root_dir = imgs_folder
         self.transform = train_transforms
         self.class_num = len(os.listdir(imgs_folder))
-        self.age_file = open('./dataset/casia-webface.txt').readlines()
-        # self.age_file = open('/home/nas1_userE/jungsoolee/Face_dataset/casia-webface.txt').readlines()
+        # self.age_file = open('./dataset/casia-webface.txt').readlines()
+        self.age_file = open('/home/nas3_userL/jungsoolee/Face_dataset/casia-webface.txt').readlines()
         self.id2age = { os.path.join(str(int(line.split(' ')[1].split('/')[1])), str(int(line.split(' ')[1].split('/')[2][:-4]))) : float(line.split(' ')[2]) for line in self.age_file}
         self.child_image2age = { os.path.join(str(int(line.split(' ')[1].split('/')[1])), str(int(line.split(' ')[1].split('/')[2][:-4]))) : float(line.split(' ')[2]) for line in self.age_file if float(line.split(' ')[2]) < 13}
         self.child_image2freq = {id.split('/')[0]: 0 for id in self.child_image2age.keys()}
@@ -369,6 +377,93 @@ class CASIADataset(Dataset):
         self.total_list = total_list
         print(f'{imgs_folder} length: {self.total_imgs}')
 
+    def __len__(self):
+        return self.total_imgs
+
+    def __getitem__(self, index):
+        img_path = self.total_list[index]
+        img_path_list = img_path.split('/')
+        file_name = img_path_list[-1]  # {age}_filenum.jpg
+        id_img = '/'.join((img_path.split('/')[-2], img_path.split('/')[-1].split('_')[0]))
+        if 'jpg' in id_img:
+            id_img = id_img[:-4]
+        try:
+            age = self.id2age[id_img]
+        except:
+            age = 30
+
+        img = Image.open(img_path)
+        label = int(img_path.split('/')[-2])
+        # age = int(file_name.split('/')[-1].split('_')[-1][:-4])
+
+        if self.transform is not None:
+            img = self.transform(img)
+
+        if self.conf.loss == 'DAL':
+            if age < 13:
+                age = 0
+            elif age >= 13 and age < 19:
+                age = 1
+            elif age >= 19 and age < 26:
+                age = 2
+            elif age >= 26 and age < 36:
+                age = 3
+            elif age >= 36 and age < 46:
+                age = 4
+            elif age >= 46 and age < 56:
+                age = 5
+            elif age >= 56 and age < 66:
+                age = 6
+            elif age >= 66:
+                age = 7
+        elif self.conf.loss == 'OECNN':
+            age = int(age)
+        else:
+            age= 0 if age< 13 else 1
+
+        return img, label, age
+
+
+
+class MS1MDataset(Dataset):
+    '''
+    MS1M with pseudo age labels dataset
+    directory structure
+        root/person_i/{age}_filenum.jpg
+
+    Store image directories at init phase
+
+    Returns image, label, age
+    '''
+
+    def __init__(self, imgs_folder, train_transforms, conf):
+        self.conf = conf
+        self.root_dir = imgs_folder
+        self.transform = train_transforms
+        self.class_num = len(os.listdir(imgs_folder))
+        # self.age_file = open('./dataset/casia-webface.txt').readlines()
+        self.age_file = open('/home/nas3_userL/jungsoolee/Face_dataset/ms1m.txt').readlines()
+        self.id2age = {os.path.join(str(int(line.split(' ')[1].split('/')[1])), str(int(line.split(' ')[1].split('/')[2][:-4]))) : float(line.split(' ')[2]) for line in self.age_file}
+        self.child_image2age = { os.path.join(str(int(line.split(' ')[1].split('/')[1])), str(int(line.split(' ')[1].split('/')[2][:-4]))) : float(line.split(' ')[2]) for line in self.age_file if float(line.split(' ')[2]) < 13}
+        self.child_image2freq = {id.split('/')[0]: 0 for id in self.child_image2age.keys()}
+        for k, v in self.child_image2age.items():
+            self.child_image2freq[k.split('/')[0]] += 1
+
+        # sorted in ascending order
+        # self.child_identity_freq = {int(k): v for k, v in sorted(self.child_image2freq.items(), key=lambda item: item[1])}
+        self.child_identity_freq = {int(k): v for k, v in sorted(self.child_image2freq.items(), key=lambda item: item[1]) if v >= conf.child_filter}
+        # if conf.child_filter:
+        #     self.child_identity_freq = {int(k): v for k, v in sorted(self.child_image2freq.items(), key=lambda item: item[1]) if v >= 5}
+        self.child_identity = list(self.child_identity_freq.keys())
+        print(f'child number: {len(self.child_identity)}')
+        self.child_identity_min = list(self.child_identity_freq.keys())[:conf.new_id + 1]
+        self.child_identity_max = list(self.child_identity_freq.keys())[-(conf.new_id + 1):]
+
+        total_list = glob.glob(self.root_dir + '/*/*')
+        self.total_imgs = len(total_list)
+
+        self.total_list = total_list
+        print(f'{imgs_folder} length: {self.total_imgs}')
     def __len__(self):
         return self.total_imgs
 

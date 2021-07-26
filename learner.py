@@ -17,7 +17,8 @@ import os
 import glob
 from data.data_pipe import de_preprocess, get_train_loader, get_val_data
 from model import *
-from utils import get_time, gen_plot, hflip_batch, separate_bn_paras, model_profile
+# from utils import get_time, gen_plot, hflip_batch, separate_bn_paras, model_profile
+from utils import get_time, gen_plot, hflip_batch, separate_bn_paras
 from verification import evaluate, evaluate_dist
 from torchvision.utils import save_image
 import pdb
@@ -32,7 +33,6 @@ class face_learner(object):
 
         self.conf = conf
         self.epoch = self.conf.epochs
-
         if conf.loss == 'DAL':
             self.model = DAL_model(head='cosface', n_cls= 10572, conf=self.conf).to(conf.device)
             self.trainingDAL = False
@@ -44,7 +44,7 @@ class face_learner(object):
         else:
             self.model = Backbone(conf.net_depth, conf.drop_ratio, conf.net_mode).to(conf.device)
         print('{}_{} model generated'.format(conf.net_mode, conf.net_depth))
-        model_profile(self.model)
+        # model_profile(self.model)
 
         # For Tsne -> you can ignore these codes
         # self.head = Arcface(embedding_size=conf.embedding_size, classnum=11076).to(conf.device)
@@ -68,20 +68,30 @@ class face_learner(object):
             self.milestones = [28, 38, 46] # Superlong 50epoch
 
             if 'baseline_arcface' in self.conf.exp:
-                self.milestones = [21, 30]  # Cosface paper 30epoch
-                self.epoch= 33
+            # if self.conf.loss == 'Arcface':
+                if self.conf.data_mode == 'ms1m':
+                    self.milestones = [8, 14]  # Cosface paper 30epoch
+                    self.epoch= 16
 
-            if self.conf.loss == 'Cosface':
-                self.milestones = [16, 25, 29]  # Cosface paper 30epoch
-                self.epoch= 31
+                else:
+                    self.milestones = [21, 30]  # Cosface paper 30epoch
+                    self.epoch= 33
+            #
+            # if self.conf.loss == 'Cosface':
+            #     self.milestones = [16, 25, 29]  # Cosface paper 30epoch
+            #     self.epoch= 31
 
             if self.conf.loss == 'OECNN':
                 self.milestones = [9, 15, 18]  # Cosface paper 30epoch
                 self.epoch= 21
 
-            if self.conf.loss == 'Curricular' or 'MILE28' in self.conf.exp:
-                self.milestones = [28, 38, 46]  # Cosface paper 30epoch
-                self.epoch= 60
+            if self.conf.loss == 'Curricular' or 'MILE28' in self.conf.exp or 'inter' in self.conf.exp:
+                if self.conf.data_mode == 'ms1m':
+                    self.milestones = [14, 19, 23]  # half milestones
+                    self.epoch= 25
+                else:
+                    self.milestones = [28, 38, 46]  # Cosface paper 30epoch
+                    self.epoch= 50
 
             # if self.conf.loss == 'DAL':
             #     self.milestones = [22, 33, 38]  # Cosface paper 30epoch
@@ -129,9 +139,9 @@ class face_learner(object):
                 self.head = FC(in_feature=conf.embedding_size, out_feature=self.class_num, fc_type='MV-Arc').to(conf.device)
             elif conf.loss == 'Broad':
                 self.head = BroadFaceArcFace(in_features=conf.embedding_size, out_features=10572).to(conf.device)
-                root_path = 'work_space/models_serious/baseline_broad_origin'
-                model_path = os.path.join(root_path, 'fgnetc_best_model_2021-06-15-04-52_accuracy:0.990_step:274000_casia_baseline_broad_origin.pth')
-                head_path = os.path.join(root_path, 'fgnetc_best_head_2021-06-15-04-52_accuracy:0.990_step:274000_casia_baseline_broad_origin.pth')
+                root_path = 'work_space/models_serious/interclass_MSE_proto1_broad_scratch/train_final'
+                model_path = os.path.join(root_path, 'fgnetc_best_model_2021-07-01-00-29_accuracy:0.500_step:275976_casia_interclass_MSE_proto1_broad_scratch.pth')
+                head_path = os.path.join(root_path, 'fgnetc_best_head_2021-07-01-00-29_accuracy:0.500_step:275976_casia_interclass_MSE_proto1_broad_scratch.pth')
                 self.model.load_state_dict(torch.load(model_path))
                 self.head.load_state_dict(torch.load(head_path))
                 print('broad face loaded ...')
@@ -223,7 +233,7 @@ class face_learner(object):
             print(conf)
             print('training starts.... BMVC 2021....')
 
-            # # dataset_root= os.path.join('/home/nas1_userE/jungsoolee/Face_dataset/face_emore2')
+            # # dataset_root= os.path.join('/home/nas3_userL/jungsoolee/Face_dataset/face_emore2')
             # dataset_root= os.path.join('./dataset/face_emore2')
             # # dataset_root= os.path.join(conf.home, 'dataset/face_emore2')
             # # self.lfw, self.lfw_issame = get_val_data(dataset_root)
@@ -292,19 +302,20 @@ class face_learner(object):
                 batch = torch.tensor(carray[idx:idx + conf.batch_size])
                 if tta:
                     fliped = hflip_batch(batch)
-                    emb_batch = self.model(batch.to(conf.device), emb=True).cpu() + self.model(fliped.to(conf.device), emb=True).cpu()
+                    emb_batch = self.model.inference(batch.to(conf.device)).cpu() + self.model.inference(fliped.to(conf.device)).cpu()
                     embeddings[idx:idx + conf.batch_size] = l2_norm(emb_batch).cpu()
                 else:
-                    embeddings[idx:idx + conf.batch_size] = self.model(batch.to(conf.device), emb=True).cpu()
+                    embeddings[idx:idx + conf.batch_size] = self.model.inference(batch.to(conf.device)).cpu()
                 idx += conf.batch_size
             if idx < len(carray):
                 batch = torch.tensor(carray[idx:])
                 if tta:
                     fliped = hflip_batch(batch)
-                    emb_batch = self.model(batch.to(conf.device), emb=True).cpu() + self.model(fliped.to(conf.device), emb=True).cpu()
+                    emb_batch = self.model.inference(batch.to(conf.device)).cpu() + self.model.inference(fliped.to(conf.device)).cpu()
                     embeddings[idx:] = l2_norm(emb_batch).cpu()
                 else:
-                    embeddings[idx:] = self.model(batch.to(conf.device), emb=True).cpu()
+                    embeddings[idx:] = self.model.inference(batch.to(conf.device)).cpu()
+
         tpr, fpr, accuracy, best_thresholds, dist = evaluate_dist(embeddings, issame, nrof_folds)
         buf = gen_plot(fpr, tpr)
         roc_curve = Image.open(buf)
@@ -366,13 +377,13 @@ class face_learner(object):
                     #     path_2 = path_2[:-1]
                     #
                 elif data_dir == 'cacd_vs':
-                    image_root = '/home/nas1_userE/jungsoolee/Face_dataset/CACD_VS_single_112_RF'
+                    image_root = '/home/nas3_userL/jungsoolee/Face_dataset/CACD_VS_single_112_RF'
                     path_1, path_2 = pair.split(' ')
                     path_1 = os.path.join(image_root, path_1)
                     path_2 = os.path.join(image_root, path_2)
 
                 elif data_dir == 'morph':
-                    image_root = '/home/nas1_userE/jungsoolee/Face_dataset/Album2_single_112_RF'
+                    image_root = '/home/nas3_userL/jungsoolee/Face_dataset/Album2_single_112_RF'
                     path_1, path_2 = pair.split(' ')
                     path_1 = os.path.join(image_root, path_1)
                     path_2 = os.path.join(image_root, path_2)
@@ -419,7 +430,7 @@ class face_learner(object):
         trans_list += [transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))]
         t = transforms.Compose(trans_list)
 
-        txt_root = '/home/nas1_userE/jungsoolee/Face_dataset/txt_files'
+        txt_root = '/home/nas3_userL/jungsoolee/Face_dataset/txt_files'
         # txt_root = './dataset/txt_files_sh'
         txt_dir = 'fgnet10_child.txt'
         print(f'working on : {txt_dir}')
@@ -533,8 +544,8 @@ class face_learner(object):
         trans_list += [transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))]
         t = transforms.Compose(trans_list)
 
-        txt_root = '/home/nas1_userE/jungsoolee/Face_dataset/txt_files'
-        # txt_root = '/home/nas1_userE/jungsoolee/Missing-children/txt_files_sh'
+        txt_root = '/home/nas3_userL/jungsoolee/Face_dataset/txt_files'
+        # txt_root = '/home/nas3_userL/jungsoolee/Missing-children/txt_files_sh'
         # txt_root = './dataset/txt_files_sh'
         txt_dir = 'agedb30_child.txt'
         print(f'working on : {txt_dir}')
@@ -835,9 +846,14 @@ class face_learner(object):
                 labels = labels.to(conf.device)
 
                 embeddings = self.model(imgs)
-                # thetas = self.head(embeddings, labels)
-                thetas = self.head(embeddings, labels, ages)
-                arcface_loss = ce_loss(thetas, labels)
+                thetas = self.head(embeddings, labels)
+                # thetas = self.head(embeddings, labels, ages)
+                if self.conf.loss == 'Broad' or self.conf.loss == 'Sphere':
+                    arcface_loss = thetas
+                else:
+                    arcface_loss = ce_loss(thetas, labels)
+
+                # arcface_loss = ce_loss(thetas, labels)
 
                 # new prototype method
                 if self.conf.prototype_mode == 'all':
@@ -847,6 +863,7 @@ class face_learner(object):
                 elif self.conf.prototype_mode == 'second':
                     child_lambda = 1.0 if e > self.milestones[0] else self.conf.lambda_child * 0.0
 
+<<<<<<< HEAD
                 # self.head.kernel = (512, 10572)
                 if conf.loss == 'Cosface' or conf.loss == 'MV-AM' or conf.loss == 'Broad':
                     prototype_matrix = torch.mm(l2_norm(self.head.kernel, axis=0), l2_norm(self.head.kernel, axis=0).T)
@@ -859,6 +876,22 @@ class face_learner(object):
 
                 prototype_matrix = prototype_matrix[:, self.child_identity]
                 prototype_matrix = prototype_matrix[self.child_identity, :]
+=======
+                # self.head.kernel = (512, # of classes)
+                if conf.data_mode == 'ms1m':
+                    kernel = self.head.kernel[:, self.child_identity]
+                    if conf.loss == 'Cosface' or conf.loss == 'MV-AM' or conf.loss == 'Broad':
+                        prototype_matrix = torch.mm(l2_norm(kernel, axis=0), l2_norm(kernel, axis=0).T)
+                    else:
+                        prototype_matrix = torch.mm(l2_norm(kernel, axis=0).T, l2_norm(kernel, axis=0))
+                else:
+                    if conf.loss == 'Cosface' or conf.loss == 'MV-AM' or conf.loss == 'Broad':
+                        prototype_matrix = torch.mm(l2_norm(self.head.kernel, axis=0), l2_norm(self.head.kernel, axis=0).T)
+                    else:
+                        prototype_matrix = torch.mm(l2_norm(self.head.kernel, axis=0).T, l2_norm(self.head.kernel, axis=0))
+                    prototype_matrix = prototype_matrix[:, self.child_identity]
+                    prototype_matrix = prototype_matrix[self.child_identity, :]
+>>>>>>> bb04b21ae2e63b8ed635a58486ced043496e41e9
 
                 if conf.prototype_loss == 'CE':
                     prototype_label = torch.arange(prototype_matrix.shape[0]).to(conf.device)
@@ -954,6 +987,7 @@ class face_learner(object):
                     self.model.train()
 
                 # if e >= 30 and self.step % self.evaluate_every == 0:
+                # if self.step % self.evaluate_every == 0:
                 #     self.save_best_state_new(self.conf, 'train_final', 0.5, extra=str(self.conf.data_mode) + '_' + str(self.conf.exp))
 
                 self.step += 1
@@ -1089,8 +1123,8 @@ class face_learner(object):
         os.makedirs(save_path, exist_ok=True)
         torch.save(self.model.state_dict(), os.path.join(save_path, (
             'fgnetc_best_model_{}_accuracy:{:.3f}_step:{}_{}.pth'.format(get_time(), accuracy, self.step, extra))))
-        # if not model_only:
-        #     torch.save(self.head.state_dict(), os.path.join(save_path, ('fgnetc_best_head_{}_accuracy:{:.3f}_step:{}_{}.pth'.format(get_time(), accuracy, self.step, extra))))
+        if not model_only:
+            torch.save(self.head.state_dict(), os.path.join(save_path, ('fgnetc_best_head_{}_accuracy:{:.3f}_step:{}_{}.pth'.format(get_time(), accuracy, self.step, extra))))
 
     def save_state(self, conf, accuracy, to_save_folder=False, extra=None, model_only=False):
         if to_save_folder:

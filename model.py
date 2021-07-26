@@ -739,6 +739,7 @@ class BroadFaceArcFace(nn.Module):
         )
 
     def compute_arcface(self, x, y, w):
+    # def forward(self, x, y, w=None):
         cosine = F.linear(F.normalize(x), F.normalize(self.kernel))
         sine = torch.sqrt(1.0 - torch.pow(cosine, 2))
 

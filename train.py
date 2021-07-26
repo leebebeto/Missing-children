@@ -11,7 +11,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='for face verification')
 
     # training
-    parser.add_argument("--epochs", help="training epochs", default=60, type=int)
+    parser.add_argument("--epochs", help="training epochs", default=50, type=int)
     parser.add_argument("--lr",help='learning rate',default=1e-1, type=float)
     parser.add_argument("--momentum",help='momentum',default=0.9, type=float)
     parser.add_argument("--batch_size", help="batch_size", default=64, type=int)
@@ -38,7 +38,7 @@ if __name__ == '__main__':
 
     # data path -> added temporarily
     parser.add_argument("--vgg_folder", help='vgg folder directory', default='/home/nas1_userD/yonggyu/Face_dataset/vgg')
-    parser.add_argument("--agedb_folder", help='agedb folder directory', default='/home/nas1_userE/jungsoolee/Face_dataset/AgeDB_new_align')
+    parser.add_argument("--agedb_folder", help='agedb folder directory', default='/home/nas3_userL/jungsoolee/Face_dataset/AgeDB_new_align')
     parser.add_argument("--insta_folder", help='instagram folder directory', default='/home/nas1_userD/yonggyu/Face_dataset/instagram')
 
     # model
