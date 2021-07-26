@@ -863,20 +863,6 @@ class face_learner(object):
                 elif self.conf.prototype_mode == 'second':
                     child_lambda = 1.0 if e > self.milestones[0] else self.conf.lambda_child * 0.0
 
-<<<<<<< HEAD
-                # self.head.kernel = (512, 10572)
-                if conf.loss == 'Cosface' or conf.loss == 'MV-AM' or conf.loss == 'Broad':
-                    prototype_matrix = torch.mm(l2_norm(self.head.kernel, axis=0), l2_norm(self.head.kernel, axis=0).T)
-                else:
-                    prototype_matrix = torch.mm(l2_norm(self.head.kernel, axis=0).T, l2_norm(self.head.kernel, axis=0))
-                # if conf.loss == 'Cosface':
-                #     prototype_matrix = torch.mm(l2_norm(self.head.kernel, axis=0), l2_norm(self.head.kernel, axis=0).T)
-                # else:
-                #     prototype_matrix = torch.mm(l2_norm(self.head.kernel, axis=0).T, l2_norm(self.head.kernel, axis=0))
-
-                prototype_matrix = prototype_matrix[:, self.child_identity]
-                prototype_matrix = prototype_matrix[self.child_identity, :]
-=======
                 # self.head.kernel = (512, # of classes)
                 if conf.data_mode == 'ms1m':
                     kernel = self.head.kernel[:, self.child_identity]
@@ -891,7 +877,6 @@ class face_learner(object):
                         prototype_matrix = torch.mm(l2_norm(self.head.kernel, axis=0).T, l2_norm(self.head.kernel, axis=0))
                     prototype_matrix = prototype_matrix[:, self.child_identity]
                     prototype_matrix = prototype_matrix[self.child_identity, :]
->>>>>>> bb04b21ae2e63b8ed635a58486ced043496e41e9
 
                 if conf.prototype_loss == 'CE':
                     prototype_label = torch.arange(prototype_matrix.shape[0]).to(conf.device)
