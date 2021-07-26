@@ -355,7 +355,12 @@ class DAL_model(nn.Module):
         cano_cor = self.DAL(embs_age, embs_id)
         return idLoss, id_acc, ageLoss, age_acc, cano_cor
 
-
+    def inference(self, xs, ys=None, agegrps=None, emb=False):
+        # 512-D embedding
+        embs = self.backbone(xs)
+        embs_age = self.RFM(l2_norm(embs))
+        embs_id = (embs - embs_age)
+        return l2_norm(embs_id)
 
 class OECNN_model(nn.Module):
     '''
@@ -392,3 +397,11 @@ class OECNN_model(nn.Module):
         ageLoss = self.age_cr(age_logits, agegrps.float())
 
         return idLoss, id_acc, ageLoss, age_acc
+
+    def inference(self, xs, ys=None, agegrps=None, emb=False):
+        # 512-D embedding
+        embs = self.backbone(xs)
+        age_input = embs.norm(dim=1, p=2).unsqueeze(1)
+        age_logits = self.age_classifier(age_input)
+        id_logits = self.margin_fc(l2_norm(embs), ys)
+        return l2_norm(embs)
