@@ -66,6 +66,9 @@ class face_learner(object):
             # self.milestones = [6, 11] # Sphereface paper 28epoch
             # self.milestones = [16, 24, 28] # Cosface paper 30epoch
             self.milestones = [28, 38, 46] # Superlong 50epoch
+            if conf.data_mode == 'ms1m':
+                self.milestones = [8, 14]  # Cosface paper 30epoch
+                self.epoch= 16
 
             if 'baseline_arcface' in self.conf.exp:
             # if self.conf.loss == 'Arcface':
@@ -97,8 +100,8 @@ class face_learner(object):
             #     self.milestones = [22, 33, 38]  # Cosface paper 30epoch
             #     self.epoch= 40
 
-            if self.conf.loss == 'Curricular':
-                self.milestones = [28, 38, 46]  # Curricular face paper 50epoch
+            # if self.conf.loss == 'Curricular':
+            #     self.milestones = [28, 38, 46]  # Curricular face paper 50epoch
 
             if self.conf.short_milestone:
                 self.milestones = [21, 30]  # Curricular face paper 50epoch
@@ -594,10 +597,23 @@ class face_learner(object):
                 # thetas = self.head(embeddings, labels)
                 thetas = self.head(embeddings, labels, ages)
 
+
                 if self.conf.loss == 'Broad' or self.conf.loss == 'Sphere':
                     loss= thetas
                 else:
                     loss = ce_loss(thetas, labels)
+
+                childs = (ages == 0)
+                if conf.weighted_ce and torch.sum(childs) > 0:
+                    child_thetas = thetas[childs]
+                    child_labels = labels[childs]
+                    adult_thetas = thetas[~childs]
+                    adult_labels = labels[~childs]
+                    # child images: 9326, adult images: 481297
+                    child_ce = 51.6080849239 * ce_loss(child_thetas, child_labels)
+                    adult_ce = ce_loss(adult_thetas, adult_labels)
+                    loss= child_ce + adult_ce
+
                 loss.backward()
                 running_loss += loss.item()
 

@@ -12,6 +12,7 @@ from tqdm import tqdm
 import glob
 import pdb
 import os
+from os.path import expanduser
 import random
 import bcolz
 
@@ -30,6 +31,8 @@ def get_train_dataset(imgs_folder):
     return ds, class_num
 
 def get_train_loader(conf):
+    home = expanduser("~")
+
     # casia_folder =  './dataset/CASIA_112'
     casia_folder = '/home/nas3_userL/jungsoolee/Face_dataset/CASIA_REAL_NATIONAL'
     # casia_folder = os.path.join(conf.home,'dataset/CASIA_REAL_NATIONAL')
@@ -48,7 +51,7 @@ def get_train_loader(conf):
         casia_babymonster150_folder = '/home/nas3_userL/jungsoolee/Face_dataset/CASIA_REAL_BabyMonster150'
         
 
-    print(casia_folder)
+    # print(casia_folder)
     train_transform = transforms.Compose([
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
@@ -67,13 +70,13 @@ def get_train_loader(conf):
         ds, class_num = get_train_dataset(conf.vgg_folder)
         print('vgg loader generated')
     elif conf.data_mode  == 'ms1m':
-        ms1m_root = '/home/nas3_userL/jungsoolee/Face_dataset/ms1m-refined-112/ms1m'
+        ms1m_root = os.path.join(home, 'dataset/ms1m-refined-112/ms1m')
         ds = MS1MDataset(ms1m_root, train_transforms=train_transform,  conf=conf)
         class_num = ds.class_num
         child_identity = ds.child_identity
         child_identity_min = ds.child_identity_min
         child_identity_max = ds.child_identity_max
-        print('casia loader generated')
+        print('ms1m loader generated')
     elif conf.data_mode == 'vgg_agedb':
         ds = VGGAgeDBDataset(conf.vgg_folder, conf.agedb_folder, train_transforms=train_transform)
         class_num = ds.class_num
@@ -442,7 +445,8 @@ class MS1MDataset(Dataset):
         self.transform = train_transforms
         self.class_num = len(os.listdir(imgs_folder))
         # self.age_file = open('./dataset/casia-webface.txt').readlines()
-        self.age_file = open('/home/nas3_userL/jungsoolee/Face_dataset/ms1m.txt').readlines()
+        home = expanduser("~")
+        self.age_file = open(os.path.join(home, 'dataset/ms1m.txt')).readlines()
         self.id2age = {os.path.join(str(int(line.split(' ')[1].split('/')[1])), str(int(line.split(' ')[1].split('/')[2][:-4]))) : float(line.split(' ')[2]) for line in self.age_file}
         self.child_image2age = { os.path.join(str(int(line.split(' ')[1].split('/')[1])), str(int(line.split(' ')[1].split('/')[2][:-4]))) : float(line.split(' ')[2]) for line in self.age_file if float(line.split(' ')[2]) < 13}
         self.child_image2freq = {id.split('/')[0]: 0 for id in self.child_image2age.keys()}

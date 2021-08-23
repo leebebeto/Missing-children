@@ -30,6 +30,7 @@ if __name__ == '__main__':
     parser.add_argument("--short_milestone", help='whether to use ', action='store_true')
     parser.add_argument("--seed", help='seed', default=4885, type=int)
     parser.add_argument("--child_margin", help='child margin', default=0.5, type=float)
+    parser.add_argument("--weighted_ce", help='re-weight cross entropy', default=False, action='store_true')
     parser.add_argument("--log_degree", help='whether to log degree', action='store_true')
     parser.add_argument("--use_prototype", help='whether to use prototype', action='store_true')
     parser.add_argument("--prototype_mode", help='whether to use prototype', default='all', type=str)
