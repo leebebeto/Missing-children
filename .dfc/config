@@ -1,0 +1,10 @@
+proj_name = "Missing-children"
+proj_path = "Missing-children"
+platform = "3.6.3"
+framework = "pytorch:1.7.0"
+arch = "default"
+gpus = 1
+dist_size = 4
+command = "train.py"
+dataset_path = "/public/bebeto_face_dataset"
+project_pid = "1nzpgdlyg1zz6"

@@ -30,6 +30,7 @@ if __name__ == '__main__':
     parser.add_argument("--short_milestone", help='whether to use ', action='store_true')
     parser.add_argument("--seed", help='seed', default=4885, type=int)
     parser.add_argument("--child_margin", help='child margin', default=0.5, type=float)
+    parser.add_argument("--weighted_ce", help='re-weight cross entropy', default=False, action='store_true')
     parser.add_argument("--log_degree", help='whether to log degree', action='store_true')
     parser.add_argument("--use_prototype", help='whether to use prototype', action='store_true')
     parser.add_argument("--prototype_mode", help='whether to use prototype', default='all', type=str)
@@ -50,16 +51,24 @@ if __name__ == '__main__':
     parser.add_argument("--loss", help="Arcface", default='Arcface', type=str)
     parser.add_argument("--max_m", help="max_m for LDAM", default=1.0, type=float)
     parser.add_argument("--scale", help="scale factor for LDAM", default=64, type=int)
+    parser.add_argument("--margin_add", help="margin for adding", default=0.0, type=float)
+    parser.add_argument("--use_add_margin", help='whether to add margin', action='store_true')
 
     # logging
     parser.add_argument("--data_path", help='path for loading data', default='data', type=str)
     parser.add_argument("--work_path", help='path for saving models & logs', default='work_space', type=str)
-    parser.add_argument("--model_path", help='path for saving models', default='work_space/models_serious', type=str)
+    parser.add_argument("--model_path", help='path for saving models', default='result/model', type=str)
     parser.add_argument("--log_path", help='path for saving logs', default='work_space/log_serious', type=str)
     parser.add_argument("--wandb", help='whether to use wandb', action='store_true')
+    parser.add_argument("--tensorboard", help='whether to use tensorboard', action='store_true')
     parser.add_argument("--loss_freq", help="frequency for loss boarding", default=100, type=int)
     parser.add_argument("--evaluate_freq", help="max_m for LDAM", default=2000, type=int)
     parser.add_argument("--save_freq", help="scale factor for LDAM", default=2000, type=int)
+    parser.add_argument("--use_oversample", help='oversampling', action='store_true')
+    parser.add_argument("--oversample_ratio", help="oversampling ratio", default=1.0, type=float)
+    parser.add_argument("--reweight_ratio", help="reweighting ratio", default=1.0, type=float)
+    parser.add_argument("--dfc", help='whether to use dfc', action='store_true')
+    parser.add_argument("--evaluate_debugging", help='whether to use evaluate debugging', action='store_true')
 
     #past
     parser.add_argument("--angle", help='whether to analyze angles', default=False)

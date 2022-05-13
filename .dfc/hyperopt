@@ -1,0 +1,18 @@
+{
+    "mode": "max",
+    "params": {
+        "learning-rate": {
+            "type": "FLOAT",
+            "range": [
+                1e-07,
+                0.1
+            ],
+            "size": 100
+        }
+    },
+    "version": "2.0",
+    "algorithm": "bo",
+    "metric_tag": "metric_acc",
+    "max_trial": 8,
+    "max_parallel_trial": 4
+}

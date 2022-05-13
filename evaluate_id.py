@@ -106,7 +106,6 @@ def control_text_list(txt_root, txt_dir):
     return pairs, labels
 
 
-
 def verification(net, data_dict, transform):
     labels = []
     best_pred = None

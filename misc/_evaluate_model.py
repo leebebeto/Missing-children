@@ -17,6 +17,7 @@ parser.add_argument("--model_path", help="evaluate model path", default='fgnetc_
 parser.add_argument("--device", help="device", default='cuda', type=str)
 parser.add_argument("--embedding_size", help='embedding_size', default=512, type=int)
 parser.add_argument("--wandb", help="whether to use wandb", action='store_true')
+parser.add_argument("--tensorboard", help="whether to use TB", action='store_true')
 parser.add_argument("--epochs", help="num epochs", default=50, type=int)
 parser.add_argument("--batch_size", help="batch_size", default=64, type=int)
 parser.add_argument("--loss", help="loss", default='Arcface', type=str)
@@ -189,7 +190,7 @@ def verification(net, label_list, pair_list, transform, data_dir=None):
 print('child-specific face recognition starts...')
 
 import glob
-txt_root = '/home/nas3_userL/jungsoolee/Face_dataset/txt_files'
+txt_root = '/home/deploy/bebeto/bebeto_face_dataset/txt_files'
 
 # txt_dir = f'{args.test_dir}_child.txt'
 # print(f'working on : {txt_dir}')

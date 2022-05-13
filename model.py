@@ -222,9 +222,10 @@ class MobileFaceNet(nn.Module):
 
 class Arcface(nn.Module):
     # implementation of additive margin softmax loss in https://arxiv.org/abs/1801.05599    
-    def __init__(self, embedding_size=512, classnum=51332,  s=64., m=0.5):
+    def __init__(self, embedding_size=512, classnum=51332,  s=64., m=0.5, args=None):
         super(Arcface, self).__init__()
         self.classnum = classnum
+        self.args = args
         self.kernel = nn.Parameter(torch.Tensor(embedding_size,classnum))
         # initial kernel
         self.kernel.data.uniform_(-1, 1).renorm_(2,1,1e-5).mul_(1e5)
@@ -246,6 +247,13 @@ class Arcface(nn.Module):
         cos_theta_2 = torch.pow(cos_theta, 2)
         sin_theta_2 = 1 - cos_theta_2
         sin_theta = torch.sqrt(sin_theta_2)
+
+        if self.args.use_add_margin:
+            margin = torch.zeros_like(cos_theta) + self.m
+            margin[age==0] += self.args.margin_add
+            self.cos_m = torch.cos(margin)
+            self.sin_m = torch.sin(margin)
+
         cos_theta_m = (cos_theta * self.cos_m - sin_theta * self.sin_m)
         # this condition controls the theta+m should in range [0, pi]
         #      0<=theta+m<=pi
@@ -442,11 +450,15 @@ class LDAMLoss(nn.Module):
         # initial kernel
         self.kernel.data.uniform_(-1, 1).renorm_(2,1,1e-5).mul_(1e5)
         self.s = s
-        print(f'LDAM loss with max_m: {max_m}, scale: {self.s}')
-        m_list = 1.0 / np.sqrt(np.sqrt(cls_num_list)) # child / adult: 2 classes
-        m_list = m_list * (max_m / np.max(m_list))
-        m_list = torch.cuda.FloatTensor(m_list)
-        self.m_list = m_list
+        self.m_list = {}
+        # print(f'LDAM loss with max_m: {max_m}, scale: {self.s}')
+        # m_list = 1.0 / np.sqrt(np.sqrt(cls_num_list)) # child / adult: 2 classes
+        # m_list = m_list * (max_m / np.max(m_list))
+        # m_list = torch.cuda.FloatTensor(m_list)
+        # self.m_list[0] = max_m
+        # self.m_list[1] = 0.5
+        self.margin_original = 0.5
+        self.margin_child = max_m
 
         assert s > 0
         self.s = s
@@ -455,8 +467,10 @@ class LDAMLoss(nn.Module):
         kernel_norm = l2_norm(self.kernel, axis=0)
         cos_theta = torch.mm(embbedings, kernel_norm)
         cos_theta = cos_theta.clamp(-1, 1)  # for numerical stability
-        margin = self.m_list[age]
-        margin = margin.unsqueeze(1).expand(cos_theta.shape)
+
+        margin = age * self.margin_original
+        margin[age==0] = margin[age==0] + self.margin_child
+        margin = margin.unsqueeze(1).expand(cos_theta.shape).cuda()
 
         phi = cos_theta - margin
         label = label.view(-1)  # size=(B,1)
