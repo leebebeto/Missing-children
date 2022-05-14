@@ -32,11 +32,16 @@ def fixed_img_list(text_pair):
     return lines
 
 def control_text_list(text_path, kist=False):
-    lines = sorted(fixed_img_list(text_path))
     if kist:
-        pairs = [' '.join(line.split(' ')[:1]) for line in lines]
-        labels = [int(line.split(' ')[-1]) for line in lines]
+        img_list, pair_list = text_path[0], text_path[1]
+        with open(img_list, 'r') as f:
+            img_list = f.readlines()
+        with open(pair_list, 'r') as f:
+            pair_list = f.readlines()
+        pairs = img_list
+        labels = pair_list
     else:
+        lines = sorted(fixed_img_list(text_path))
         pairs = [' '.join(line.split(' ')[1:]) for line in lines]
         labels = [int(line.split(' ')[0]) for line in lines]
     return pairs, labels
@@ -101,6 +106,48 @@ def calculate_accuracy(threshold, dist, actual_issame):
     acc = float(tp + tn) / dist.size
     return tpr, fpr, acc
 
+
+def verification_mag_kist(net, label_list, pair_list, transform, data_dir=None):
+    similarities = []
+    labels = []
+    assert 2 * len(label_list) == len(pair_list)
+
+    trans_list = []
+    trans_list += [T.ToTensor()]
+    trans_list += [T.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))]
+    t = T.Compose(trans_list)
+
+    embeddings0, embeddings1, targets = [], [], []
+    if len(label_list) == 0:
+        return 0, 0, 0
+
+    net.eval()
+    with torch.no_grad():  # Test 때 GPU를 사용할 경우 메모리 절약을 위해 torch.no_grad() 내에서 하는 것이 좋다.
+        for idx in tqdm.tqdm(range(len(label_list))):
+            idx_1, idx_2, label = int(label_list[idx].split(' ')[0]), int(label_list[idx].split(' ')[1]), int(label_list[idx].split(' ')[-1].split('\n')[0])
+            path_1, path_2 = pair_list[idx_1], pair_list[idx_2]
+            path_1 = '/home/nas3_userL/jungsoolee/FaceRecog_TestSet/img/' + '/'.join(path_1.split('/')[-2:]).split('\n')[0]
+            path_2 = '/home/nas3_userL/jungsoolee/FaceRecog_TestSet/img/' + '/'.join(path_2.split('/')[-2:]).split('\n')[0]
+            img_1 = t(Image.open(path_1)).unsqueeze(dim=0).cuda()
+            img_2 = t(Image.open(path_2)).unsqueeze(dim=0).cuda()
+            imgs = torch.cat((img_1, img_2), dim=0)
+
+            features = net(imgs)
+            embeddings0.append(features[0])
+            embeddings1.append(features[1])
+            targets.append(label)
+
+    # embeddings0 = np.vstack(embeddings0)
+    # embeddings1 = np.vstack(embeddings1)
+    # targets = np.vstack(targets).reshape(-1, )
+    embeddings0 = torch.stack(embeddings0).detach().cpu().numpy()
+    embeddings1 = torch.stack(embeddings1).detach().cpu().numpy()
+    targets = np.array(targets)
+
+    thresholds = np.arange(0, 4, 0.01)
+    tpr, fpr, accuracy = calculate_roc(thresholds, embeddings0, embeddings1, targets, nrof_folds=args.test_folds, subtract_mean=True)
+    print('EVAL with MAG - Accuracy: %2.5f+-%2.5f' % (np.mean(accuracy), np.std(accuracy)))
+    return np.mean(accuracy), np.std(accuracy)
 
 def verification_mag(net, label_list, pair_list, transform, data_dir=None):
     similarities = []
@@ -237,6 +284,7 @@ parser.add_argument("--batch_size", help="batch_size", default=64, type=int)
 parser.add_argument("--loss", help="loss", default='Arcface', type=str)
 parser.add_argument("--test_dir", help="test dir", default='fgnet20', type=str)
 parser.add_argument("--test_folds", help="test dir", default=10, type=int)
+parser.add_argument("--exp", help="exp name", default='kist_deployment', type=str)
 args = parser.parse_args()
 
 # conf = get_config(training=False)
@@ -256,26 +304,48 @@ feature_dim = 512
 # GPU가 있을 경우 연산을 GPU에서 하고 없을 경우 CPU에서 진행
 dev = 'cuda' if torch.cuda.is_available() else 'cpu'
 net_depth, drop_ratio, net_mode = 50, 0.6, 'ir_se'
-if args.loss == 'DAL' or args.loss == 'OECNN':
-    pass
-else:
-    model = Backbone(net_depth, drop_ratio, net_mode).to(dev)
-    model.load_state_dict(torch.load(model_path))
-    print('model loaded...')
-    model.eval()
 
 trans_list = []
 trans_list += [T.ToTensor()]
 trans_list += [T.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))]
 t = T.Compose(trans_list)
 
-print(args.test_dir)
-pairs, labels = control_text_list(f'/home/nas3_userL/jungsoolee/Missing-children/txt_files_sh/{args.test_dir}_child.txt')
-verification_mag(model, labels, pairs, transform=t)
-verification_ours(model, labels, pairs, transform=t)
+model = Backbone(net_depth, drop_ratio, net_mode).to(dev)
+baseline_models = glob.glob('/home/nas1_temp/jooyeolyun/mia_params/baseline/*/*/*') + glob.glob('/home/nas1_temp/jooyeolyun/mia_params/ours/*/*')
+# baseline_models = glob.glob('/home/nas1_temp/jooyeolyun/mia_params/ours/*/*')
+baseline_models = [model for model in baseline_models if 'head' not in model.split('/')[-1]]
+for ckpt in baseline_models:
+    if 'ours' in ckpt:
+        if ckpt.split('/')[-1].split('_')[-1].split('.')[0] == '5678' or ckpt.split('/')[-1].split('_')[-1].split('.')[0] == '1234':
+            seed = ckpt.split('/')[-1].split('_')[-1].split('.')[0]
+        else:
+            seed = 4885
+        test_set, method = ckpt.split('/')[6], ckpt.split('/')[5]
+    else:
+        test_set, method, seed = ckpt.split('/')[7], ckpt.split('/')[6].split('_')[1], ckpt.split('/')[6].split('_')[2]
 
-# print('kist test set')
-# pairs, labels = control_text_list(f'/home/nas3_userL/jungsoolee/FaceRecog_TestSet/pair.list.txt')
+    model.load_state_dict(torch.load(model_path))
+    print(f'{test_set}-{method}-{seed} model loaded...')
+
+    if args.wandb:
+        import wandb
+        wandb.init(entity="davian-bmvc-face")
+        wandb.run.name = f'kist_deploy_{test_set}_{method}_{seed}'
+
+    model.eval()
+    pairs, labels = control_text_list(text_path=[f'/home/nas3_userL/jungsoolee/FaceRecog_TestSet/img.list',
+                                      f'/home/nas3_userL/jungsoolee/FaceRecog_TestSet/pair.list'],
+                                      kist=True)
+    acc, std = verification_mag_kist(model, labels, pairs, transform=t)
+
+    if args.wandb:
+        wandb.log({
+            f'kist_test_set ACC': acc,
+            f'kist_test_set STD': std,
+        }, step=0)
+        wandb.finish()
+
+# original test sets
+# pairs, labels = control_text_list(f'/home/nas3_userL/jungsoolee/Missing-children/txt_files_sh/{args.test_dir}_child.txt')
 # verification_mag(model, labels, pairs, transform=t)
 # verification_ours(model, labels, pairs, transform=t)
-
