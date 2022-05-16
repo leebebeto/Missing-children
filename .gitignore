@@ -9,3 +9,4 @@ analysis
 pytorch_face_landmark
 .gitignore
 wandb
+*.csv

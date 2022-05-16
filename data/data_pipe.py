@@ -77,35 +77,43 @@ def get_train_loader(conf):
         child_identity_min = ds.child_identity_min
         child_identity_max = ds.child_identity_max
         print('ms1m loader generated')
-    elif conf.data_mode == 'vgg_agedb':
-        ds = VGGAgeDBDataset(conf.vgg_folder, conf.agedb_folder, train_transforms=train_transform)
-        class_num = ds.class_num
-        print('vgg_agedb loader generated')
-    elif conf.data_mode == 'vgg_insta':
-        ds = VGGAgeDBDataset(conf.vgg_folder, conf.insta_folder, train_transforms=train_transform)
-        class_num = ds.class_num
-        print('vgg_insta loader generated')
-    elif conf.data_mode == 'vgg_agedb_insta':
-        ds = VGGAgeDBInstaDataset(conf.vgg_folder, conf.agedb_folder, conf.insta_folder,
-                                  train_transforms=train_transform)
-        class_num = ds.class_num
-        print('vgg_agedb_insta loader generated')
-
-    elif 'monster' in conf.data_mode:
-        assert conf.data_mode in ['casia_prettiermonster47','casia_prettiermonster92','casia_prettiermonster121',
-                                'casia_prettiermonster294','casia_prettiermonster489',
-                                'casia_babymonster50', 'casia_babymonster100','casia_babymonster150']
-        casia_prettiermonster_folder = eval(conf.data_mode+'_folder')
-
-        if conf.vanilla_mixup:
-            ds = CasiaMixupDataset(casia_folder, casia_prettiermonster_folder, train_transforms=train_transform, conf=conf)
-        else:
-            ds = CasiaMonsterDataset(casia_folder, casia_prettiermonster_folder, train_transforms=train_transform, conf=conf)
+    elif conf.data_mode  == 'casiams1m':
+        ms1m_root = os.path.join('/home/nas3_userL/jungsoolee/Face_dataset/ms1m-refined-112/ms1m')
+        ds = CASIAMS1MDataset(ms1m_root, casia_folder, train_transforms=train_transform, conf=conf)
         class_num = ds.class_num
         child_identity = ds.child_identity
         child_identity_min = ds.child_identity_min
         child_identity_max = ds.child_identity_max
-        print('casia, mixup loader generated')
+        print('casia + ms1m loader generated')
+    # elif conf.data_mode == 'vgg_agedb':
+    #     ds = VGGAgeDBDataset(conf.vgg_folder, conf.agedb_folder, train_transforms=train_transform)
+    #     class_num = ds.class_num
+    #     print('vgg_agedb loader generated')
+    # elif conf.data_mode == 'vgg_insta':
+    #     ds = VGGAgeDBDataset(conf.vgg_folder, conf.insta_folder, train_transforms=train_transform)
+    #     class_num = ds.class_num
+    #     print('vgg_insta loader generated')
+    # elif conf.data_mode == 'vgg_agedb_insta':
+    #     ds = VGGAgeDBInstaDataset(conf.vgg_folder, conf.agedb_folder, conf.insta_folder,
+    #                               train_transforms=train_transform)
+    #     class_num = ds.class_num
+    #     print('vgg_agedb_insta loader generated')
+
+    # elif 'monster' in conf.data_mode:
+    #     assert conf.data_mode in ['casia_prettiermonster47','casia_prettiermonster92','casia_prettiermonster121',
+    #                             'casia_prettiermonster294','casia_prettiermonster489',
+    #                             'casia_babymonster50', 'casia_babymonster100','casia_babymonster150']
+    #     casia_prettiermonster_folder = eval(conf.data_mode+'_folder')
+
+    #     if conf.vanilla_mixup:
+    #         ds = CasiaMixupDataset(casia_folder, casia_prettiermonster_folder, train_transforms=train_transform, conf=conf)
+    #     else:
+    #         ds = CasiaMonsterDataset(casia_folder, casia_prettiermonster_folder, train_transforms=train_transform, conf=conf)
+    #     class_num = ds.class_num
+    #     child_identity = ds.child_identity
+    #     child_identity_min = ds.child_identity_min
+    #     child_identity_max = ds.child_identity_max
+    #     print('casia, mixup loader generated')
     else:
         print('Wrong dataset name')
         raise NotImplementedError
@@ -515,185 +523,281 @@ class MS1MDataset(Dataset):
         return img, label, age
 
 
-class VGGLabeledDataset(Dataset):
+class CASIAMS1MDataset(Dataset):
     '''
-    VGG with pseudo age labels dataset
+    CASIA and MS1M with pseudo age labels dataset
     directory structure
         root/person_i/{age}_filenum.jpg
-    
+
     Store image directories at init phase
 
     Returns image, label, age
     '''
-    def __init__(self, imgs_folder, train_transforms):
-        self.root_dir = imgs_folder
+
+    def __init__(self, ms1m_folder, casia_folder, train_transforms, conf):
+        self.conf = conf
+        self.ms1m_dir = ms1m_folder
+        self.casia_dir = casia_folder
         self.transform = train_transforms
-        self.class_num = len(os.listdir(imgs_folder))
+        self.ms1m_class_num, self.casia_class_num = len(os.listdir(ms1m_folder)) , len(os.listdir(casia_folder))
+        self.class_num = self.ms1m_class_num + self.casia_class_num 
+        # self.age_file = open('./dataset/casia-webface.txt').readlines()
 
-        total_list = []
-        for (dirpath, _, filenames) in os.walk(imgs_folder):
-            total_list += [os.path.join(dirpath, file) for file in filenames]
+        # CASIA child/adult labels
+        self.casia_age_file = open('/home/nas3_userL/jungsoolee/Face_dataset/casia-webface.txt').readlines()
+        self.casia_id2age = { os.path.join(str(int(line.split(' ')[1].split('/')[1])), str(int(line.split(' ')[1].split('/')[2][:-4]))) : float(line.split(' ')[2]) 
+                                for line in self.casia_age_file}
+        self.casia_child_image2age = { os.path.join(str(int(line.split(' ')[1].split('/')[1])), str(int(line.split(' ')[1].split('/')[2][:-4]))) : float(line.split(' ')[2]) 
+                                for line in self.casia_age_file if float(line.split(' ')[2]) < 13}
+        self.casia_child_image2freq = {id.split('/')[0]: 0 
+                                for id in self.casia_child_image2age.keys()}
+        for k, v in self.casia_child_image2age.items():
+            self.casia_child_image2freq[k.split('/')[0]] += 1
 
-        self.total_imgs = len(total_list)
-        self.total_list = total_list
-        
+        # sorted in ascending order
+        self.casia_child_identity_freq = {int(k): v for k, v in sorted(self.casia_child_image2freq.items(), key=lambda item: item[1]) if v >= conf.child_filter}
+        self.casia_child_identity = list(self.casia_child_identity_freq.keys())
+        print(f'casia child count: {len(self.casia_child_identity)}')
+        self.casia_child_identity_min = list(self.casia_child_identity_freq.keys())[:conf.new_id + 1]
+        self.casia_child_identity_max = list(self.casia_child_identity_freq.keys())[-(conf.new_id + 1):] # Do not need
+
+        # ms1m child/adult labels
+        self.ms1m_age_file = open('/home/nas3_userL/jungsoolee/Face_dataset/ms1m.txt').readlines()
+        self.ms1m_id2age = { os.path.join(str(int(line.split(' ')[1].split('/')[1])), str(int(line.split(' ')[1].split('/')[2][:-4]))) : float(line.split(' ')[2]) 
+                                for line in self.ms1m_age_file}
+        self.ms1m_child_image2age = { os.path.join(str(int(line.split(' ')[1].split('/')[1])), str(int(line.split(' ')[1].split('/')[2][:-4]))) : float(line.split(' ')[2]) 
+                                for line in self.ms1m_age_file if float(line.split(' ')[2]) < 13}
+        self.ms1m_child_image2freq = {id.split('/')[0]: 0 
+                                for id in self.ms1m_child_image2age.keys()}
+        for k, v in self.ms1m_child_image2age.items():
+            self.ms1m_child_image2freq[k.split('/')[0]] += 1
+
+        # sorted in ascending order
+        self.ms1m_child_identity_freq = {int(k): v for k, v in sorted(self.ms1m_child_image2freq.items(), key=lambda item: item[1]) if v >= conf.child_filter}
+        self.ms1m_child_identity = list(self.ms1m_child_identity_freq.keys())
+        print(f'ms1m child count: {len(self.ms1m_child_identity)}')
+        self.ms1m_child_identity_min = list(self.ms1m_child_identity_freq.keys())[:conf.new_id + 1]
+        self.ms1m_child_identity_max = list(self.ms1m_child_identity_freq.keys())[-(conf.new_id + 1):] # Do not need
+
+        self.child_identity = self.casia_child_identity + [x+self.casia_class_num for x in self.ms1m_child_identity]
+        self.child_identity_min = None
+        self.child_identity_max = None
+
+        self.ms1m_list = glob.glob(self.ms1m_dir + '/*/*')
+        self.casia_list = glob.glob(self.casia_dir + '/*/*')
+        self.total_list = self.ms1m_list + self.casia_list
+        self.total_imgs = len(self.total_list)
+
+        # self.class_num_list = [7336, 483287]
+        print(f'{ms1m_folder} length: {len(self.ms1m_list)}')
+        print(f'{casia_folder} length: {len(self.casia_list)}')
+
     def __len__(self):
         return self.total_imgs
-    
-    def __getitem__(self, index):
 
+    def __getitem__(self, index):
         img_path = self.total_list[index]
         img_path_list = img_path.split('/')
-        dataset_name = img_path_list[-3]
-        file_name = img_path_list[-1] # {age}_filenum.jpg
-        folder_name = img_path_list[-2]# label
+        file_name = img_path_list[-1]  # {age}_filenum.jpg
+        id_img = '/'.join((img_path.split('/')[-2], img_path.split('/')[-1].split('_')[0]))
+        if 'jpg' in id_img:
+            id_img = id_img[:-4]
+
+        try:
+            age = self.casia_id2age[id_img] if index < len(self.casia_list) else self.ms1m_id2age[id_img]
+        except:
+            age = 30
 
         img = Image.open(img_path)
-        label = int(folder_name)
-        age = int(file_name.split('_')[0])
+        label = int(img_path.split('/')[-2])
+        # age = int(file_name.split('/')[-1].split('_')[-1][:-4])
 
         if self.transform is not None:
             img = self.transform(img)
+
+        age= 0 if age< 13 else 1
 
         return img, label, age
 
+# class VGGLabeledDataset(Dataset):
+#     '''
+#     VGG with pseudo age labels dataset
+#     directory structure
+#         root/person_i/{age}_filenum.jpg
+    
+#     Store image directories at init phase
 
-class VGGAgeDBDataset(Dataset):
-    '''
-    Joint DB of VGG and AgeDB
-    VGG with pseudo age labels dataset
-    directory structure
-        root/person_i/{age}_filenum.jpg
-    AGE DB with actual labels
-        root/person_name/filenum_{age}.jpg
-    Store image directories at init phase
-    Returns image, label, age
-    '''
+#     Returns image, label, age
+#     '''
+#     def __init__(self, imgs_folder, train_transforms):
+#         self.root_dir = imgs_folder
+#         self.transform = train_transforms
+#         self.class_num = len(os.listdir(imgs_folder))
 
-    def __init__(self, vgg_imgs_folder, agedb_imgs_folder, train_transforms):
-        self.vgg_imgs_folder_name = vgg_imgs_folder.split('/')[-1]
-        self.agedb_imgs_folder_name = agedb_imgs_folder.split('/')[-1]
-        self.transform = train_transforms
-        self.vgg_class_num = len(os.listdir(vgg_imgs_folder))
-        self.agedb_class_list = os.listdir(agedb_imgs_folder)
-        self.agedb_class_num = len(self.agedb_class_list)
-        self.class_num = self.vgg_class_num + self.agedb_class_num
+#         total_list = []
+#         for (dirpath, _, filenames) in os.walk(imgs_folder):
+#             total_list += [os.path.join(dirpath, file) for file in filenames]
 
-        total_list = []
-        for (dirpath, _, filenames) in os.walk(vgg_imgs_folder):
-            total_list += [os.path.join(dirpath, file) for file in filenames]
-        for (dirpath, _, filenames) in os.walk(agedb_imgs_folder):
-            total_list += [os.path.join(dirpath, file) for file in filenames]
+#         self.total_imgs = len(total_list)
+#         self.total_list = total_list
+        
+#     def __len__(self):
+#         return self.total_imgs
+    
+#     def __getitem__(self, index):
 
-        self.total_imgs = len(total_list)
-        self.total_list = total_list
+#         img_path = self.total_list[index]
+#         img_path_list = img_path.split('/')
+#         dataset_name = img_path_list[-3]
+#         file_name = img_path_list[-1] # {age}_filenum.jpg
+#         folder_name = img_path_list[-2]# label
 
-    def __len__(self):
-        return self.total_imgs
+#         img = Image.open(img_path)
+#         label = int(folder_name)
+#         age = int(file_name.split('_')[0])
 
-    def __getitem__(self, index):
+#         if self.transform is not None:
+#             img = self.transform(img)
 
-        img_path = self.total_list[index]
-        img_path_list = img_path.split('/')
-        dataset_name = img_path_list[-3]
-        # file_name = img_path_list[-1]  # {age}_filenum.jpg
-        folder_name = img_path_list[-2]  # label
-
-        img = Image.open(img_path)
-        if dataset_name == self.agedb_imgs_folder_name:
-            label = self.agedb_class_list.index(folder_name) + self.vgg_class_num
-            # age = int(file_name.split('_')[-1].strip('.jpg'))
-        elif dataset_name == self.vgg_imgs_folder_name:
-            # folder_name = folder_name.split('n')[1]
-            label = int(folder_name)
-            # age = int(file_name.split('_')[0])  # this is actually meaningless
-        else:
-            print('Something went wrong... What have you done!')
-            assert False
-
-        if self.transform is not None:
-            img = self.transform(img)
-
-        age = 0
-        return img, label
+#         return img, label, age
 
 
-class VGGAgeDBInstaDataset(Dataset):
-    '''
-    Joint DB of VGG, AgeDB, Insta Dataset
-    VGG with pseudo age labels dataset
-    directory structure
-        root/person_i/{age}_filenum.jpg
-    AGE DB with actual labels
-    directory structure
-        root/person_name/filenum_{age}.jpg
-    Insta DB with no labels
-    directory structure
-        root/person_name/filenum.png
-    Store image directories at init phase
-    Returns image, label, age
-    '''
+# class VGGAgeDBDataset(Dataset):
+#     '''
+#     Joint DB of VGG and AgeDB
+#     VGG with pseudo age labels dataset
+#     directory structure
+#         root/person_i/{age}_filenum.jpg
+#     AGE DB with actual labels
+#         root/person_name/filenum_{age}.jpg
+#     Store image directories at init phase
+#     Returns image, label, age
+#     '''
 
-    def __init__(self, vgg_imgs_folder, agedb_imgs_folder, insta_imgs_folder, train_transforms):
+#     def __init__(self, vgg_imgs_folder, agedb_imgs_folder, train_transforms):
+#         self.vgg_imgs_folder_name = vgg_imgs_folder.split('/')[-1]
+#         self.agedb_imgs_folder_name = agedb_imgs_folder.split('/')[-1]
+#         self.transform = train_transforms
+#         self.vgg_class_num = len(os.listdir(vgg_imgs_folder))
+#         self.agedb_class_list = os.listdir(agedb_imgs_folder)
+#         self.agedb_class_num = len(self.agedb_class_list)
+#         self.class_num = self.vgg_class_num + self.agedb_class_num
 
-        self.vgg_imgs_folder_name = vgg_imgs_folder.split('/')[-1]
-        self.agedb_imgs_folder_name = agedb_imgs_folder.split('/')[-1]
-        self.insta_imgs_folder_name = insta_imgs_folder.split('/')[-1]
+#         total_list = []
+#         for (dirpath, _, filenames) in os.walk(vgg_imgs_folder):
+#             total_list += [os.path.join(dirpath, file) for file in filenames]
+#         for (dirpath, _, filenames) in os.walk(agedb_imgs_folder):
+#             total_list += [os.path.join(dirpath, file) for file in filenames]
 
-        self.transform = train_transforms
+#         self.total_imgs = len(total_list)
+#         self.total_list = total_list
 
-        self.vgg_class_num = len(os.listdir(vgg_imgs_folder))
+#     def __len__(self):
+#         return self.total_imgs
 
-        self.agedb_class_list = os.listdir(agedb_imgs_folder)
-        self.agedb_class_num = len(self.agedb_class_list)
+#     def __getitem__(self, index):
 
-        self.insta_class_list = os.listdir(insta_imgs_folder)
-        self.insta_class_num = len(self.insta_class_list)
+#         img_path = self.total_list[index]
+#         img_path_list = img_path.split('/')
+#         dataset_name = img_path_list[-3]
+#         # file_name = img_path_list[-1]  # {age}_filenum.jpg
+#         folder_name = img_path_list[-2]  # label
 
-        self.class_num = self.vgg_class_num + self.agedb_class_num + self.insta_class_num
+#         img = Image.open(img_path)
+#         if dataset_name == self.agedb_imgs_folder_name:
+#             label = self.agedb_class_list.index(folder_name) + self.vgg_class_num
+#             # age = int(file_name.split('_')[-1].strip('.jpg'))
+#         elif dataset_name == self.vgg_imgs_folder_name:
+#             # folder_name = folder_name.split('n')[1]
+#             label = int(folder_name)
+#             # age = int(file_name.split('_')[0])  # this is actually meaningless
+#         else:
+#             print('Something went wrong... What have you done!')
+#             assert False
 
-        total_list = []
-        for (dirpath, _, filenames) in os.walk(vgg_imgs_folder):
-            total_list += [os.path.join(dirpath, file) for file in filenames]
-        for (dirpath, _, filenames) in os.walk(agedb_imgs_folder):
-            total_list += [os.path.join(dirpath, file) for file in filenames]
-        for (dirpath, _, filenames) in os.walk(insta_imgs_folder):
-            total_list += [os.path.join(dirpath, file) for file in filenames]
+#         if self.transform is not None:
+#             img = self.transform(img)
 
-        self.total_imgs = len(total_list)
-        self.total_list = total_list
+#         age = 0
+#         return img, label
 
-    def __len__(self):
-        return self.total_imgs
 
-    def __getitem__(self, index):
+# class VGGAgeDBInstaDataset(Dataset):
+#     '''
+#     Joint DB of VGG, AgeDB, Insta Dataset
+#     VGG with pseudo age labels dataset
+#     directory structure
+#         root/person_i/{age}_filenum.jpg
+#     AGE DB with actual labels
+#     directory structure
+#         root/person_name/filenum_{age}.jpg
+#     Insta DB with no labels
+#     directory structure
+#         root/person_name/filenum.png
+#     Store image directories at init phase
+#     Returns image, label, age
+#     '''
 
-        img_path = self.total_list[index]
-        img_path_list = img_path.split('/')
-        dataset_name = img_path_list[-3]
-        file_name = img_path_list[-1]  # {age}_filenum.jpg
-        folder_name = img_path_list[-2]  # label
+#     def __init__(self, vgg_imgs_folder, agedb_imgs_folder, insta_imgs_folder, train_transforms):
 
-        img = Image.open(img_path)
-        if dataset_name == self.agedb_imgs_folder_name:
-            label = self.agedb_class_list.index(folder_name) + self.vgg_class_num
-            _age = int(file_name.split('_')[-1].strip('.jpg'))
-            age = 0 if _age < 13 else 1
-        elif dataset_name == self.insta_imgs_folder_name:
-            label = self.insta_class_list.index(folder_name) + self.vgg_class_num + self.agedb_class_num
-            age = 0  # also meaningless
-        elif dataset_name == self.vgg_imgs_folder_name:
-            label = int(folder_name)
-            # age = int(file_name.split('_')[0]) # this is actually meaningless
-            age = 1
-        else:
-            print('Something went wrong. What have you done!')
-            assert False
+#         self.vgg_imgs_folder_name = vgg_imgs_folder.split('/')[-1]
+#         self.agedb_imgs_folder_name = agedb_imgs_folder.split('/')[-1]
+#         self.insta_imgs_folder_name = insta_imgs_folder.split('/')[-1]
 
-        if self.transform is not None:
-            img = self.transform(img)
+#         self.transform = train_transforms
 
-        return img, label
+#         self.vgg_class_num = len(os.listdir(vgg_imgs_folder))
+
+#         self.agedb_class_list = os.listdir(agedb_imgs_folder)
+#         self.agedb_class_num = len(self.agedb_class_list)
+
+#         self.insta_class_list = os.listdir(insta_imgs_folder)
+#         self.insta_class_num = len(self.insta_class_list)
+
+#         self.class_num = self.vgg_class_num + self.agedb_class_num + self.insta_class_num
+
+#         total_list = []
+#         for (dirpath, _, filenames) in os.walk(vgg_imgs_folder):
+#             total_list += [os.path.join(dirpath, file) for file in filenames]
+#         for (dirpath, _, filenames) in os.walk(agedb_imgs_folder):
+#             total_list += [os.path.join(dirpath, file) for file in filenames]
+#         for (dirpath, _, filenames) in os.walk(insta_imgs_folder):
+#             total_list += [os.path.join(dirpath, file) for file in filenames]
+
+#         self.total_imgs = len(total_list)
+#         self.total_list = total_list
+
+#     def __len__(self):
+#         return self.total_imgs
+
+#     def __getitem__(self, index):
+
+#         img_path = self.total_list[index]
+#         img_path_list = img_path.split('/')
+#         dataset_name = img_path_list[-3]
+#         file_name = img_path_list[-1]  # {age}_filenum.jpg
+#         folder_name = img_path_list[-2]  # label
+
+#         img = Image.open(img_path)
+#         if dataset_name == self.agedb_imgs_folder_name:
+#             label = self.agedb_class_list.index(folder_name) + self.vgg_class_num
+#             _age = int(file_name.split('_')[-1].strip('.jpg'))
+#             age = 0 if _age < 13 else 1
+#         elif dataset_name == self.insta_imgs_folder_name:
+#             label = self.insta_class_list.index(folder_name) + self.vgg_class_num + self.agedb_class_num
+#             age = 0  # also meaningless
+#         elif dataset_name == self.vgg_imgs_folder_name:
+#             label = int(folder_name)
+#             # age = int(file_name.split('_')[0]) # this is actually meaningless
+#             age = 1
+#         else:
+#             print('Something went wrong. What have you done!')
+#             assert False
+
+#         if self.transform is not None:
+#             img = self.transform(img)
+
+#         return img, label
 
 
 if __name__ == '__main__':
@@ -703,7 +807,9 @@ if __name__ == '__main__':
         transforms.ToTensor(),
         transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
     ])
-    ds = VGGLabeledDataset('./dataset/Vgg_age_label/', train_transforms=train_transform)
+    ds = CASIAMS1MDataset(ms1m_folder='/home/nas3_userL/jungsoolee/Face_dataset/ms1m-refined-112/ms1m', 
+                        casia_folder='/home/nas3_userL/jungsoolee/Face_dataset/CASIA_REAL_NATIONAL',
+                        train_transforms=train_transform)
     loader = DataLoader(ds, batch_size=2)
     i, l, a = next(loader)
     print(l)

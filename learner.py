@@ -890,9 +890,10 @@ class face_learner(object):
                     if conf.loss == 'Cosface' or conf.loss == 'MV-AM' or conf.loss == 'Broad':
                         prototype_matrix = torch.mm(l2_norm(self.head.kernel, axis=0), l2_norm(self.head.kernel, axis=0).T)
                     else:
-                        prototype_matrix = torch.mm(l2_norm(self.head.kernel, axis=0).T, l2_norm(self.head.kernel, axis=0))
-                    prototype_matrix = prototype_matrix[:, self.child_identity]
-                    prototype_matrix = prototype_matrix[self.child_identity, :]
+                        prototype_matrix = torch.mm(l2_norm(self.head.kernel[:,self.child_identity], axis=0).T, 
+                                                    l2_norm(self.head.kernel[:,self.child_identity], axis=0))
+                    # prototype_matrix = prototype_matrix[:, self.child_identity]
+                    # prototype_matrix = prototype_matrix[self.child_identity, :]
 
                 if conf.prototype_loss == 'CE':
                     prototype_label = torch.arange(prototype_matrix.shape[0]).to(conf.device)
