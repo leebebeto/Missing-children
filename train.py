@@ -36,6 +36,7 @@ if __name__ == '__main__':
     parser.add_argument("--prototype_mode", help='whether to use prototype', default='all', type=str)
     parser.add_argument("--prototype_loss", help='loss type', default='L1', type=str)
     parser.add_argument("--oecnn_lambda", help='oecnn lambda', default=0.001, type=float)
+    parser.add_argument("--low_res", help='low resolution training', default=False, type=bool)
 
     # data path -> added temporarily
     parser.add_argument("--vgg_folder", help='vgg folder directory', default='/home/nas1_userD/yonggyu/Face_dataset/vgg')

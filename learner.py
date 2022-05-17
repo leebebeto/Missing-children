@@ -1,11 +1,13 @@
 import numpy as np
+import pandas as pd
+import wandb
 import torch
 import torch.nn as nn
 from torch import optim
 from torchvision import transforms
 # from tensorboardX import SummaryWriter
 # import pandas as pd
-from sync_batchnorm import convert_model
+# from sync_batchnorm import convert_model
 
 from tqdm import tqdm
 from matplotlib import pyplot as plt
@@ -21,11 +23,11 @@ from model import *
 from utils import get_time, gen_plot, hflip_batch, separate_bn_paras
 from verification import evaluate, evaluate_dist
 from torchvision.utils import save_image
-import pdb
 from Backbone import DAL_model, OECNN_model
 from itertools import chain
 from utils_txt import cos_dist, fixed_img_list
 
+import pdb
 class face_learner(object):
     def __init__(self, conf=None, inference=False, load_head=False):
 
