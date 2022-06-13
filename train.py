@@ -108,6 +108,8 @@ if __name__ == '__main__':
     torch.backends.cudnn.benchmark = False
     np.random.seed(random_seed)
     random.seed(random_seed)
+    os.environ["OMP_NUM_THREADS"] = "1"
+
 
     # init learner
     learner = face_learner(args)

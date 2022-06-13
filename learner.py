@@ -364,30 +364,30 @@ class face_learner(object):
         with torch.no_grad():  # Test 때 GPU를 사용할 경우 메모리 절약을 위해 torch.no_grad() 내에서 하는 것이 좋다.
             for idx, pair in enumerate(tqdm(pair_list)):
                 if data_dir is None:
-                    # if 'png' in pair:
-                    #     path_1, path_2 = pair.split('.png /home')
-                    #     path_1 = path_1 + '.png'
-                    # elif 'jpg' in pair:
-                    #     path_1, path_2 = pair.split('.jpg /home')
-                    #     path_1 = path_1 + '.jpg'
-                    # elif 'JPG' in pair:
-                    #     path_1, path_2 = pair.split('.JPG /home')
-                    #     path_1 = path_1 + '.JPG'
-                    # path_2 = '/home' + path_2
-                    # path_2 = path_2[:-2]
-
                     if 'png' in pair:
-                        path_1, path_2 = pair.split('.png ')
+                        path_1, path_2 = pair.split('.png /home')
                         path_1 = path_1 + '.png'
-                        path_2 = path_2[:-1]
                     elif 'jpg' in pair:
-                        path_1, path_2 = pair.split('.jpg ')
+                        path_1, path_2 = pair.split('.jpg /home')
                         path_1 = path_1 + '.jpg'
-                        path_2 = path_2[:-1]
                     elif 'JPG' in pair:
-                        path_1, path_2 = pair.split('.JPG ')
+                        path_1, path_2 = pair.split('.JPG /home')
                         path_1 = path_1 + '.JPG'
-                        path_2 = path_2[:-1]
+                    path_2 = '/home' + path_2
+                    path_2 = path_2[:-2]
+
+                    # if 'png' in pair:
+                    #     path_1, path_2 = pair.split('.png ')
+                    #     path_1 = path_1 + '.png'
+                    #     path_2 = path_2[:-1]
+                    # elif 'jpg' in pair:
+                    #     path_1, path_2 = pair.split('.jpg ')
+                    #     path_1 = path_1 + '.jpg'
+                    #     path_2 = path_2[:-1]
+                    # elif 'JPG' in pair:
+                    #     path_1, path_2 = pair.split('.JPG ')
+                    #     path_1 = path_1 + '.JPG'
+                    #     path_2 = path_2[:-1]
 
                 elif data_dir == 'cacd_vs':
                     image_root = '/home/nas3_userL/jungsoolee/Face_dataset/CACD_VS_single_112_RF'
@@ -443,14 +443,14 @@ class face_learner(object):
         trans_list += [transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))]
         t = transforms.Compose(trans_list)
 
-        # txt_root = '/home/nas3_userL/jungsoolee/Face_dataset/txt_files'
+        txt_root = '/home/nas3_userL/jungsoolee/Face_dataset/txt_files'
         # txt_root = './dataset/txt_files'
         # txt_root = './dataset/761-testset'
 
-        if self.conf.dfc:
-            txt_root = './dataset/../bebeto_test/761-testset-revised2'
-        else:
-            txt_root = '../bebeto_face_dataset/761-testset-revised'
+        # if self.conf.dfc:
+        #     txt_root = './dataset/../bebeto_test/761-testset-revised2'
+        # else:
+        #     txt_root = '../bebeto_face_dataset/761-testset-revised'
 
         # txt_dir = 'fgnet10_child.txt'
         # print(f'working on : {txt_dir}')
@@ -576,13 +576,13 @@ class face_learner(object):
         trans_list += [transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))]
         t = transforms.Compose(trans_list)
 
-        # txt_root = '/home/nas3_userL/jungsoolee/Face_dataset/txt_files'
+        txt_root = '/home/nas3_userL/jungsoolee/Face_dataset/txt_files'
         # txt_root = '/home/nas3_userL/jungsoolee/Missing-children/txt_files_sh'
         # txt_root = './dataset/txt_files_sh'
-        if self.conf.dfc:
-            txt_root = './dataset/../bebeto_test/761-testset-revised2'
-        else:
-            txt_root = '../bebeto_face_dataset/761-testset-revised'
+        # if self.conf.dfc:
+        #     txt_root = './dataset/../bebeto_test/761-testset-revised2'
+        # else:
+        #     txt_root = '../bebeto_face_dataset/761-testset-revised'
 
         txt_dir = 'agedb30_child.txt'
         print(f'working on : {txt_dir}')
@@ -676,20 +676,20 @@ class face_learner(object):
 
                     running_loss = 0.
 
-                if self.step == 0 and self.conf.evaluate_debugging:
-                    self.evaluate_new_total()
-                    print('evaluating debugging finished...')
+                # if self.step == 0 and self.conf.evaluate_debugging:
+                #     self.evaluate_new_total()
+                #     print('evaluating debugging finished...')
 
                 # added wrong on evaluations
-                # if e >= self.milestones[1] and self.step % self.evaluate_every == 0 and self.step != 0:
-                if e >= self.milestones[1] and self.step % self.evaluate_every == 0:
+                if e >= self.milestones[1] and self.step % self.evaluate_every == 0 and self.step != 0:
+                # if e >= self.milestones[1] and self.step % self.evaluate_every == 0:
                     self.model.eval()
                     self.evaluate_new_total()
                     print('evaluating....')
                     self.model.train()
 
-                # elif e < self.milestones[1] and self.step % self.evaluate_every == 0 and self.step != 0:
-                elif e < self.milestones[1] and self.step % self.evaluate_every == 0 and self.step > 0:
+                elif e < self.milestones[1] and self.step % self.evaluate_every == 0 and self.step != 0:
+                # elif e < self.milestones[1] and self.step % self.evaluate_every == 0 and self.step > 0:
                     self.model.eval()
                     self.evaluate_new()
                     print('evaluating....')
@@ -1041,19 +1041,19 @@ class face_learner(object):
                     running_child_total_loss = 0.0
                     running_mixup_total_loss = 0.0
 
-                # if e >= self.milestones[1] and self.step % self.evaluate_every == 0 and self.step != 0:
-                if e >= self.milestones[1] and self.step % self.evaluate_every == 0:
+                if e >= self.milestones[1] and self.step % self.evaluate_every == 0 and self.step != 0:
+                # if e >= self.milestones[1] and self.step % self.evaluate_every == 0:
                     self.model.eval()
                     self.evaluate_new_total()
                     print('evaluating....')
                     self.model.train()
 
                 # elif e < self.milestones[1] and self.step % self.evaluate_every == 0 and self.step != 0:
-                elif e < self.milestones[1] and self.step % self.evaluate_every == 0:
-                    self.model.eval()
-                    self.evaluate_new()
-                    print('evaluating....')
-                    self.model.train()
+                # # elif e < self.milestones[1] and self.step % self.evaluate_every == 0:
+                #     self.model.eval()
+                #     self.evaluate_new()
+                #     print('evaluating....')
+                #     self.model.train()
 
                 self.step += 1
 

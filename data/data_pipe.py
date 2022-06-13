@@ -80,22 +80,10 @@ def get_train_loader(conf):
                                   train_transforms=train_transform)
         class_num = ds.class_num
         print('vgg_agedb_insta loader generated')
-
-    # elif 'monster' in conf.data_mode:
-    #     assert conf.data_mode in ['casia_prettiermonster47','casia_prettiermonster92','casia_prettiermonster121',
-    #                             'casia_prettiermonster294','casia_prettiermonster489',
-    #                             'casia_babymonster50', 'casia_babymonster100','casia_babymonster150']
-    #     casia_prettiermonster_folder = eval(conf.data_mode+'_folder')
-
-    #     if conf.vanilla_mixup:
-    #         ds = CasiaMixupDataset(casia_folder, casia_prettiermonster_folder, train_transforms=train_transform, conf=conf)
-    #     else:
-    #         ds = CasiaMonsterDataset(casia_folder, casia_prettiermonster_folder, train_transforms=train_transform, conf=conf)
-    #     class_num = ds.class_num
-    #     child_identity = ds.child_identity
-    #     child_identity_min = ds.child_identity_min
-    #     child_identity_max = ds.child_identity_max
-    #     print('casia, mixup loader generated')
+    elif conf.data_mode == 'webface':
+        webface_root = '/home/nas1_userB/dataset/WebFace42M/img_folder'
+        ds = WebFace42M(webface_root)
+        class_num = ds.class_num
     else:
         print('Wrong dataset name')
         raise NotImplementedError
@@ -501,6 +489,66 @@ class VGGAgeDBInstaDataset(Dataset):
         return img, label
 
 
+
+class WebFace42M(Dataset):
+    '''
+    WebFace42M dataset
+    Returns image, label, age
+    '''
+
+    def __init__(self, imgs_folder, train_transforms, conf):
+        self.conf = conf
+        self.root_dir = imgs_folder
+        # self.transform = train_transforms if conf.low_res is False \
+        #                 else transforms.Compose([
+        #                     transforms.RandomHorizontalFlip(),
+        #                     transforms.Resize(size=(56,56)),
+        #                     transforms.Resize(size=(112,112)),
+        #                     transforms.ToTensor(),
+        #                     transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
+        #                 ])
+
+        # CLASS LIST
+        if os.path.exists(os.path.join(imgs_folder, 'webface_class_list.pkl')):
+            with open(os.path.join(imgs_folder, 'webface_class_list.pkl'), 'rb') as f:
+                self.class_num = len(pickle.load(f))
+        else:
+            class_list = os.listdir(imgs_folder)
+            self.class_num = len(os.listdir(imgs_folder))
+            with open(os.path.join(imgs_folder, 'webface_class_list.pkl'), 'wb') as f:
+                pickle.dump(class_list, f)
+
+        # TOTAL LIST
+        if os.path.exists(os.path.join(imgs_folder, 'webface_total_list.pkl')):
+            with open(os.path.join(imgs_folder, 'webface_total_list.pkl'), 'rb') as f:
+                total_list = pickle.load(f)
+        else:
+            total_list = glob.glob(self.root_dir + '/*/*')
+            with open(os.path.join(imgs_folder, 'webface_total_list.pkl'), 'wb') as f:
+                pickle.dump(total_list, f)
+
+        self.total_imgs = len(total_list)
+
+        self.total_list = total_list
+        print(f'{imgs_folder} length: {self.total_imgs}')
+
+    def __len__(self):
+        return self.total_imgs
+
+    def __getitem__(self, index):
+        img_path = self.total_list[index]
+
+        img = Image.open(img_path)
+        label = int(img_path.split('/')[-2]) # CHECK
+
+        if self.transform is not None:
+            img = self.transform(img)
+
+        age = 1
+
+        return img, label, age
+
+
 if __name__ == '__main__':
     # TEST CODE FOR VGGLabeledDateset
     train_transform = transforms.Compose([
@@ -508,7 +556,8 @@ if __name__ == '__main__':
         transforms.ToTensor(),
         transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
     ])
-    ds = VGGLabeledDataset('./dataset/Vgg_age_label/', train_transforms=train_transform)
+    # ds = VGGLabeledDataset('./dataset/Vgg_age_label/', train_transforms=train_transform)
+    ds = WebFace42M(imgs_folder='/home/nas1_userB/dataset/WebFace42M/img_folder', train_transforms=train_transform, conf=None)
     loader = DataLoader(ds, batch_size=2)
     i, l, a = next(loader)
     print(l)

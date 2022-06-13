@@ -12,7 +12,7 @@ import torch
 from model import *
 
 from PIL import Image
-import torchvision.transforms as T # 이미지 전처리를 지원
+import torchvision.transforms as T
 from utils_txt import cos_dist, fixed_img_list
 import tqdm, time, os, glob, pickle, random
 
@@ -68,6 +68,8 @@ def calculate_roc(thresholds, embeddings0, embeddings1,
             mean = 0.
 
         dist = distance_(embeddings0 - mean, embeddings1 - mean)
+        
+        import pdb; pdb.set_trace()
 
         # Find the best threshold for the fold
         acc_train = np.zeros((nrof_thresholds))
@@ -143,6 +145,7 @@ def verification_mag_kist(net, label_list, pair_list, transform, data_dir=None):
     embeddings0 = torch.stack(embeddings0).detach().cpu().numpy()
     embeddings1 = torch.stack(embeddings1).detach().cpu().numpy()
     targets = np.array(targets)
+    # import pdb; pdb.set_trace()
 
     thresholds = np.arange(0, 4, 0.01)
     tpr, fpr, accuracy = calculate_roc(thresholds, embeddings0, embeddings1, targets, nrof_folds=args.test_folds, subtract_mean=True)
@@ -202,6 +205,7 @@ def verification_mag(net, label_list, pair_list, transform, data_dir=None):
     embeddings1 = torch.stack(embeddings1).detach().cpu().numpy()
     targets = np.array(targets)
 
+    # np.dot(embeddings0, embeddings1.T)
     thresholds = np.arange(0, 4, 0.01)
     tpr, fpr, accuracy = calculate_roc(thresholds, embeddings0, embeddings1, targets, nrof_folds=args.test_folds, subtract_mean=True)
     print('EVAL with MAG - Accuracy: %2.5f+-%2.5f' % (np.mean(accuracy), np.std(accuracy)))
@@ -287,12 +291,17 @@ parser.add_argument("--test_folds", help="test dir", default=10, type=int)
 parser.add_argument("--exp", help="exp name", default='kist_deployment', type=str)
 args = parser.parse_args()
 
+os.environ["OMP_NUM_THREADS"] = "1"
+
 # conf = get_config(training=False)
+_wandb = args.wandb
+args.wandb = False
 learner = face_learner(args, inference=True)
+args.wandb = _wandb
 # save_path = '/home/nas1_temp/jooyeolyun/mia_params/'
 
-model_path = os.path.join(args.model_path)
-learner.load_state(args, model_path = model_path)
+# model_path = os.path.join(args.model_path)
+# learner.load_state(args, model_path = model_path)
 before_time = time.time()
 
 # 데이터 관련 세팅
@@ -314,36 +323,76 @@ model = Backbone(net_depth, drop_ratio, net_mode).to(dev)
 baseline_models = glob.glob('/home/nas1_temp/jooyeolyun/mia_params/baseline/*/*/*') + glob.glob('/home/nas1_temp/jooyeolyun/mia_params/ours/*/*')
 # baseline_models = glob.glob('/home/nas1_temp/jooyeolyun/mia_params/ours/*/*')
 baseline_models = [model for model in baseline_models if 'head' not in model.split('/')[-1]]
-for ckpt in baseline_models:
-    if 'ours' in ckpt:
-        if ckpt.split('/')[-1].split('_')[-1].split('.')[0] == '5678' or ckpt.split('/')[-1].split('_')[-1].split('.')[0] == '1234':
-            seed = ckpt.split('/')[-1].split('_')[-1].split('.')[0]
-        else:
-            seed = 4885
-        test_set, method = ckpt.split('/')[6], ckpt.split('/')[5]
-    else:
-        test_set, method, seed = ckpt.split('/')[7], ckpt.split('/')[6].split('_')[1], ckpt.split('/')[6].split('_')[2]
+# import pdb; pdb.set_trace()
 
-    model.load_state_dict(torch.load(model_path))
-    print(f'{test_set}-{method}-{seed} model loaded...')
+# # BASELINES
+# for ckpt in baseline_models:
+#     if 'ours' in ckpt:
+#         if ckpt.split('/')[-1].split('_')[-1].split('.')[0] == '5678' or ckpt.split('/')[-1].split('_')[-1].split('.')[0] == '1234':
+#             seed = int(ckpt.split('/')[-1].split('_')[-1].split('.')[0])
+#         else:
+#             seed = 4885
+#         test_set, method = ckpt.split('/')[6], ckpt.split('/')[5]
+#     else:
+#         test_set, method, seed = ckpt.split('/')[7], ckpt.split('/')[6].split('_')[1], int(ckpt.split('/')[6].split('_')[2])
 
-    if args.wandb:
-        import wandb
-        wandb.init(entity="davian-bmvc-face")
-        wandb.run.name = f'kist_deploy_{test_set}_{method}_{seed}'
+#     if seed != 4885 or test_set == 'lag': # TEMPORARY MEASURE
+#         continue
 
-    model.eval()
-    pairs, labels = control_text_list(text_path=[f'/home/nas3_userL/jungsoolee/FaceRecog_TestSet/img.list',
-                                      f'/home/nas3_userL/jungsoolee/FaceRecog_TestSet/pair.list'],
-                                      kist=True)
-    acc, std = verification_mag_kist(model, labels, pairs, transform=t)
+#     model.load_state_dict(torch.load(ckpt))
+#     print(f'{test_set}-{method}-{seed} model loaded...')
 
-    if args.wandb:
-        wandb.log({
-            f'kist_test_set ACC': acc,
-            f'kist_test_set STD': std,
-        }, step=0)
-        wandb.finish()
+#     if args.wandb:
+#         import wandb
+#         wandb.init(
+#             project='uncategorized', 
+#             entity="davian-bmvc-face", 
+#             name=f'kist_deploy_{test_set}_{method}_{seed}')
+
+
+#     model.eval()
+#     pairs, labels = control_text_list(text_path=[f'/home/nas3_userL/jungsoolee/FaceRecog_TestSet/img.list',
+#                                         f'/home/nas3_userL/jungsoolee/FaceRecog_TestSet/pair.list'],
+#                                         kist=True)
+#     acc, std = verification_mag_kist(model, labels, pairs, transform=t)
+
+#     if args.wandb:
+#         wandb.log({
+#             f'kist_test_set ACC': acc,
+#             f'kist_test_set STD': std,
+#         }, step=0)
+#         wandb.finish()
+
+
+# SINGLE MODEL
+name = 'LR_Interclass'
+seed = 4885
+ckpt = '/home/nas1_temp/jooyeolyun/repos/Missing-children/work_space/models_serious/\
+interclass_MSE_proto1_LR/agedb20/fgnetc_best_model_2022-05-18-13-03_accuracy:0.721_step:337304_casia_interclass_MSE_proto1_LR.pth'
+
+
+if args.wandb:
+    import wandb
+    name = f'kist_deploy_{name}_{seed}'
+
+    wandb.init(
+        project='uncategorized', 
+        entity="davian-bmvc-face", 
+        name=name)
+
+# model.load_state_dict(torch.load(ckpt))
+model.eval()
+pairs, labels = control_text_list(text_path=[f'/home/nas3_userL/jungsoolee/FaceRecog_TestSet/img.list',
+                                    f'/home/nas3_userL/jungsoolee/FaceRecog_TestSet/pair.list'],
+                                    kist=True)
+acc, std = verification_mag_kist(model, labels, pairs, transform=t)
+
+if args.wandb:
+    wandb.log({
+        f'kist_test_set ACC': acc,
+        f'kist_test_set STD': std,
+    }, step=0)
+    wandb.finish()
 
 # original test sets
 # pairs, labels = control_text_list(f'/home/nas3_userL/jungsoolee/Missing-children/txt_files_sh/{args.test_dir}_child.txt')
