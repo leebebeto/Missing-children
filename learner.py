@@ -62,8 +62,10 @@ class face_learner(object):
             import wandb
 
             # wandb.init(project=f"Face-Recognition(BMVC2021)")
-            wandb.init(entity="davian-bmvc-face")
-            wandb.run.name = conf.exp
+            wandb.init(
+                project='Missing-children', 
+                entity="davian-bmvc-face", 
+                name=conf.exp, )
 
         if conf.tensorboard:
             from tensorboardX import SummaryWriter
@@ -246,7 +248,7 @@ class face_learner(object):
             print(conf)
             print('training starts.... BMVC 2021....')
 
-            # # dataset_root= os.path.join('/home/nas3_userL/jungsoolee/Face_dataset/face_emore2')
+            # # dataset_root= os.path.join('/home/nas4_user/jungsoolee/Face_dataset/face_emore2')
             # dataset_root= os.path.join('./dataset/face_emore2')
             # # dataset_root= os.path.join(conf.home, 'dataset/face_emore2')
             # # self.lfw, self.lfw_issame = get_val_data(dataset_root)
@@ -390,13 +392,13 @@ class face_learner(object):
                     #     path_2 = path_2[:-1]
 
                 elif data_dir == 'cacd_vs':
-                    image_root = '/home/nas3_userL/jungsoolee/Face_dataset/CACD_VS_single_112_RF'
+                    image_root = '/home/nas4_user/jungsoolee/Face_dataset/CACD_VS_single_112_RF'
                     path_1, path_2 = pair.split(' ')
                     path_1 = os.path.join(image_root, path_1)
                     path_2 = os.path.join(image_root, path_2)
 
                 elif data_dir == 'morph':
-                    image_root = '/home/nas3_userL/jungsoolee/Face_dataset/Album2_single_112_RF'
+                    image_root = '/home/nas4_user/jungsoolee/Face_dataset/Album2_single_112_RF'
                     path_1, path_2 = pair.split(' ')
                     path_1 = os.path.join(image_root, path_1)
                     path_2 = os.path.join(image_root, path_2)
@@ -443,7 +445,8 @@ class face_learner(object):
         trans_list += [transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))]
         t = transforms.Compose(trans_list)
 
-        txt_root = '/home/nas3_userL/jungsoolee/Face_dataset/txt_files'
+        # txt_root = '/home/nas4_user/jungsoolee/Face_dataset/txt_files'
+        txt_root = '/home/nas1_temp/jooyeolyun/Datasets/FaceRecog_txt'
         # txt_root = './dataset/txt_files'
         # txt_root = './dataset/761-testset'
 
@@ -576,8 +579,9 @@ class face_learner(object):
         trans_list += [transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))]
         t = transforms.Compose(trans_list)
 
-        txt_root = '/home/nas3_userL/jungsoolee/Face_dataset/txt_files'
-        # txt_root = '/home/nas3_userL/jungsoolee/Missing-children/txt_files_sh'
+        # txt_root = '/home/nas4_user/jungsoolee/Face_dataset/txt_files'
+        txt_root = '/home/nas1_temp/jooyeolyun/Datasets/FaceRecog_txt'
+        # txt_root = '/home/nas4_user/jungsoolee/Missing-children/txt_files_sh'
         # txt_root = './dataset/txt_files_sh'
         # if self.conf.dfc:
         #     txt_root = './dataset/../bebeto_test/761-testset-revised2'

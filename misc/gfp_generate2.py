@@ -1,5 +1,5 @@
 import glob, os
-id_list = glob.glob('/home/nas3_userL/jungsoolee/FaceRecog_TestSet/img/*')
+id_list = glob.glob('/home/nas4_user/jungsoolee/FaceRecog_TestSet/img/*')
 os.makedirs('gfpgan_results', exist_ok=True)
 
 for id in id_list:

@@ -35,8 +35,8 @@ ENDPOINT = "https://practice-jungsoolee.cognitiveservices.azure.com/"
 
 face_client = FaceClient(ENDPOINT, CognitiveServicesCredentials(KEY))
 
-data_list = glob.glob('/home/nas3_userL/jungsoolee/Face_dataset/FGNET_new_align/001A*.JPG') + \
-            glob.glob('/home/nas3_userL/jungsoolee/Face_dataset/FGNET_new_align/002A*.JPG')
+data_list = glob.glob('/home/nas4_user/jungsoolee/Face_dataset/FGNET_new_align/001A*.JPG') + \
+            glob.glob('/home/nas4_user/jungsoolee/Face_dataset/FGNET_new_align/002A*.JPG')
 
 for image in data_list:
     gt_age = int(image.split('/')[-1].split('A')[1][:2])

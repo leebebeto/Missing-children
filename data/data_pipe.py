@@ -31,7 +31,7 @@ def get_train_dataset(imgs_folder):
 
 def get_train_loader(conf):
     # casia_folder =  './dataset/CASIA_112'
-    casia_folder = '/home/nas3_userL/jungsoolee/Face_dataset/CASIA_REAL_NATIONAL'
+    casia_folder = '/home/nas4_user/jungsoolee/Face_dataset/CASIA_REAL_NATIONAL'
     # casia_folder = os.path.join(conf.home,'dataset/CASIA_REAL_NATIONAL')
     # casia_folder =  '/home/nas1_userD/yonggyu/Face_dataset/casia'
 
@@ -58,7 +58,7 @@ def get_train_loader(conf):
         ds, class_num = get_train_dataset(conf.vgg_folder)
         print('vgg loader generated')
     elif conf.data_mode  == 'ms1m':
-        # ms1m_root = '/home/nas3_userL/jungsoolee/Face_dataset/ms1m-refined-112/ms1m'
+        # ms1m_root = '/home/nas4_user/jungsoolee/Face_dataset/ms1m-refined-112/ms1m'
         # ms1m_root = './dataset/ms1m'
         ms1m_root = './dataset/'
         ds = MS1MDataset(ms1m_root, train_transforms=train_transform,  conf=conf)
@@ -66,7 +66,7 @@ def get_train_loader(conf):
         child_identity = ds.child_identity
         child_identity_min = ds.child_identity_min
         child_identity_max = ds.child_identity_max
-        print('casia loader generated')
+        print('ms1m loader generated')
     elif conf.data_mode == 'vgg_agedb':
         ds = VGGAgeDBDataset(conf.vgg_folder, conf.agedb_folder, train_transforms=train_transform)
         class_num = ds.class_num
@@ -82,8 +82,16 @@ def get_train_loader(conf):
         print('vgg_agedb_insta loader generated')
     elif conf.data_mode == 'webface':
         webface_root = '/home/nas1_userB/dataset/WebFace42M/img_folder'
-        ds = WebFace42M(webface_root)
+        ds = WebFace42M(webface_root, train_transforms=train_transform, conf=conf)
         class_num = ds.class_num
+        child_identity = None # Can change to ALL
+        child_identity_max, child_identity_min = 0, 0
+    elif conf.data_mode == 'casia_cctv':
+        cctv_folder = '/home/nas1_temp/jooyeolyun/Datasets/FaceRecog_TestSet/img_renamed'
+        ds = CASIACCTVDataset(casia_folder, cctv_folder, train_transforms=train_transform, conf=conf)
+        class_num = ds.class_num
+        child_identity = None # Can change to ALL
+        child_identity_max, child_identity_min = 0, 0
     else:
         print('Wrong dataset name')
         raise NotImplementedError
@@ -123,7 +131,7 @@ class CASIADataset(Dataset):
         self.transform = train_transforms if conf.low_res is False \
                         else transforms.Compose([
                             transforms.RandomHorizontalFlip(),
-                            transforms.Resize(size=(57,57)),
+                            transforms.Resize(size=(56,56)),
                             transforms.Resize(size=(112,112)),
                             transforms.ToTensor(),
                             transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
@@ -131,7 +139,7 @@ class CASIADataset(Dataset):
         self.class_num = len(os.listdir(imgs_folder))
         # self.age_file = open('./dataset/casia-webface.txt').readlines()
         # self.age_file = open('../bebeto_face_dataset/casia-webface.txt').readlines()
-        self.age_file = open('/home/nas3_userL/jungsoolee/Face_dataset/casia-webface.txt').readlines()
+        self.age_file = open('/home/nas4_user/jungsoolee/Face_dataset/casia-webface.txt').readlines()
         self.id2age = { os.path.join(str(int(line.split(' ')[1].split('/')[1])), str(int(line.split(' ')[1].split('/')[2][:-4]))) : float(line.split(' ')[2]) for line in self.age_file}
         self.child_image2age = { os.path.join(str(int(line.split(' ')[1].split('/')[1])), str(int(line.split(' ')[1].split('/')[2][:-4]))) : float(line.split(' ')[2]) for line in self.age_file if float(line.split(' ')[2]) < 13}
         self.child_image2freq = {id.split('/')[0]: 0 for id in self.child_image2age.keys()}
@@ -239,7 +247,7 @@ class MS1MDataset(Dataset):
         self.transform = train_transforms
         self.class_num = len(os.listdir(imgs_folder))
         self.age_file = open('./dataset/ms1m.txt').readlines()
-        # self.age_file = open('/home/nas3_userL/jungsoolee/Face_dataset/ms1m.txt').readlines()
+        # self.age_file = open('/home/nas4_user/jungsoolee/Face_dataset/ms1m.txt').readlines()
         self.id2age = {os.path.join(str(int(line.split(' ')[1].split('/')[1])), str(int(line.split(' ')[1].split('/')[2][:-4]))) : float(line.split(' ')[2]) for line in self.age_file}
         self.child_image2age = { os.path.join(str(int(line.split(' ')[1].split('/')[1])), str(int(line.split(' ')[1].split('/')[2][:-4]))) : float(line.split(' ')[2]) for line in self.age_file if float(line.split(' ')[2]) < 13}
         self.child_image2freq = {id.split('/')[0]: 0 for id in self.child_image2age.keys()}
@@ -547,6 +555,59 @@ class WebFace42M(Dataset):
         age = 1
 
         return img, label, age
+
+
+class CASIACCTVDataset(Dataset):
+    '''
+    CASIA with pseudo age labels dataset
+    directory structure
+        root/person_i/{age}_filenum.jpg
+
+    Not built for Inter-prototype loss
+
+    Returns image, label, age
+    '''
+
+    def __init__(self, imgs_folder, cctv_folder, train_transforms, conf):
+        self.conf = conf
+        self.root_dir = imgs_folder
+        self.transform = train_transforms if conf.low_res is False \
+                        else transforms.Compose([
+                            transforms.RandomHorizontalFlip(),
+                            transforms.Resize(size=(57,57)),
+                            transforms.Resize(size=(112,112)),
+                            transforms.ToTensor(),
+                            transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
+                        ])
+        self.casia_class_num = len(os.listdir(imgs_folder))
+        self.cctv_class_num =  len(os.listdir(cctv_folder))
+        self.class_num = self.casia_class_num + self.cctv_class_num
+
+        self.casia_list = glob.glob(self.root_dir + '/*/*') 
+        self.cctv_list = glob.glob(cctv_folder + '/*/*')
+        self.total_list = self.casia_list + self.cctv_list
+
+        self.total_imgs = len(self.total_list)
+
+        print(f'{imgs_folder} length: {self.total_imgs}')
+
+    def __len__(self):
+        return self.total_imgs
+
+    def __getitem__(self, index):
+        img_path = self.total_list[index]
+
+        img = Image.open(img_path)
+        label = int(img_path.split('/')[-2]) if index < len(self.casia_list) \
+            else self.casia_class_num + int(img_path.split('/')[-2]) - 1 # class starts from 1
+
+        if self.transform is not None:
+            img = self.transform(img)
+
+        age = 1
+
+        return img, label, age
+
 
 
 if __name__ == '__main__':

@@ -128,8 +128,8 @@ def verification_mag_kist(net, label_list, pair_list, transform, data_dir=None):
         for idx in tqdm.tqdm(range(len(label_list))):
             idx_1, idx_2, label = int(label_list[idx].split(' ')[0]), int(label_list[idx].split(' ')[1]), int(label_list[idx].split(' ')[-1].split('\n')[0])
             path_1, path_2 = pair_list[idx_1], pair_list[idx_2]
-            path_1 = '/home/nas3_userL/jungsoolee/FaceRecog_TestSet/img/' + '/'.join(path_1.split('/')[-2:]).split('\n')[0]
-            path_2 = '/home/nas3_userL/jungsoolee/FaceRecog_TestSet/img/' + '/'.join(path_2.split('/')[-2:]).split('\n')[0]
+            path_1 = '/home/nas4_user/jungsoolee/FaceRecog_TestSet/img/' + '/'.join(path_1.split('/')[-2:]).split('\n')[0]
+            path_2 = '/home/nas4_user/jungsoolee/FaceRecog_TestSet/img/' + '/'.join(path_2.split('/')[-2:]).split('\n')[0]
             img_1 = t(Image.open(path_1)).unsqueeze(dim=0).cuda()
             img_2 = t(Image.open(path_2)).unsqueeze(dim=0).cuda()
             imgs = torch.cat((img_1, img_2), dim=0)
@@ -183,8 +183,8 @@ def verification_mag(net, label_list, pair_list, transform, data_dir=None):
                     path_1 = path_1 + '.JPG'
                     path_2 = path_2[:-1]
 
-            path_1 = '/home/nas3_userL/jungsoolee/Face_dataset/' + '/'.join(path_1.split('/')[-2:])
-            path_2 = '/home/nas3_userL/jungsoolee/Face_dataset/' + '/'.join(path_2.split('/')[-2:])
+            path_1 = '/home/nas4_user/jungsoolee/Face_dataset/' + '/'.join(path_1.split('/')[-2:])
+            path_2 = '/home/nas4_user/jungsoolee/Face_dataset/' + '/'.join(path_2.split('/')[-2:])
 
             img_1 = t(Image.open(path_1)).unsqueeze(dim=0).cuda()
             img_2 = t(Image.open(path_2)).unsqueeze(dim=0).cuda()
@@ -239,8 +239,8 @@ def verification_ours(net, label_list, pair_list, transform, data_dir=None):
                     path_1 = path_1 + '.JPG'
                     path_2 = path_2[:-1]
 
-            path_1 = '/home/nas3_userL/jungsoolee/Face_dataset/' + '/'.join(path_1.split('/')[-2:])
-            path_2 = '/home/nas3_userL/jungsoolee/Face_dataset/' + '/'.join(path_2.split('/')[-2:])
+            path_1 = '/home/nas4_user/jungsoolee/Face_dataset/' + '/'.join(path_1.split('/')[-2:])
+            path_2 = '/home/nas4_user/jungsoolee/Face_dataset/' + '/'.join(path_2.split('/')[-2:])
 
             img_1 = t(Image.open(path_1)).unsqueeze(dim=0).cuda()
             img_2 = t(Image.open(path_2)).unsqueeze(dim=0).cuda()
@@ -351,8 +351,8 @@ baseline_models = [model for model in baseline_models if 'head' not in model.spl
 
 
 #     model.eval()
-#     pairs, labels = control_text_list(text_path=[f'/home/nas3_userL/jungsoolee/FaceRecog_TestSet/img.list',
-#                                         f'/home/nas3_userL/jungsoolee/FaceRecog_TestSet/pair.list'],
+#     pairs, labels = control_text_list(text_path=[f'/home/nas4_user/jungsoolee/FaceRecog_TestSet/img.list',
+#                                         f'/home/nas4_user/jungsoolee/FaceRecog_TestSet/pair.list'],
 #                                         kist=True)
 #     acc, std = verification_mag_kist(model, labels, pairs, transform=t)
 
@@ -382,8 +382,8 @@ if args.wandb:
 
 # model.load_state_dict(torch.load(ckpt))
 model.eval()
-pairs, labels = control_text_list(text_path=[f'/home/nas3_userL/jungsoolee/FaceRecog_TestSet/img.list',
-                                    f'/home/nas3_userL/jungsoolee/FaceRecog_TestSet/pair.list'],
+pairs, labels = control_text_list(text_path=[f'/home/nas4_user/jungsoolee/FaceRecog_TestSet/img.list',
+                                    f'/home/nas4_user/jungsoolee/FaceRecog_TestSet/pair.list'],
                                     kist=True)
 acc, std = verification_mag_kist(model, labels, pairs, transform=t)
 
@@ -395,6 +395,6 @@ if args.wandb:
     wandb.finish()
 
 # original test sets
-# pairs, labels = control_text_list(f'/home/nas3_userL/jungsoolee/Missing-children/txt_files_sh/{args.test_dir}_child.txt')
+# pairs, labels = control_text_list(f'/home/nas4_user/jungsoolee/Missing-children/txt_files_sh/{args.test_dir}_child.txt')
 # verification_mag(model, labels, pairs, transform=t)
 # verification_ours(model, labels, pairs, transform=t)

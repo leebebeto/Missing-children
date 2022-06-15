@@ -40,7 +40,7 @@ if __name__ == '__main__':
 
     # data path -> added temporarily
     parser.add_argument("--vgg_folder", help='vgg folder directory', default='/home/nas1_userD/yonggyu/Face_dataset/vgg')
-    parser.add_argument("--agedb_folder", help='agedb folder directory', default='/home/nas3_userL/jungsoolee/Face_dataset/AgeDB_new_align')
+    parser.add_argument("--agedb_folder", help='agedb folder directory', default='/home/nas4_user/jungsoolee/Face_dataset/AgeDB_new_align')
     parser.add_argument("--insta_folder", help='instagram folder directory', default='/home/nas1_userD/yonggyu/Face_dataset/instagram')
 
     # model
@@ -109,6 +109,7 @@ if __name__ == '__main__':
     np.random.seed(random_seed)
     random.seed(random_seed)
     os.environ["OMP_NUM_THREADS"] = "1"
+    os.environ["WANDB_MODE"] = "run"
 
 
     # init learner

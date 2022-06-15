@@ -344,8 +344,8 @@ def make_analysis_folder2(tst_data_dir, img_list_1, img_list_2, labels, best_pre
         a = TP[2 * i].split("/")[-2:]
         b = TP[2 * i + 1].split("/")[-2:]
 
-        img3 = Image.open(os.path.join('/home/nas3_userL/Face_dataset/AgeDB_align', "/".join(a)))
-        img4 = Image.open(os.path.join('/home/nas3_userL/Face_dataset/AgeDB_align', "/".join(b)))
+        img3 = Image.open(os.path.join('/home/nas4_user/jungsoolee/Face_dataset/AgeDB_align', "/".join(a)))
+        img4 = Image.open(os.path.join('/home/nas4_user/jungsoolee/Face_dataset/AgeDB_align', "/".join(b)))
 
         result_img.append(transform(img1).unsqueeze(dim=0))
         result_img.append(transform(img2).unsqueeze(dim=0))
@@ -372,8 +372,8 @@ def make_analysis_folder2(tst_data_dir, img_list_1, img_list_2, labels, best_pre
         a = FN[2 * i].split("/")[-2:]
         b = FN[2 * i + 1].split("/")[-2:]
 
-        img3 = Image.open(os.path.join('/home/nas3_userL/Face_dataset/AgeDB_align', "/".join(a)))
-        img4 = Image.open(os.path.join('/home/nas3_userL/Face_dataset/AgeDB_align', "/".join(b)))
+        img3 = Image.open(os.path.join('/home/nas4_user/jungsoolee/Face_dataset/AgeDB_align', "/".join(a)))
+        img4 = Image.open(os.path.join('/home/nas4_user/jungsoolee/Face_dataset/AgeDB_align', "/".join(b)))
 
         result_img.append(transform(img1).unsqueeze(dim=0))
         result_img.append(transform(img2).unsqueeze(dim=0))
@@ -400,8 +400,8 @@ def make_analysis_folder2(tst_data_dir, img_list_1, img_list_2, labels, best_pre
         a = TN[2 * i].split("/")[-2:]
         b = TN[2 * i + 1].split("/")[-2:]
 
-        img3 = Image.open(os.path.join('/home/nas3_userL/Face_dataset/AgeDB_align', "/".join(a)))
-        img4 = Image.open(os.path.join('/home/nas3_userL/Face_dataset/AgeDB_align', "/".join(b)))
+        img3 = Image.open(os.path.join('/home/nas4_user/jungsoolee/Face_dataset/AgeDB_align', "/".join(a)))
+        img4 = Image.open(os.path.join('/home/nas4_user/jungsoolee/Face_dataset/AgeDB_align', "/".join(b)))
 
         result_img.append(transform(img1).unsqueeze(dim=0))
         result_img.append(transform(img2).unsqueeze(dim=0))
@@ -428,8 +428,8 @@ def make_analysis_folder2(tst_data_dir, img_list_1, img_list_2, labels, best_pre
         a = FP[2 * i].split("/")[-2:]
         b = FP[2 * i + 1].split("/")[-2:]
 
-        img3 = Image.open(os.path.join('/home/nas3_userL/Face_dataset/AgeDB_align', "/".join(a)))
-        img4 = Image.open(os.path.join('/home/nas3_userL/Face_dataset/AgeDB_align', "/".join(b)))
+        img3 = Image.open(os.path.join('/home/nas4_user/jungsoolee/Face_dataset/AgeDB_align', "/".join(a)))
+        img4 = Image.open(os.path.join('/home/nas4_user/jungsoolee/Face_dataset/AgeDB_align', "/".join(b)))
 
         result_img.append(transform(img1).unsqueeze(dim=0))
         result_img.append(transform(img2).unsqueeze(dim=0))

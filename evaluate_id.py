@@ -187,56 +187,56 @@ def verification_dal(net, data_dict, transform):
 
 import glob
 
-# with open(f'/home/nas3_userL/jungsoolee/Face_dataset/txt_files/lag_identification.pickle', 'rb') as f:
+# with open(f'/home/nas4_user/jungsoolee/Face_dataset/txt_files/lag_identification.pickle', 'rb') as f:
 #     data_dict = pickle.load(f)
 #
 # verification(model, data_dict, transform=t)
 #
 # print(f'working on : {args.test_dir}....')
 if args.loss == 'OECNN' or args.loss == 'DAL':
-    # with open(f'/home/nas3_userL/jungsoolee/Face_dataset/txt_files/{args.test_dir}_identification.pickle', 'rb') as f:
+    # with open(f'/home/nas4_user/jungsoolee/Face_dataset/txt_files/{args.test_dir}_identification.pickle', 'rb') as f:
     #     data_dict = pickle.load(f)
-    with open(f'/home/nas3_userL/jungsoolee/Face_dataset/txt_files/lag_identification.pickle', 'rb') as f:
+    with open(f'/home/nas4_user/jungsoolee/Face_dataset/txt_files/lag_identification.pickle', 'rb') as f:
         data_dict = pickle.load(f)
 
     verification_dal(learner.model, data_dict, transform=t)
 
 else:
-    # with open(f'/home/nas3_userL/jungsoolee/Face_dataset/txt_files/{args.test_dir}_identification.pickle', 'rb') as f:
+    # with open(f'/home/nas4_user/jungsoolee/Face_dataset/txt_files/{args.test_dir}_identification.pickle', 'rb') as f:
     #     data_dict = pickle.load(f)
-    with open(f'/home/nas3_userL/jungsoolee/Face_dataset/txt_files/lag_identification.pickle', 'rb') as f:
+    with open(f'/home/nas4_user/jungsoolee/Face_dataset/txt_files/lag_identification.pickle', 'rb') as f:
         data_dict = pickle.load(f)
 
     verification(model, data_dict, transform=t)
 
 #
 # print(f'working on : fgnetc....')
-# with open('/home/nas3_userL/jungsoolee/Face_dataset/txt_files/fgnet20_identification.pickle', 'rb') as f:
+# with open('/home/nas4_user/jungsoolee/Face_dataset/txt_files/fgnet20_identification.pickle', 'rb') as f:
 #     data_dict = pickle.load(f)
 #
 # verification(model, data_dict, transform=t)
 #
 # print(f'working on : agedbc....')
-# with open('/home/nas3_userL/jungsoolee/Face_dataset/txt_files/agedbc_identification.pickle', 'rb') as f:
+# with open('/home/nas4_user/jungsoolee/Face_dataset/txt_files/agedbc_identification.pickle', 'rb') as f:
 #     data_dict = pickle.load(f)
 #
 # verification(model, data_dict, transform=t)
 
 
 # print(f'working on : fgnetc20....')
-# with open('/home/nas3_userL/jungsoolee/Face_dataset/txt_files/fgnetc20_identification.pickle', 'rb') as f:
+# with open('/home/nas4_user/jungsoolee/Face_dataset/txt_files/fgnetc20_identification.pickle', 'rb') as f:
 #     data_dict = pickle.load(f)
 #
 # verification(model, data_dict, transform=t)
 
 # print(f'working on : agedbc20....')
-# with open('/home/nas3_userL/jungsoolee/Face_dataset/txt_files/agedbc20_identification.pickle', 'rb') as f:
+# with open('/home/nas4_user/jungsoolee/Face_dataset/txt_files/agedbc20_identification.pickle', 'rb') as f:
 #     data_dict = pickle.load(f)
 #
 # verification(model, data_dict, transform=t)
 
 # print(f'working on : lag....')
-# with open('/home/nas3_userL/jungsoolee/Face_dataset/txt_files/lag_identification.pickle', 'rb') as f:
+# with open('/home/nas4_user/jungsoolee/Face_dataset/txt_files/lag_identification.pickle', 'rb') as f:
 #     data_dict = pickle.load(f)
 #
 # verification(model, data_dict, transform=t)
