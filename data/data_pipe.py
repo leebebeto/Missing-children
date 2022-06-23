@@ -37,6 +37,7 @@ def get_train_loader(conf):
 
     # casia_folder = './dataset/CASIA_REAL_NATIONAL/CASIA_REAL_NATIONAL'
     # casia_folder = '../bebeto_face_dataset/CASIA_REAL_NATIONAL/CASIA_REAL_NATIONAL'
+    ms1m_root = '/home/nas4_user/jungsoolee/Face_dataset/ms1m-refined-112/ms1m'
 
 
     print(casia_folder)
@@ -58,9 +59,9 @@ def get_train_loader(conf):
         ds, class_num = get_train_dataset(conf.vgg_folder)
         print('vgg loader generated')
     elif conf.data_mode  == 'ms1m':
-        # ms1m_root = '/home/nas4_user/jungsoolee/Face_dataset/ms1m-refined-112/ms1m'
+        ms1m_root = '/home/nas4_user/jungsoolee/Face_dataset/ms1m-refined-112/ms1m'
         # ms1m_root = './dataset/ms1m'
-        ms1m_root = './dataset/'
+        # ms1m_root = './dataset/'
         ds = MS1MDataset(ms1m_root, train_transforms=train_transform,  conf=conf)
         class_num = ds.class_num
         child_identity = ds.child_identity
@@ -90,8 +91,16 @@ def get_train_loader(conf):
         cctv_folder = '/home/nas1_temp/jooyeolyun/Datasets/FaceRecog_TestSet/img_renamed'
         ds = CASIACCTVDataset(casia_folder, cctv_folder, train_transforms=train_transform, conf=conf)
         class_num = ds.class_num
-        child_identity = None # Can change to ALL
-        child_identity_max, child_identity_min = 0, 0
+        child_identity = ds.child_identity
+        child_identity_min = ds.child_identity_min
+        child_identity_max = ds.child_identity_max
+    elif conf.data_mode == 'ms1m_cctv':
+        cctv_folder = '/home/nas1_temp/jooyeolyun/Datasets/FaceRecog_TestSet/img_renamed'
+        ds = MS1MCCTVDataset(ms1m_root, cctv_folder, train_transforms=train_transform, conf=conf)
+        class_num = ds.class_num
+        child_identity = ds.child_identity
+        child_identity_min = ds.child_identity_min
+        child_identity_max = ds.child_identity_max
     else:
         print('Wrong dataset name')
         raise NotImplementedError
@@ -246,8 +255,8 @@ class MS1MDataset(Dataset):
         self.root_dir = imgs_folder
         self.transform = train_transforms
         self.class_num = len(os.listdir(imgs_folder))
-        self.age_file = open('./dataset/ms1m.txt').readlines()
-        # self.age_file = open('/home/nas4_user/jungsoolee/Face_dataset/ms1m.txt').readlines()
+        # self.age_file = open('./dataset/ms1m.txt').readlines()
+        self.age_file = open('/home/nas4_user/jungsoolee/Face_dataset/ms1m.txt').readlines()
         self.id2age = {os.path.join(str(int(line.split(' ')[1].split('/')[1])), str(int(line.split(' ')[1].split('/')[2][:-4]))) : float(line.split(' ')[2]) for line in self.age_file}
         self.child_image2age = { os.path.join(str(int(line.split(' ')[1].split('/')[1])), str(int(line.split(' ')[1].split('/')[2][:-4]))) : float(line.split(' ')[2]) for line in self.age_file if float(line.split(' ')[2]) < 13}
         self.child_image2freq = {id.split('/')[0]: 0 for id in self.child_image2age.keys()}
@@ -507,14 +516,7 @@ class WebFace42M(Dataset):
     def __init__(self, imgs_folder, train_transforms, conf):
         self.conf = conf
         self.root_dir = imgs_folder
-        # self.transform = train_transforms if conf.low_res is False \
-        #                 else transforms.Compose([
-        #                     transforms.RandomHorizontalFlip(),
-        #                     transforms.Resize(size=(56,56)),
-        #                     transforms.Resize(size=(112,112)),
-        #                     transforms.ToTensor(),
-        #                     transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
-        #                 ])
+        self.transform = train_transforms 
 
         # CLASS LIST
         if os.path.exists(os.path.join(imgs_folder, 'webface_class_list.pkl')):
@@ -547,7 +549,7 @@ class WebFace42M(Dataset):
         img_path = self.total_list[index]
 
         img = Image.open(img_path)
-        label = int(img_path.split('/')[-2]) # CHECK
+        label = int(img_path.split('/')[-2].split('_')[-1]) # CHECK
 
         if self.transform is not None:
             img = self.transform(img)
@@ -589,6 +591,23 @@ class CASIACCTVDataset(Dataset):
 
         self.total_imgs = len(self.total_list)
 
+        self.age_file = open('/home/nas4_user/jungsoolee/Face_dataset/casia-webface.txt').readlines()
+        self.id2age = { os.path.join(str(int(line.split(' ')[1].split('/')[1])), str(int(line.split(' ')[1].split('/')[2][:-4]))) : float(line.split(' ')[2]) for line in self.age_file}
+        self.child_image2age = { os.path.join(str(int(line.split(' ')[1].split('/')[1])), str(int(line.split(' ')[1].split('/')[2][:-4]))) : float(line.split(' ')[2]) for line in self.age_file if float(line.split(' ')[2]) < 13}
+        self.child_image2freq = {id.split('/')[0]: 0 for id in self.child_image2age.keys()}
+        for k, v in self.child_image2age.items():
+            self.child_image2freq[k.split('/')[0]] += 1
+
+        # sorted in ascending order
+        # self.child_identity_freq = {int(k): v for k, v in sorted(self.child_image2freq.items(), key=lambda item: item[1])}
+        self.child_identity_freq = {int(k): v for k, v in sorted(self.child_image2freq.items(), key=lambda item: item[1]) if v >= conf.child_filter}
+        # if conf.child_filter:
+        #     self.child_identity_freq = {int(k): v for k, v in sorted(self.child_image2freq.items(), key=lambda item: item[1]) if v >= 5}
+        self.child_identity = list(self.child_identity_freq.keys())
+        print(f'child number: {len(self.child_identity)}')
+        self.child_identity_min = list(self.child_identity_freq.keys())[:conf.new_id + 1]
+        self.child_identity_max = list(self.child_identity_freq.keys())[-(conf.new_id + 1):]
+
         print(f'{imgs_folder} length: {self.total_imgs}')
 
     def __len__(self):
@@ -596,18 +615,96 @@ class CASIACCTVDataset(Dataset):
 
     def __getitem__(self, index):
         img_path = self.total_list[index]
+        id_img = '/'.join((img_path.split('/')[-2], img_path.split('/')[-1].split('_')[0]))
+        if 'jpg' in id_img:
+            id_img = id_img[:-4]
+        try:
+            age = self.id2age[id_img]
+        except:
+            age = 30
+
+        age= 0 if age< 13 else 1
 
         img = Image.open(img_path)
         label = int(img_path.split('/')[-2]) if index < len(self.casia_list) \
             else self.casia_class_num + int(img_path.split('/')[-2]) - 1 # class starts from 1
+        age = 1 if index < len(self.casia_list) else age
 
         if self.transform is not None:
             img = self.transform(img)
 
-        age = 1
-
         return img, label, age
 
+
+
+class MS1MCCTVDataset(Dataset):
+    '''
+    CASIA with pseudo age labels dataset
+    directory structure
+        root/person_i/{age}_filenum.jpg
+
+    Not built for Inter-prototype loss
+
+    Returns image, label, age
+    '''
+
+    def __init__(self, imgs_folder, cctv_folder, train_transforms, conf):
+        self.conf = conf
+        self.root_dir = imgs_folder
+        self.transform = train_transforms
+        self.ms1m_class_num = len(os.listdir(imgs_folder))
+        self.cctv_class_num =  len(os.listdir(cctv_folder))
+        self.class_num = self.ms1m_class_num + self.cctv_class_num
+
+        self.ms1m_list = glob.glob(self.root_dir + '/*/*') 
+        self.cctv_list = glob.glob(cctv_folder + '/*/*')
+        self.total_list = self.ms1m_list + self.cctv_list
+
+        self.total_imgs = len(self.total_list)
+
+        print(f'{imgs_folder} length: {self.total_imgs}')
+
+        self.age_file = open('/home/nas4_user/jungsoolee/Face_dataset/ms1m.txt').readlines()
+        self.id2age = {os.path.join(str(int(line.split(' ')[1].split('/')[1])), str(int(line.split(' ')[1].split('/')[2][:-4]))) : float(line.split(' ')[2]) for line in self.age_file}
+        self.child_image2age = { os.path.join(str(int(line.split(' ')[1].split('/')[1])), str(int(line.split(' ')[1].split('/')[2][:-4]))) : float(line.split(' ')[2]) for line in self.age_file if float(line.split(' ')[2]) < 13}
+        self.child_image2freq = {id.split('/')[0]: 0 for id in self.child_image2age.keys()}
+        for k, v in self.child_image2age.items():
+            self.child_image2freq[k.split('/')[0]] += 1
+
+        # sorted in ascending order
+        # self.child_identity_freq = {int(k): v for k, v in sorted(self.child_image2freq.items(), key=lambda item: item[1])}
+        self.child_identity_freq = {int(k): v for k, v in sorted(self.child_image2freq.items(), key=lambda item: item[1]) if v >= conf.child_filter}
+        # if conf.child_filter:
+        #     self.child_identity_freq = {int(k): v for k, v in sorted(self.child_image2freq.items(), key=lambda item: item[1]) if v >= 5}
+        self.child_identity = list(self.child_identity_freq.keys())
+        print(f'child number: {len(self.child_identity)}')
+        self.child_identity_min = list(self.child_identity_freq.keys())[:conf.new_id + 1]
+        self.child_identity_max = list(self.child_identity_freq.keys())[-(conf.new_id + 1):]
+
+    def __len__(self):
+        return self.total_imgs
+
+    def __getitem__(self, index):
+        img_path = self.total_list[index]
+        id_img = '/'.join((img_path.split('/')[-2], img_path.split('/')[-1].split('_')[0]))
+        if 'jpg' in id_img:
+            id_img = id_img[:-4]
+        try:
+            age = self.id2age[id_img]
+        except:
+            age = 30
+        age= 0 if age< 13 else 1
+
+        img = Image.open(img_path)
+        label = int(img_path.split('/')[-2]) if index < len(self.ms1m_list) \
+            else self.ms1m_class_num + int(img_path.split('/')[-2]) - 1 # class starts from 1
+        age = 1 if index < len(self.ms1m_list) else age
+
+        if self.transform is not None:
+            img = self.transform(img)
+
+
+        return img, label, age
 
 
 if __name__ == '__main__':
@@ -620,5 +717,6 @@ if __name__ == '__main__':
     # ds = VGGLabeledDataset('./dataset/Vgg_age_label/', train_transforms=train_transform)
     ds = WebFace42M(imgs_folder='/home/nas1_userB/dataset/WebFace42M/img_folder', train_transforms=train_transform, conf=None)
     loader = DataLoader(ds, batch_size=2)
-    i, l, a = next(loader)
+    i, l, a = next(iter(loader))
+    pdb.set_trace()
     print(l)

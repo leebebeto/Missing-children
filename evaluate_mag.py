@@ -69,7 +69,7 @@ def calculate_roc(thresholds, embeddings0, embeddings1,
 
         dist = distance_(embeddings0 - mean, embeddings1 - mean)
         
-        import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
 
         # Find the best threshold for the fold
         acc_train = np.zeros((nrof_thresholds))
@@ -148,7 +148,8 @@ def verification_mag_kist(net, label_list, pair_list, transform, data_dir=None):
     # import pdb; pdb.set_trace()
 
     thresholds = np.arange(0, 4, 0.01)
-    tpr, fpr, accuracy = calculate_roc(thresholds, embeddings0, embeddings1, targets, nrof_folds=args.test_folds, subtract_mean=True)
+    # tpr, fpr, accuracy = calculate_roc(thresholds, embeddings0, embeddings1, targets, nrof_folds=args.test_folds, subtract_mean=True)
+    tpr, fpr, accuracy = calculate_roc(thresholds, embeddings0, embeddings1, targets, nrof_folds=args.test_folds, subtract_mean=False)
     print('EVAL with MAG - Accuracy: %2.5f+-%2.5f' % (np.mean(accuracy), np.std(accuracy)))
     return np.mean(accuracy), np.std(accuracy)
 
@@ -365,10 +366,13 @@ baseline_models = [model for model in baseline_models if 'head' not in model.spl
 
 
 # SINGLE MODEL
-name = 'LR_Interclass'
+# name = 'LR_Interclass'
 seed = 4885
-ckpt = '/home/nas1_temp/jooyeolyun/repos/Missing-children/work_space/models_serious/\
-interclass_MSE_proto1_LR/agedb20/fgnetc_best_model_2022-05-18-13-03_accuracy:0.721_step:337304_casia_interclass_MSE_proto1_LR.pth'
+# ckpt = '/home/nas1_temp/jooyeolyun/repos/Missing-children/work_space/models_serious/\
+# interclass_MSE_proto1_LR/agedb20/fgnetc_best_model_2022-05-18-13-03_accuracy:0.721_step:337304_casia_interclass_MSE_proto1_LR.pth'
+name = 'CCTV_Closed_Set_keep_mean'
+ckpt = '/home/nas1_temp/jooyeolyun/repos/Missing-children/result/\
+model/casia_cctv_arcface/fgnetc_best_model_2022-06-16-16-08_accuracy:0.832_step:383278_casia_cctv_casia_cctv_arcface.pth'
 
 
 if args.wandb:
