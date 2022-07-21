@@ -258,6 +258,7 @@ class Arcface(nn.Module):
         # this condition controls the theta+m should in range [0, pi]
         #      0<=theta+m<=pi
         #     -m<=theta<=pi-m
+
         cond_v = cos_theta - self.threshold
         cond_mask = cond_v <= 0
         keep_val = (cos_theta - self.mm) # when theta not in [0,pi], use cosface instead

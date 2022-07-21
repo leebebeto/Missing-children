@@ -84,6 +84,9 @@ class face_learner(object):
             # self.milestones = [6, 11] # Sphereface paper 28epoch
             # self.milestones = [16, 24, 28] # Cosface paper 30epoch
             self.milestones = [28, 38, 46] # Superlong 50epoch
+            if self.conf.data_mode == 'webface':
+                self.milestones = [8, 12, 16]
+                self.epoch = 20
 
             if 'baseline_arcface' in self.conf.exp:
             # if self.conf.loss == 'Arcface':
@@ -977,7 +980,7 @@ class face_learner(object):
                     child_lambda = 1.0 if e > self.milestones[0] else self.conf.lambda_child * 0.0
 
                 # self.head.kernel = (512, # of classes)
-                if conf.data_mode == 'ms1m':
+                if conf.data_mode == 'ms1m' or conf.data_mode == 'ms1m_cctv':
                     kernel = self.head.kernel[:, self.child_identity]
                     if conf.loss == 'Cosface' or conf.loss == 'MV-AM' or conf.loss == 'Broad':
                         prototype_matrix = torch.mm(l2_norm(kernel, axis=0), l2_norm(kernel, axis=0).T)
