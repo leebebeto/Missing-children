@@ -31,15 +31,14 @@ def get_train_dataset(imgs_folder):
 
 def get_train_loader(conf):
     # casia_folder =  './dataset/CASIA_112'
-    casia_folder = '/home/nas4_user/jungsoolee/Face_dataset/CASIA_REAL_NATIONAL'
     # casia_folder = os.path.join(conf.home,'dataset/CASIA_REAL_NATIONAL')
     # casia_folder =  '/home/nas1_userD/yonggyu/Face_dataset/casia'
 
     # casia_folder = './dataset/CASIA_REAL_NATIONAL/CASIA_REAL_NATIONAL'
     # casia_folder = '../bebeto_face_dataset/CASIA_REAL_NATIONAL/CASIA_REAL_NATIONAL'
 
-
-    print(casia_folder)
+    casia_folder = '/home/nas4_user/jungsoolee/Face_dataset/CASIA_REAL_NATIONAL'
+    print(conf.data_mode)
     train_transform = transforms.Compose([
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
@@ -507,14 +506,14 @@ class WebFace42M(Dataset):
     def __init__(self, imgs_folder, train_transforms, conf):
         self.conf = conf
         self.root_dir = imgs_folder
-        # self.transform = train_transforms if conf.low_res is False \
-        #                 else transforms.Compose([
-        #                     transforms.RandomHorizontalFlip(),
-        #                     transforms.Resize(size=(56,56)),
-        #                     transforms.Resize(size=(112,112)),
-        #                     transforms.ToTensor(),
-        #                     transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
-        #                 ])
+        self.transform = train_transforms if conf.low_res is False \
+                        else transforms.Compose([
+                            transforms.RandomHorizontalFlip(),
+                            transforms.Resize(size=(56,56)),
+                            transforms.Resize(size=(112,112)),
+                            transforms.ToTensor(),
+                            transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
+                        ])
 
         # CLASS LIST
         if os.path.exists(os.path.join(imgs_folder, 'webface_class_list.pkl')):

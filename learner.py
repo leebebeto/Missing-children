@@ -27,7 +27,10 @@ from Backbone import DAL_model, OECNN_model
 from itertools import chain
 from utils_txt import cos_dist, fixed_img_list
 
-import pdb
+# for using Partial FC
+from partial_fc import *
+import losses
+
 class face_learner(object):
     def __init__(self, conf=None, inference=False, load_head=False):
 
@@ -124,7 +127,6 @@ class face_learner(object):
                 self.epoch= 28
 
 
-
             self.loader, self.class_num, self.ds, self.child_identity, self.child_identity_min, self.child_identity_max = get_train_loader(conf)
             self.log_path = os.path.join(conf.log_path, conf.data_mode, conf.exp)
 
@@ -132,14 +134,29 @@ class face_learner(object):
             # self.writer = SummaryWriter(self.log_path)
             self.step = 0
 
+
             if 'MIXUP' in conf.exp:
                 self.class_num += conf.new_id
 
             if conf.loss == 'Arcface':
                 self.head = Arcface(embedding_size=conf.embedding_size, classnum=self.class_num, args=self.conf).to(conf.device)
-            # Arcface with minus margin for children
-            # elif conf.loss == 'ArcfaceMinus':
-            #     self.head = ArcfaceMinus(embedding_size=conf.embedding_size, classnum=self.class_num, minus_m=conf.minus_m).to(conf.device)
+            elif conf.loss == 'PartialFC':
+                try:
+                    world_size = int(os.environ["WORLD_SIZE"])
+                    rank = int(os.environ["RANK"])
+                    distributed.init_process_group("nccl")
+                except KeyError:
+                    world_size = 1
+                    rank = 0
+                    distributed.init_process_group(
+                        backend="nccl",
+                        init_method="tcp://127.0.0.1:12584",
+                        rank=rank,
+                        world_size=world_size,
+                    )
+                self.model = torch.nn.parallel.DistributedDataParallel(module=self.model, broadcast_buffers=False, device_ids=[0,1,2,3,4,5,6,7], bucket_cap_mb=16, find_unused_parameters=True)
+                self.head = PartialFC(margin_loss=losses.ArcFace(), embedding_size=512, num_classes=self.class_num, sample_rate=1.0)
+
             elif conf.loss == 'Cosface':
                 self.head = CosineMarginProduct(embedding_size=conf.embedding_size, classnum=self.class_num, scale=conf.scale).to(conf.device)
             elif conf.loss == 'Sphere':
@@ -216,24 +233,33 @@ class face_learner(object):
                                              self.model.backbone.parameters()), lr=conf.lr, momentum=0.9)
             else:
                 paras_only_bn, paras_wo_bn = separate_bn_paras(self.model)
-                if conf.use_dp:
-                    self.optimizer1 = optim.SGD([
-                                        {'params': paras_wo_bn + [self.head.module.kernel], 'weight_decay': 5e-4},
-                                    ], lr = conf.lr, momentum = conf.momentum)
+
+                if conf.loss == 'PartialFC':
+                    self.optimizer1 = optim.SGD([{'params': paras_wo_bn + list(self.head.parameters()), 'weight_decay': 5e-4},], lr=conf.lr, momentum=conf.momentum)
 
                     self.optimizer2 = optim.SGD([
-                                        {'params': paras_only_bn}
-                                    ], lr = conf.lr, momentum = conf.momentum)
-
+                        {'params': paras_only_bn}
+                    ], lr=conf.lr, momentum=conf.momentum)
 
                 else:
-                    self.optimizer1 = optim.SGD([
-                                        {'params': paras_wo_bn + [self.head.kernel], 'weight_decay': 5e-4},
-                                    ], lr = conf.lr, momentum = conf.momentum)
+                    if conf.use_dp:
+                        self.optimizer1 = optim.SGD([
+                                            {'params': paras_wo_bn + [self.head.module.kernel], 'weight_decay': 5e-4},
+                                        ], lr = conf.lr, momentum = conf.momentum)
 
-                    self.optimizer2 = optim.SGD([
-                                        {'params': paras_only_bn}
-                                    ], lr = conf.lr, momentum = conf.momentum)
+                        self.optimizer2 = optim.SGD([
+                                            {'params': paras_only_bn}
+                                        ], lr = conf.lr, momentum = conf.momentum)
+
+
+                    else:
+                        self.optimizer1 = optim.SGD([
+                                            {'params': paras_wo_bn + [self.head.kernel], 'weight_decay': 5e-4},
+                                        ], lr = conf.lr, momentum = conf.momentum)
+
+                        self.optimizer2 = optim.SGD([
+                                            {'params': paras_only_bn}
+                                        ], lr = conf.lr, momentum = conf.momentum)
 
             print('optimizers generated')
             # self.board_loss_every = len(self.loader)//100
@@ -634,11 +660,11 @@ class face_learner(object):
 
                 imgs = imgs.to(conf.device)
                 labels = labels.to(conf.device)
-                embeddings = self.model(imgs)
-                # thetas = self.head(embeddings, labels)
-                thetas = self.head(embeddings, labels, ages)
 
-                if self.conf.loss == 'Broad' or self.conf.loss == 'Sphere':
+                embeddings = self.model(imgs)
+                thetas = self.head(embeddings, labels)
+                # thetas = self.head(embeddings, labels, ages)
+                if self.conf.loss == 'Broad' or self.conf.loss == 'Sphere' or self.conf.loss =='PartialFC':
                     loss= thetas
                 else:
                     loss = ce_loss(thetas, labels)
@@ -657,8 +683,6 @@ class face_learner(object):
 
 
                     loss= child_ce + adult_ce
-
-
 
                 loss.backward()
                 running_loss += loss.item()
