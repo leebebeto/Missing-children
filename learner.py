@@ -108,8 +108,10 @@ class face_learner(object):
 
             if self.conf.loss == 'Curricular' or 'MILE28' in self.conf.exp or 'inter' in self.conf.exp:
                 if self.conf.data_mode == 'ms1m':
-                    self.milestones = [14, 19, 23]  # half milestones
-                    self.epoch= 25
+                    # self.milestones = [14, 19, 23]  # half milestones
+                    # self.epoch= 25
+                    self.milestones = [28, 38, 46] # Long milestones, epochs
+                    self.epoch = 50
                 else:
                     self.milestones = [28, 38, 46]  # Cosface paper 30epoch
                     self.epoch= 50
