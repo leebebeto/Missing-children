@@ -157,7 +157,8 @@ class face_learner(object):
                         rank=rank,
                         world_size=world_size,
                     )
-                self.model = torch.nn.parallel.DistributedDataParallel(module=self.model, broadcast_buffers=False, device_ids=[0,1,2,3,4,5,6,7], bucket_cap_mb=16, find_unused_parameters=True)
+                # torch.multiprocessing.spawn(train_fn, args=(world_size,), nprocs=world_size)
+                self.model = torch.nn.parallel.DistributedDataParallel(module=self.model, broadcast_buffers=True, device_ids=[0,1,2,3], bucket_cap_mb=16, find_unused_parameters=False)
                 self.head = PartialFC(margin_loss=losses.ArcFace(), embedding_size=512, num_classes=self.class_num, sample_rate=1.0)
 
             elif conf.loss == 'Cosface':
@@ -212,8 +213,8 @@ class face_learner(object):
                 self.model = nn.DataParallel(self.model)
                 self.head = nn.DataParallel(self.head)
 
-                if conf.use_sync == True:
-                    self.model = convert_model(self.model)
+                # if conf.use_sync == True:
+                #     self.model = convert_model(self.model)
 
             print(f'curr milestones: {self.milestones}')
             print(f'total epochs: {self.epoch}')
