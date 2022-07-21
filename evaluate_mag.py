@@ -68,11 +68,6 @@ def calculate_roc(thresholds, embeddings0, embeddings1,
             mean = 0.
 
         dist = distance_(embeddings0 - mean, embeddings1 - mean)
-<<<<<<< HEAD
-=======
-        
-        # import pdb; pdb.set_trace()
->>>>>>> 2d0ceb6804c3dbbc9c1c7dee168f90dcb6ddc89d
 
         # Find the best threshold for the fold
         acc_train = np.zeros((nrof_thresholds))
@@ -154,13 +149,7 @@ def verification_mag_kist(net, label_list, pair_list, transform, data_dir=None):
     targets = np.array(targets)
 
     thresholds = np.arange(0, 4, 0.01)
-<<<<<<< HEAD
-    tpr, fpr, accuracy = calculate_roc(thresholds, embeddings0, embeddings1, targets, nrof_folds=args.test_folds,
-                                       subtract_mean=True)
-=======
-    # tpr, fpr, accuracy = calculate_roc(thresholds, embeddings0, embeddings1, targets, nrof_folds=args.test_folds, subtract_mean=True)
-    tpr, fpr, accuracy = calculate_roc(thresholds, embeddings0, embeddings1, targets, nrof_folds=args.test_folds, subtract_mean=False)
->>>>>>> 2d0ceb6804c3dbbc9c1c7dee168f90dcb6ddc89d
+    tpr, fpr, accuracy = calculate_roc(thresholds, embeddings0, embeddings1, targets, nrof_folds=args.test_folds, subtract_mean=True)
     print('EVAL with MAG - Accuracy: %2.5f+-%2.5f' % (np.mean(accuracy), np.std(accuracy)))
     return np.mean(accuracy), np.std(accuracy)
 
@@ -204,8 +193,7 @@ def verification_mag(net, label_list, pair_list, transform, data_dir=None):
     targets = np.array(targets)
 
     thresholds = np.arange(0, 4, 0.01)
-    tpr, fpr, accuracy = calculate_roc(thresholds, embeddings0, embeddings1, targets, nrof_folds=args.test_folds,
-                                       subtract_mean=True)
+    tpr, fpr, accuracy = calculate_roc(thresholds, embeddings0, embeddings1, targets, nrof_folds=args.test_folds, subtract_mean=True)
     print('EVAL with MAG - Accuracy: %2.5f+-%2.5f' % (np.mean(accuracy), np.std(accuracy)))
 
 
