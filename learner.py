@@ -1,9 +1,10 @@
 import numpy as np
 import pandas as pd
+from random import randint
 import wandb
 import torch
 import torch.nn as nn
-from torch import optim
+from torch import optim, distributed
 from torchvision import transforms
 # from tensorboardX import SummaryWriter
 # import pandas as pd
@@ -13,22 +14,17 @@ from tqdm import tqdm
 from matplotlib import pyplot as plt
 plt.switch_backend('agg')
 from PIL import Image
-import pickle
-import math
 import os
-import glob
 from data.data_pipe import de_preprocess, get_train_loader, get_val_data
 from model import *
-# from utils import get_time, gen_plot, hflip_batch, separate_bn_paras, model_profile
 from utils import get_time, gen_plot, hflip_batch, separate_bn_paras
 from verification import evaluate, evaluate_dist
-from torchvision.utils import save_image
-from Backbone import DAL_model, OECNN_model
+from Backbone import DAL_model, OECNN_model, iresnet50
 from itertools import chain
 from utils_txt import cos_dist, fixed_img_list
 
 # for using Partial FC
-from partial_fc import *
+from partial_fc import PartialFC
 import losses
 
 class face_learner(object):
@@ -50,16 +46,12 @@ class face_learner(object):
                 self.model = OECNN_model(head='cosface', n_cls= 10572, conf=self.conf).to(conf.device)
             self.trainingDAL = False
 
+        elif conf.net_mode == 'ir_se_insight':
+            self.model = iresnet50(dropout=0.0, fp16=True, num_features=conf.embedding_size).to(conf.device)
+
         else:
             self.model = Backbone(conf.net_depth, conf.drop_ratio, conf.net_mode).to(conf.device)
         print('{}_{} model generated'.format(conf.net_mode, conf.net_depth))
-        # (self.modemodel_profilel)
-
-        # For Tsne -> you can ignore these codes
-        # self.head = Arcface(embedding_size=conf.embedding_size, classnum=11076).to(conf.device)
-
-        if load_head:
-            self.head = Arcface(embedding_size=conf.embedding_size, classnum=10572, args=self.conf).to(conf.device)
 
         if conf.wandb:
             import wandb
@@ -76,13 +68,6 @@ class face_learner(object):
             self.writer = SummaryWriter(f'result/summary/{conf.exp}')
 
         if not inference:
-            # self.alpha = conf.alpha
-            # self.milestones = [6, 11, 16]
-            # self.milestones = [8, 16, 24] # Ours 30 naive
-            # self.milestones = [9, 15, 21]
-            # self.milestones = [11, 16, 21]
-            # self.milestones = [6, 11] # Sphereface paper 28epoch
-            # self.milestones = [16, 24, 28] # Cosface paper 30epoch
             self.milestones = [28, 38, 46] # Superlong 50epoch
             if self.conf.data_mode == 'webface':
                 self.milestones = [8, 12, 16]
@@ -97,16 +82,16 @@ class face_learner(object):
                 else:
                     self.milestones = [21, 30]  # Cosface paper 30epoch
                     self.epoch= 33
-            #
-            # if self.conf.loss == 'Cosface':
-            #     self.milestones = [16, 25, 29]  # Cosface paper 30epoch
-            #     self.epoch= 31
+            
+            if self.conf.loss == 'Cosface':
+                self.milestones = [16, 25, 29]  # Cosface paper 30epoch
+                self.epoch= 31
 
-            if self.conf.loss == 'OECNN':
+            elif self.conf.loss == 'OECNN':
                 self.milestones = [9, 15, 18]  # Cosface paper 30epoch
                 self.epoch= 21
 
-            if self.conf.loss == 'Curricular' or 'MILE28' in self.conf.exp or 'inter' in self.conf.exp:
+            elif self.conf.loss == 'Curricular' or 'MILE28' in self.conf.exp or 'inter' in self.conf.exp:
                 if self.conf.data_mode == 'ms1m':
                     # self.milestones = [14, 19, 23]  # half milestones
                     # self.epoch= 25
@@ -116,21 +101,24 @@ class face_learner(object):
                     self.milestones = [28, 38, 46]  # Cosface paper 30epoch
                     self.epoch= 50
 
-            # if self.conf.loss == 'DAL':
-            #     self.milestones = [22, 33, 38]  # Cosface paper 30epoch
-            #     self.epoch= 40
+            elif self.conf.loss == 'DAL':
+                self.milestones = [22, 33, 38]  # Cosface paper 30epoch
+                self.epoch= 40
 
-            if self.conf.loss == 'Curricular':
+            elif self.conf.loss == 'Curricular':
                 self.milestones = [28, 38, 46]  # Curricular face paper 50epoch
 
-            if self.conf.short_milestone:
-                self.milestones = [21, 30]  # Curricular face paper 50epoch
-                self.epoch= 33
-
-            if conf.loss == 'Sphere':
-                self.milestones = [16, 24]  # Curricular face paper 50epoch
+            elif conf.loss == 'Sphere':
+                self.milestones = [16, 24] 
                 self.epoch= 28
+            
+            elif conf.finetune_model_path is not None: # BroadFace 5:2:1 
+                self.milestones = [12, 18]
+                self.epoch = 20
 
+            if self.conf.short_milestone:
+                self.milestones = [21, 30]
+                self.epoch= 33
 
             self.loader, self.class_num, self.ds, self.child_identity, self.child_identity_min, self.child_identity_max = get_train_loader(conf)
             self.log_path = os.path.join(conf.log_path, conf.data_mode, conf.exp)
@@ -146,23 +134,13 @@ class face_learner(object):
             if conf.loss == 'Arcface':
                 self.head = Arcface(embedding_size=conf.embedding_size, classnum=self.class_num, args=self.conf).to(conf.device)
             elif conf.loss == 'PartialFC':
-                try:
-                    world_size = int(os.environ["WORLD_SIZE"])
-                    rank = int(os.environ["RANK"])
-                    distributed.init_process_group("nccl")
-                except KeyError:
-                    world_size = 1
-                    rank = 0
-                    distributed.init_process_group(
-                        backend="nccl",
-                        init_method="tcp://127.0.0.1:12584",
-                        rank=rank,
-                        world_size=world_size,
-                    )
-                # torch.multiprocessing.spawn(train_fn, args=(world_size,), nprocs=world_size)
-                self.model = torch.nn.parallel.DistributedDataParallel(module=self.model, broadcast_buffers=True, device_ids=[0,1,2,3], bucket_cap_mb=16, find_unused_parameters=False)
-                self.head = PartialFC(margin_loss=losses.ArcFace(), embedding_size=512, num_classes=self.class_num, sample_rate=1.0)
-
+                world_size = 1
+                rank = 0
+                distributed.init_process_group(
+                    backend="nccl", init_method=f"tcp://127.0.0.1:{randint(10000, 49999)}",
+                    rank=rank, world_size=world_size,
+                )
+                self.head = PartialFC(margin_loss=losses.ArcFace(), embedding_size=512, num_classes=self.class_num, sample_rate=1.0).to(conf.device)
             elif conf.loss == 'Cosface':
                 self.head = CosineMarginProduct(embedding_size=conf.embedding_size, classnum=self.class_num, scale=conf.scale).to(conf.device)
             elif conf.loss == 'Sphere':
@@ -185,30 +163,30 @@ class face_learner(object):
                 print('broad face loaded ...')
                 self.milestones = [13, 18]
                 self.epoch = 20
-                # import pdb; pdb.set_trace()
+                
             # else:
             #     import sys
             #     print('wrong loss function.. exiting...')
             #     sys.exit(0)
-            if conf.use_pretrain or conf.use_adult_memory_pretrain:
-                root_path = 'work_space/models_serious/baseline_arcface_4885'
-                # model_path = os.path.join(root_path, 'fgnetc_best_model_2021-06-11-12-06_accuracy:0.864_step:240000_casia_baseline_arcface_4885.pth')
-                # head_path = os.path.join(root_path, 'fgnetc_best_head_2021-06-11-12-06_accuracy:0.864_step:240000_casia_baseline_arcface_4885.pth')
-                # self.milestones = [6, 3, 1]  # Superlong 50epoch
-                # self.epoch = 10
+            # if conf.use_pretrain or conf.use_adult_memory_pretrain:
+            #     root_path = 'work_space/models_serious/baseline_arcface_4885'
+            #     # model_path = os.path.join(root_path, 'fgnetc_best_model_2021-06-11-12-06_accuracy:0.864_step:240000_casia_baseline_arcface_4885.pth')
+            #     # head_path = os.path.join(root_path, 'fgnetc_best_head_2021-06-11-12-06_accuracy:0.864_step:240000_casia_baseline_arcface_4885.pth')
+            #     # self.milestones = [6, 3, 1]  # Superlong 50epoch
+            #     # self.epoch = 10
 
-                model_path = os.path.join(root_path, 'fgnetc_best_model_2021-06-11-12-06_accuracy:0.864_step:240000_casia_baseline_arcface_4885.pth')
-                head_path = os.path.join(root_path, 'fgnetc_best_head_2021-06-11-12-06_accuracy:0.864_step:240000_casia_baseline_arcface_4885.pth')
-                self.milestones = [6, 9, 11]  # Superlong 50epoch
-                self.epoch = 15
+            #     model_path = os.path.join(root_path, 'fgnetc_best_model_2021-06-11-12-06_accuracy:0.864_step:240000_casia_baseline_arcface_4885.pth')
+            #     head_path = os.path.join(root_path, 'fgnetc_best_head_2021-06-11-12-06_accuracy:0.864_step:240000_casia_baseline_arcface_4885.pth')
+            #     self.milestones = [6, 9, 11]  # Superlong 50epoch
+            #     self.epoch = 15
 
 
-                self.model.load_state_dict(torch.load(model_path))
-                self.head.load_state_dict(torch.load(head_path))
+            #     self.model.load_state_dict(torch.load(model_path))
+            #     self.head.load_state_dict(torch.load(head_path))
 
-                print('model loaded ...')
-                print(self.milestones)
-                print(self.epoch)
+            #     print('model loaded ...')
+            #     print(self.milestones)
+            #     print(self.epoch)
 
             # Currently use Data Parallel as default
             if conf.use_dp:
@@ -242,11 +220,7 @@ class face_learner(object):
 
                 if conf.loss == 'PartialFC':
                     self.optimizer1 = optim.SGD([{'params': paras_wo_bn + list(self.head.parameters()), 'weight_decay': 5e-4},], lr=conf.lr, momentum=conf.momentum)
-
-                    self.optimizer2 = optim.SGD([
-                        {'params': paras_only_bn}
-                    ], lr=conf.lr, momentum=conf.momentum)
-
+                    self.optimizer2 = optim.SGD([{'params': paras_only_bn}], lr=conf.lr, momentum=conf.momentum)
                 else:
                     if conf.use_dp:
                         self.optimizer1 = optim.SGD([
@@ -256,8 +230,6 @@ class face_learner(object):
                         self.optimizer2 = optim.SGD([
                                             {'params': paras_only_bn}
                                         ], lr = conf.lr, momentum = conf.momentum)
-
-
                     else:
                         self.optimizer1 = optim.SGD([
                                             {'params': paras_wo_bn + [self.head.kernel], 'weight_decay': 5e-4},
@@ -380,7 +352,6 @@ class face_learner(object):
             labels = [int(line.split(' ')[-1][0]) for line in lines]
         return pairs, labels
 
-    import tqdm
 
     def verification(self, net, label_list, pair_list, transform, data_dir=None):
         similarities = []
@@ -987,19 +958,15 @@ class face_learner(object):
                     child_lambda = 1.0 if e > self.milestones[0] else self.conf.lambda_child * 0.0
 
                 # self.head.kernel = (512, # of classes)
-                if conf.data_mode == 'ms1m' or conf.data_mode == 'ms1m_cctv':
+                if conf.loss == 'PartialFC':
+                    kernel = self.head.weight_activated[self.child_identity, :]
+                    prototype_matrix = torch.mm(l2_norm(kernel, axis=0), l2_norm(kernel, axis=0).T)
+                elif conf.loss == 'Cosface' or conf.loss == 'MV-AM' or conf.loss == 'Broad':
+                    kernel = self.head.kernel[self.child_identity, :]
+                    prototype_matrix = torch.mm(l2_norm(kernel, axis=0), l2_norm(kernel, axis=0).T)
+                else: # Arcface
                     kernel = self.head.kernel[:, self.child_identity]
-                    if conf.loss == 'Cosface' or conf.loss == 'MV-AM' or conf.loss == 'Broad':
-                        prototype_matrix = torch.mm(l2_norm(kernel, axis=0), l2_norm(kernel, axis=0).T)
-                    else:
-                        prototype_matrix = torch.mm(l2_norm(kernel, axis=0).T, l2_norm(kernel, axis=0))
-                else:
-                    if conf.loss == 'Cosface' or conf.loss == 'MV-AM' or conf.loss == 'Broad':
-                        prototype_matrix = torch.mm(l2_norm(self.head.kernel, axis=0), l2_norm(self.head.kernel, axis=0).T)
-                    else:
-                        prototype_matrix = torch.mm(l2_norm(self.head.kernel, axis=0).T, l2_norm(self.head.kernel, axis=0))
-                    prototype_matrix = prototype_matrix[:, self.child_identity]
-                    prototype_matrix = prototype_matrix[self.child_identity, :]
+                    prototype_matrix = torch.mm(l2_norm(kernel, axis=0).T, l2_norm(kernel, axis=0))
 
                 if conf.prototype_loss == 'CE':
                     prototype_label = torch.arange(prototype_matrix.shape[0]).to(conf.device)
@@ -1251,7 +1218,12 @@ class face_learner(object):
 
 
     def load_state(self, conf, model_path = None, head_path = None):
-        # if conf.use_dp == True:
+        if model_path is not None and conf.net_mode == "ir_se_insight":
+            checkpoint = torch.load(model_path)
+            self.model.load_state_dict(checkpoint["state_dict_backbone"])
+            self.head.load_state_dict(checkpoint["state_dict_softmax_fc"])
+            return
+
         if model_path is not None:
             self.model.load_state_dict(torch.load(model_path))
             print('model loaded...')

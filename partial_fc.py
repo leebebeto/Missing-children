@@ -51,7 +51,7 @@ class PartialFC(torch.nn.Module):
         self.rank = distributed.get_rank()
         self.world_size = distributed.get_world_size()
 
-        self.dist_cross_entropy = DistCrossEntropy()
+        # self.dist_cross_entropy = DistCrossEntropy()
         self.embedding_size = embedding_size
         self.sample_rate: float = sample_rate
         self.fp16 = fp16
@@ -203,8 +203,8 @@ class PartialFC(torch.nn.Module):
         logits = logits.clamp(-1, 1)
 
         logits = self.margin_softmax(logits, labels)
-        loss = self.dist_cross_entropy(logits, labels)
-        return loss
+        # loss = self.dist_cross_entropy(logits, labels)
+        return logits
 
     def state_dict(self, destination=None, prefix="", keep_vars=False):
         if destination is None:
