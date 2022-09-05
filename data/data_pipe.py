@@ -58,7 +58,8 @@ def get_train_loader(conf):
         ds, class_num = get_train_dataset(conf.vgg_folder)
         print('vgg loader generated')
     elif conf.data_mode  == 'ms1m':
-        ms1m_root = '/home/nas4_user/jungsoolee/Face_dataset/ms1m-refined-112/ms1m'
+        # ms1m_root = '/home/nas4_user/jungsoolee/Face_dataset/ms1m-refined-112/ms1m'
+        ms1m_root = '/home/jungsoolee/ms1m-refined-112/ms1m'
         # ms1m_root = './dataset/ms1m'
         # ms1m_root = './dataset/'
         ds = MS1MDataset(ms1m_root, train_transforms=train_transform,  conf=conf)

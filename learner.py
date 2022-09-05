@@ -477,8 +477,8 @@ class face_learner(object):
         trans_list += [transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))]
         t = transforms.Compose(trans_list)
 
-        # txt_root = '/home/nas4_user/jungsoolee/Face_dataset/txt_files'
-        txt_root = '/home/nas1_temp/jooyeolyun/Datasets/FaceRecog_txt'
+        txt_root = '/home/nas4_user/jungsoolee/Face_dataset/txt_files'
+        # txt_root = '/home/nas1_temp/jooyeolyun/Datasets/FaceRecog_txt'
         # txt_root = './dataset/txt_files'
         # txt_root = './dataset/761-testset'
 
@@ -611,8 +611,8 @@ class face_learner(object):
         trans_list += [transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))]
         t = transforms.Compose(trans_list)
 
-        # txt_root = '/home/nas4_user/jungsoolee/Face_dataset/txt_files'
-        txt_root = '/home/nas1_temp/jooyeolyun/Datasets/FaceRecog_txt'
+        txt_root = '/home/nas4_user/jungsoolee/Face_dataset/txt_files'
+        # txt_root = '/home/nas1_temp/jooyeolyun/Datasets/FaceRecog_txt'
         # txt_root = '/home/nas4_user/jungsoolee/Missing-children/txt_files_sh'
         # txt_root = './dataset/txt_files_sh'
         # if self.conf.dfc:
@@ -626,6 +626,10 @@ class face_learner(object):
         agedb30_best_acc, agedb30_best_th, agedb30_idx = self.verification(self.model, label_list, pair_list, transform=t)
         # fgnet30_best_acc, fgnet30_best_th, fgnet30_idx = 0.5, 0.5, 0.5
         print(f'txt_dir: {txt_dir}, best_accr: {agedb30_best_acc}')
+        if agedb30_best_acc > self.agedb30_best_acc:
+            self.agedb30_best_acc = agedb30_best_acc
+            print('saving best agedb30_best_acc model....')
+            self.save_best_state_new(self.conf, 'agedb30', self.agedb30_best_acc, extra=str(self.conf.data_mode) + '_' + str(self.conf.exp))
 
         if self.conf.wandb:
             wandb.log({
@@ -1075,19 +1079,19 @@ class face_learner(object):
                     running_child_total_loss = 0.0
                     running_mixup_total_loss = 0.0
 
-                if e >= self.milestones[1] and self.step % self.evaluate_every == 0 and self.step != 0:
-                # if e >= self.milestones[1] and self.step % self.evaluate_every == 0:
+                # if e >= self.milestones[1] and self.step % self.evaluate_every == 0 and self.step != 0:
+                if e >= self.milestones[1] and self.step % self.evaluate_every == 0:
                     self.model.eval()
                     self.evaluate_new_total()
                     print('evaluating....')
                     self.model.train()
 
                 # elif e < self.milestones[1] and self.step % self.evaluate_every == 0 and self.step != 0:
-                # # elif e < self.milestones[1] and self.step % self.evaluate_every == 0:
-                #     self.model.eval()
-                #     self.evaluate_new()
-                #     print('evaluating....')
-                #     self.model.train()
+                elif e < self.milestones[1] and self.step % self.evaluate_every == 0:
+                    self.model.eval()
+                    self.evaluate_new()
+                    print('evaluating....')
+                    self.model.train()
 
                 self.step += 1
 
