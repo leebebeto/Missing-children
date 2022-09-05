@@ -32,11 +32,11 @@ if __name__ == '__main__':
     parser.add_argument("--child_margin", help='child margin', default=0.5, type=float)
     parser.add_argument("--weighted_ce", help='re-weight cross entropy', default=False, action='store_true')
     parser.add_argument("--log_degree", help='whether to log degree', action='store_true')
+    parser.add_argument("--age_file", help='directory of age file list', type=str, default="")
     parser.add_argument("--use_prototype", help='whether to use prototype', action='store_true')
     parser.add_argument("--prototype_mode", help='whether to use prototype', default='all', type=str)
     parser.add_argument("--prototype_loss", help='loss type', default='L1', type=str)
     parser.add_argument("--oecnn_lambda", help='oecnn lambda', default=0.001, type=float)
-    parser.add_argument("--low_res", help='low resolution training', default=False, type=bool)
 
     # data path -> added temporarily
     parser.add_argument("--vgg_folder", help='vgg folder directory', default='/home/nas1_userD/yonggyu/Face_dataset/vgg')
@@ -44,7 +44,7 @@ if __name__ == '__main__':
     parser.add_argument("--insta_folder", help='instagram folder directory', default='/home/nas1_userD/yonggyu/Face_dataset/instagram')
 
     # model
-    parser.add_argument("--net_mode", help="which network, [ir, ir_se, mobilefacenet]",default='ir_se', type=str)
+    parser.add_argument("--net_mode", help="which network, [ir, ir_se, mobilefacenet, ir_se_insight]",default='ir_se', type=str)
     parser.add_argument("--net_depth", help="how many layers [50,100,152]", default=50, type=int)
     parser.add_argument("--embedding_size", help='embedding_size', default=512, type=int)
     parser.add_argument("--drop_ratio", help="ratio of drop out", default=0.6, type=float)
@@ -56,7 +56,7 @@ if __name__ == '__main__':
     parser.add_argument("--use_add_margin", help='whether to add margin', action='store_true')
 
     # logging
-    parser.add_argument("--data_path", help='path for loading data', default='data', type=str)
+    parser.add_argument("--data_path", help='path for loading data', default='', type=str)
     parser.add_argument("--work_path", help='path for saving models & logs', default='work_space', type=str)
     parser.add_argument("--model_path", help='path for saving models', default='result/model', type=str)
     parser.add_argument("--log_path", help='path for saving logs', default='work_space/log_serious', type=str)
@@ -94,6 +94,10 @@ if __name__ == '__main__':
     parser.add_argument("--alpha", help='update ratio for memory bank', default=0.5, type=float)
     parser.add_argument("--new_id", help='number of new identities', default=100, type=int)
 
+    # DDP
+    parser.add_argument("--local_rank", help='local rank', default=0, type=int)
+    parser.add_argument('--dist_url', default='env://', help='url used to set up distributed training')
+
 
 
     args = parser.parse_args()
@@ -116,23 +120,22 @@ if __name__ == '__main__':
     learner = face_learner(args)
     # codes for fine tune
     if args.finetune_model_path is not None:
-        args.lr = args.lr * 0.001
-        learner.load_state(args, args.finetune_model_path, args.finetune_head_path, model_only=False, from_save_folder=False, analyze=True) # analyze true == does not load optim.
+        learner.load_state(args, args.finetune_model_path, args.finetune_head_path) 
         print(f'{args.finetune_model_path} model loaded...')
 
     # analyze angles with a pretrained model
-    if args.angle == 'True':
-        save_path = './work_space/models/'
-        # model_path = os.path.join(save_path, 'model_2021-04-10-00-23_accuracy:0.846_step:113442_casia_SYNC_64.pth')
-        # head_path = os.path.join(save_path, 'head_2021-04-10-00-23_accuracy:0.846_step:113442_casia_SYNC_64.pth')
+    # if args.angle == 'True':
+    #     save_path = './work_space/models/'
+    #     # model_path = os.path.join(save_path, 'model_2021-04-10-00-23_accuracy:0.846_step:113442_casia_SYNC_64.pth')
+    #     # head_path = os.path.join(save_path, 'head_2021-04-10-00-23_accuracy:0.846_step:113442_casia_SYNC_64.pth')
 
-        model_path = os.path.join(save_path, 'model_2021-04-10-07-09_accuracy:0.770_step:153300_casia_LDAM_05_64_64.pth')
-        head_path = os.path.join(save_path, 'head_2021-04-10-07-09_accuracy:0.770_step:153300_casia_LDAM_05_64_64.pth')
-        learner.load_state(args, model_path = model_path, head_path = head_path)
-        print(f'pretrained {model_path} loaded finished...')
-        learner.analyze_angle(args)
-        import sys
-        sys.exit(0)
+    #     model_path = os.path.join(save_path, 'model_2021-04-10-07-09_accuracy:0.770_step:153300_casia_LDAM_05_64_64.pth')
+    #     head_path = os.path.join(save_path, 'head_2021-04-10-07-09_accuracy:0.770_step:153300_casia_LDAM_05_64_64.pth')
+    #     learner.load_state(args, model_path = model_path, head_path = head_path)
+    #     print(f'pretrained {model_path} loaded finished...')
+    #     learner.analyze_angle(args)
+    #     import sys
+    #     sys.exit(0)
 
     # actual training
     if args.use_prototype: # our memory bank method
